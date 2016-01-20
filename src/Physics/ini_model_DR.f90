@@ -76,6 +76,7 @@ MODULE ini_model_DR_mod
   PRIVATE :: background_DIP_RSF
   PRIVATE :: background_TPV1415
   PRIVATE :: background_TPV1617
+  PRIVATE :: background_TPV2627
   PRIVATE :: background_TOH1
   PRIVATE :: background_LAN1
   PRIVATE :: background_LAN2
@@ -160,6 +161,10 @@ MODULE ini_model_DR_mod
    CASE(16,17)
        !  SCEC TPV16/17 with heterogeneous initial stress field
        CALL background_TPV1617(EQN,MESH,IO,DISC,BND)
+   CASE(26,30)
+       !  26 = SCEC TPV26/27 with heterogeneous initial stress field
+       !  30 = convergence test setup
+       CALL background_TPV2627(EQN,MESH,DISC,BND)
     CASE(50)
        ! Tohoku 1
        CALL background_TOH1(DISC,EQN,MESH)
@@ -1687,6 +1692,163 @@ MODULE ini_model_DR_mod
   CALL extract_backgroundstress_2dplanefault(EQN,MESH,IO,DISC,BND)        
   
   END SUBROUTINE background_TPV1617 !  SCEC TPV16/17 with heterogeneous initial stress field     
+
+  SUBROUTINE background_TPV2627(EQN,MESH,DISC,BND)
+  !-------------------------------------------------------------------------!
+  USE DGBasis_mod
+  !-------------------------------------------------------------------------!
+  IMPLICIT NONE
+  !-------------------------------------------------------------------------!
+  TYPE(tDiscretization), target  :: DISC
+  TYPE(tEquations)               :: EQN
+  TYPE(tUnstructMesh)            :: MESH
+  TYPE (tBoundary)               :: BND
+  !-------------------------------------------------------------------------!
+  ! Local variable declaration
+  INTEGER                        :: i,j
+  INTEGER                        :: iSide,iElem,iBndGP
+  INTEGER                        :: VertexSide(4,3)
+  INTEGER                        :: iLocalNeighborSide,iNeighbor
+  INTEGER                        :: MPIIndex, iObject
+  REAL                           :: xV(MESH%GlobalVrtxType),yV(MESH%GlobalVrtxType),zV(MESH%GlobalVrtxType)
+  REAL                           :: xp(MESH%GlobalElemType), yp(MESH%GlobalElemType), zp(MESH%GlobalElemType)
+  REAL                           :: average
+  REAL                           :: chi,tau
+  REAL                           :: xi, eta, zeta, XGp, YGp, ZGp
+  REAL                           :: b11, b33, b13, Pf
+  REAL                           :: omega !depth dependent
+  !LOGICAL                        :: nodewise=.FALSE.
+  !-------------------------------------------------------------------------!
+  INTENT(IN)    :: MESH, BND
+  INTENT(INOUT) :: DISC,EQN
+  !-------------------------------------------------------------------------!
+
+
+  ! based on SCEC TPV26/27 test right-lateral strike-slip fault, z negative in depth
+  ! 26 with elastic and 27 with viscoplastic material properties
+  b11 = 0.926793
+  b33 = 1.073206
+  b13 = -0.169029
+
+  ! Loop over every mesh element
+  DO i = 1, MESH%Fault%nSide
+
+      ! switch for rupture front output: RF
+      IF (DISC%DynRup%RF_output_on == 1) THEN
+          ! rupture front output just for + side elements!
+          IF (MESH%FAULT%Face(i,1,1) .NE. 0) DISC%DynRup%RF(i,:) = .TRUE.
+      ENDIF
+
+      ! element ID
+      iElem = MESH%Fault%Face(i,1,1)
+      iSide = MESH%Fault%Face(i,2,1)
+
+
+      ! constant background stress tensor and state variale
+      EQN%IniBulk_xx(i,:)  =  EQN%Bulk_xx_0
+      EQN%IniBulk_yy(i,:)  =  EQN%Bulk_yy_0
+      EQN%IniBulk_zz(i,:)  =  EQN%Bulk_zz_0
+      EQN%IniShearXY(i,:)  =  EQN%ShearXY_0
+      EQN%IniShearYZ(i,:)  =  EQN%ShearYZ_0
+      EQN%IniShearXZ(i,:)  =  EQN%ShearXZ_0
+      EQN%IniStateVar(i,:) =  EQN%RS_sv0
+
+      ! Gauss node coordinate definition and stress assignment
+      ! get vertices of complete tet
+      IF (MESH%Fault%Face(i,1,1) == 0) THEN
+          ! iElem is in the neighbor domain
+          ! The neighbor element belongs to a different MPI domain
+          iNeighbor           = MESH%Fault%Face(i,1,2)          ! iNeighbor denotes "-" side
+          iLocalNeighborSide  = MESH%Fault%Face(i,2,2)
+          iObject  = MESH%ELEM%BoundaryToObject(iLocalNeighborSide,iNeighbor)
+          MPIIndex = MESH%ELEM%MPINumber(iLocalNeighborSide,iNeighbor)
+          !
+          xV(1:4) = BND%ObjMPI(iObject)%NeighborCoords(1,1:4,MPIIndex)
+          yV(1:4) = BND%ObjMPI(iObject)%NeighborCoords(2,1:4,MPIIndex)
+          zV(1:4) = BND%ObjMPI(iObject)%NeighborCoords(3,1:4,MPIIndex)
+      ELSE
+          !
+          ! get vertices
+          xV(1:4) = MESH%VRTX%xyNode(1,MESH%ELEM%Vertex(1:4,iElem))
+          yV(1:4) = MESH%VRTX%xyNode(2,MESH%ELEM%Vertex(1:4,iElem))
+          zV(1:4) = MESH%VRTX%xyNode(3,MESH%ELEM%Vertex(1:4,iElem))
+      ENDIF
+
+
+          !
+          DO iBndGP = 1,DISC%Galerkin%nBndGP
+
+              ! Transformation of boundary GP's into XYZ coordinate system
+              chi  = MESH%ELEM%BndGP_Tri(1,iBndGP)
+              tau  = MESH%ELEM%BndGP_Tri(2,iBndGP)
+              CALL TrafoChiTau2XiEtaZeta(xi,eta,zeta,chi,tau,iSide,0)
+              CALL TetraTrafoXiEtaZeta2XYZ(xGP,yGP,zGP,xi,eta,zeta,xV,yV,zV)
+              !
+              !depth, negative in depth
+              !average = zGP   ! Averaging not needed here
+              Pf = 9800.0D0* abs(zGP) !fluid pressure, hydrostatic with water table at the surface
+              !
+
+              SELECT CASE(DISC%DynRup%BackgroundType)
+                CASE(26)
+
+                  IF (zGP.GE. -15000.0D0) THEN !depth less than 15000m
+                   omega = 1.0D0
+                  ELSEIF ((zGP.LT. -15000.0D0) .AND. (zGP .GE. -20000.0D0) ) THEN !depth between 15000 and 20000m
+                   omega = (20000.0D0-abs(zGP))/5000.0D0
+                  ELSE ! depth more than 20000m
+                   omega = 0.0D0
+                  ENDIF
+
+                CASE(30)
+
+                  IF (zGP.GE. -11250.0D0) THEN !depth less than 11250m
+                   omega = 1.0D0
+                  ELSEIF ((zGP.LT. -112500.0D0) .AND. (zGP .GE. -15000.0D0) ) THEN !depth between 15000 and 20000m
+                   omega = (15000.0D0-abs(zGP))/3750.0D0
+                  ELSE ! depth more than 20000m
+                   omega = 0.0D0
+                  ENDIF
+
+             END SELECT
+
+             EQN%IniBulk_zz(i,iBndGP)  = -2670D0*9.8D0 * abs(zGP)
+             EQN%IniBulk_xx(i,iBndGP)  = omega*(b11*(EQN%IniBulk_zz(i,iBndGP)+Pf)-Pf)+(1-omega)*EQN%IniBulk_zz(i,iBndGP)
+             EQN%IniBulk_yy(i,iBndGP)  = omega*(b33*(EQN%IniBulk_zz(i,iBndGP)+Pf)-Pf)+(1-omega)*EQN%IniBulk_zz(i,iBndGP)
+             EQN%IniShearXY(i,iBndGP)  = omega*(b13*(EQN%IniBulk_zz(i,iBndGP)+Pf))
+             EQN%IniShearXZ(i,iBndGP)  = 0.0D0
+             EQN%IniShearYZ(i,iBndGP)  = 0.0D0
+             !add fluid pressure
+             EQN%IniBulk_xx(i,iBndGP)  = EQN%IniBulk_xx(i,iBndGP)+Pf
+             EQN%IniBulk_yy(i,iBndGP)  = EQN%IniBulk_yy(i,iBndGP)+Pf
+             EQN%IniBulk_zz(i,iBndGP)  = EQN%IniBulk_zz(i,iBndGP)+Pf
+
+             !depth dependent frictional cohesion, negative in seissol, in benchmark positive
+
+             SELECT CASE(DISC%DynRup%BackgroundType)
+             CASE(26) !tpv26/tpv27
+
+                IF (zGP.GE.-5000.0D0) THEN
+                   DISC%DynRup%cohesion(i,iBndGP) = -0.4D6 - 0.00072D6*(5000D0-abs(zGP))
+                ELSE
+                   DISC%DynRup%cohesion(i,iBndGP) = -0.4D6
+                ENDIF
+
+             CASE(30) !convergence test
+               IF (zGP.GE.-3750.0D0) THEN
+                  DISC%DynRup%cohesion(i,iBndGP) = -0.4D6 - 0.00072D6*(3750D0-abs(zGP))
+               ELSE
+                  DISC%DynRup%cohesion(i,iBndGP) = -0.4D6
+               ENDIF
+
+            END SELECT
+
+         ENDDO ! iBndGP
+
+
+     ENDDO !    MESH%Fault%nSide
+  END SUBROUTINE
+
    
   !> Tohoku1 backround stress model
   !<

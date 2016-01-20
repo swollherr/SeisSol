@@ -147,7 +147,7 @@ CONTAINS
     
     REAL, POINTER                   :: iMassMatrix(:,:) => NULL()             ! Pointer to the corresponding mass matrix
     INTEGER                         :: LocElemType                            ! Type of element
-    
+    REAL                            :: Pf, b13, b33, b11                      ! fluid pressure and coeffcients for special initial loading in TPV26/TPV27
     INTEGER                         :: InterpolationScheme = 1                ! Select the interpolation scheme (linear=1, cubic=else)
     !--------------------------------------------------------------------------
     INTENT(IN)                      :: MESH,IC
@@ -538,6 +538,76 @@ CONTAINS
                      ! 
               ENDIF
         ENDDO
+        !
+
+        CASE(26, 28)
+        ! 26 = special case for TPV27; 28 = convergence tests
+        ! depth dependent initial shear/normal stresses are defined for the whole domain for the plastic calculations
+        ! but otherwise constant material properties
+
+        MaterialVal(:,1) = EQN%rho0
+        MaterialVal(:,2) = EQN%mu
+        MaterialVal(:,3) = EQN%lambda
+        ! Initialisation of IniStress(6 stress components in 3D)
+        !
+        ALLOCATE(EQN%IniStress(6,MESH%nElem))
+                 EQN%IniStress(:,:)=0.0D0
+        b11 = 0.926793
+        b33 = 1.073206
+        b13 = -0.169029
+
+        DO iElem=1, MESH%nElem
+
+              z = MESH%ELEM%xyBary(3,iElem) !average depth inside an element
+              Pf = 9800.0D0* abs(z) !fluid pressure, hydrostatic with water table at the surface
+
+
+              IF (z.GE. -15000.0D0) THEN !depth less than 15000m
+                 omega = 1.0D0
+              ELSEIF ((z.LT. -15000.0D0) .AND. (z.GE. -20000.0D0) ) THEN !depth between 15000 and 20000m
+                 omega = (20000.0D0-abs(z))/5000.0D0
+              ELSE ! depth more than 20000m
+                 omega = 0.0D0
+              ENDIF
+
+
+              SELECT CASE(EQN%LinType)
+              CASE(26) !tpv27
+                  IF (z.GE. -15000.0D0) THEN !depth less than 15000m
+                     omega = 1.0D0
+                  ELSEIF ((z.LT. -15000.0D0) .AND. (z .GE. -20000.0D0) ) THEN !depth between 15000 and 20000m
+                     omega = (20000.0D0-abs(z))/5000.0D0
+                  ELSE ! depth more than 20000m
+                     omega = 0.0D0
+                  ENDIF
+
+              CASE(28)!convergence setup
+                   IF (z.GE. -11250.0D0) THEN !depth less than 11250m
+                      omega = 1.0D0
+                   ELSEIF ((z.LT. -112500.0D0) .AND. (z .GE. -15000.0D0) ) THEN !depth between 15000 and 20000m
+                      omega = (15000.0D0-abs(z))/3750.0D0
+                   ELSE ! depth more than 20000m
+                      omega = 0.0D0
+                   ENDIF
+              END SELECT
+
+
+              EQN%IniStress(3,iElem)  = -2670D0*9.8D0 * abs(z) !zz
+              EQN%IniStress(1,iElem)  = omega*(b11*(EQN%IniStress(3,iElem)+Pf)-Pf)+(1-omega)*EQN%IniStress(3,iElem) !xx
+              EQN%IniStress(2,iElem)  = omega*(b33*(EQN%IniStress(3,iElem)+Pf)-Pf)+(1-omega)*EQN%IniStress(3,iElem) !yy
+
+              EQN%IniStress(4,iElem)  = omega*(b13*(EQN%IniStress(3,iElem)+Pf))  !shear stress xy
+              EQN%IniStress(5,iElem)  = 0.0  !shear stress xz
+              EQN%IniStress(6,iElem)  = 0.0  !shear stress yz
+
+              !add fluid pressure
+              EQN%IniStress(1,iElem)  = EQN%IniStress(1,iElem) + Pf
+              EQN%IniStress(2,iElem)  = EQN%IniStress(2,iElem) + Pf
+              EQN%IniStress(3,iElem)  = EQN%IniStress(3,iElem) + Pf
+
+                     !
+        ENDDO
+
         !
       CASE(60) ! special case of 1D layered medium, imposed without meshed layers for Landers 1992
                ! after Wald and Heaton 1994, Table 1
