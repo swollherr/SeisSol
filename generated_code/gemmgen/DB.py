@@ -40,9 +40,12 @@
 import numpy as np
 import numpy.matlib
 import scipy.sparse
-import sympy
 import copy
 import re
+
+class DB(dict):  
+  def insert(self, matrixInfo):
+    self.__setitem__(matrixInfo.name, matrixInfo)
 
 class MatrixBlock(object):
   def __init__(self, startrow, stoprow, startcol, stopcol, sparse=False):
@@ -130,12 +133,13 @@ class MatrixInfo:
     self.name = name
     self.rows = rows
     self.cols = cols
-    self.blocks = [MatrixBlock(0, self.rows, 0, self.cols)]
     self.requiredReals = -1
     self.leftMultiplication = False
     self.rightMultiplication = False
-    self.symbol = sympy.MatrixSymbol(name, self.rows, self.cols)
+    self.symbol = [ [self.name] ]
     self.globalMatrixId = -1
+    
+    self.setSingleBlock()
 
     if isinstance(sparsityPattern, tuple):
       self.spp = scipy.sparse.coo_matrix((np.ones(len(sparsityPattern[0])), sparsityPattern), shape=(self.rows, self.cols), dtype=np.float64).todense()
@@ -157,14 +161,22 @@ class MatrixInfo:
   def __mul__(self, other):
     spp = self.spp * other.spp
     result = MatrixInfo('{}*{}'.format(self.name, other.name), self.rows, other.cols, spp)
-    result.symbol = self.symbol * other.symbol
+    if len(self.symbol) == 1 and len(other.symbol) == 1:
+      result.symbol = copy.deepcopy(self.symbol)
+      result.symbol[0].extend(other.symbol[0])
+    else:
+      raise ValueError('Expressions like (a*b + c)*d are not possible')
     return result
     
   def __add__(self, other):
     spp = self.spp + other.spp
     result = MatrixInfo('{}+{}'.format(self.name, other.name), self.rows, self.cols, spp)
-    result.symbol = self.symbol + other.symbol
+    result.symbol = copy.deepcopy(self.symbol)
+    result.symbol.extend(other.symbol)
     return result
+    
+  def setSingleBlock(self, sparse=False):    
+    self.blocks = [MatrixBlock(0, self.rows, 0, self.cols, sparse)]
     
   def setBlocks(self, blocks):
     self.blocks = blocks
@@ -216,8 +228,8 @@ class MatrixInfo:
     return MatrixInfo(name, self.rows, self.cols, sparsityPattern=self.spp)
     
   def getValuesAsStoredInMemory(self):
-    blockValues = ['0.'] * self.requiredReals
     if self.values != None:
+      blockValues = ['0.'] * self.requiredReals
       for block in self.blocks:
         if block.sparse:
           counter = 0
@@ -232,8 +244,15 @@ class MatrixInfo:
             if entry[0] >= block.startrow + block.startpaddingrows and entry[0] < block.stoprow and entry[1] >= block.startcol and entry[1] < block.stopcol:
               blockValues[block.offset + (entry[0] - block.startrow) + (entry[1] - block.startcol) * block.ld] = entry[2]
       return blockValues
-    else:
-      return None
+    return None
+      
+  def getValuesDense(self):
+    if self.values != None:
+      denseValues = ['0.'] * (self.rows * self.cols)
+      for entry in self.values:
+        denseValues[entry[0] + entry[1] * self.rows] = entry[2]
+      return denseValues
+    return None
 
   def getIndexLUT(self):
     lut = [-1] * (self.rows * self.cols)

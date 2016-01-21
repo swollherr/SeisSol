@@ -44,6 +44,7 @@
 # operation system (required for exectuion environment)
 import os
 import sys
+import commands
 
 # print the welcome message
 print '********************************************'
@@ -96,6 +97,8 @@ vars.AddVariables(
   ( 'numberOfMechanisms', 'Number of anelastic mechanisms (needs to be set if equations=viscoelastic).', '0' ),
 
   ( 'libxsmmGenerator', 'Path to code generator from libxsmm (needs to be set if equations=viscoelastic).' ),
+  
+  ( 'memLayout', 'Path to memory layout file (needs to be set if equations=viscoelastic).' ),
 
   ( 'programName', 'name of the executable', 'none' ),
 
@@ -167,6 +170,11 @@ vars.AddVariables(
                   
   PathVariable( 'zlibDir',
                 'zlib installation directory',
+                None,
+                PathVariable.PathAccept ),
+
+  PathVariable( 'sionlibDir',
+                'sionlib installation directory',
                 None,
                 PathVariable.PathAccept ),
                   
@@ -546,24 +554,10 @@ if env['netcdf']:
     env.Append(CPPDEFINES=['USE_NETCDF'])
     
 # sionlib still need to create a Tool for autoconfiguration
-if env['sionlib'] and not ( env['parallelization'] in ['mpi', 'hybrid']):
-  env['sionlib'] = False
-  print "conflict: non mpi or hybrid build but sionlib requires mpi:"
-  print "          ... deactivating sionlib: env['sionlib'] =",env['sionlib']
-  print "          during runtime: sionlib will use posix as fallback solution"
-
 if env['sionlib']:
-  env.Append(F90FLAGS=['-DUSE_SIONLIB'])
-  env.Append(CPPDEFINES=['USE_SIONLIB'])
-  env.Append(CXXFLAGS=['-I/lrz/sys/libraries/sionlib/1.5p1/intel/ibmmpi/include'])
-  env.Append(LIBPATH=['/lrz/sys/libraries/sionlib/1.5p1/intel/ibmmpi/lib'])
-  env.Append(LINKFLAGS=['-lsionmpi_cxx_64'])
-    #    env.Append(LINKFLAGS=['-lsionser_cxx_64'])
-  env.Append(LIBS=['sionmpi_64'])
-  env.Append(LIBS=['sionser_64'])
-  env.Append(LIBS=['sioncom_64'])
-  env.Append(LIBS=['sioncom_64_lock_none'])
-  env.Append(LIBS=['rt'])
+  env.Tool('SionTool', parallel=(env['parallelization'] in ['hybrid', 'mpi']), toolpath=['build/scons/Tools'])
+else:
+  env['sionlib'] = False
 
 # add pathname to the list of directories wich are search for include
 env.Append(F90FLAGS=['-Isrc'])
