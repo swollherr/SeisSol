@@ -41,12 +41,13 @@
 #
 
 # build options
-compileMode                 = 'release'
+compileMode                 = 'debug'
 parallelization             = 'mpi'
 generatedKernels            = 'yes'
 measureNodeLevelPerformance = 'none'
 useExecutionEnvironment     = 'yes'
-
+plasticity                  = 'yes'
+order = 3
 # machine dependent options
 cppCompiler          = 'mpiCC.openmpi'
 fortranCompiler      = 'mpif90.openmpi'

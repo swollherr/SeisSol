@@ -224,14 +224,14 @@ CONTAINS
     !------------------------------------------------------------------------
     INTENT(INOUT)              :: EQN, IC, IO, SOURCE
     !------------------------------------------------------------------------
-    INTEGER                    :: Anisotropy, Anelasticity, Plasticity, Adjoint, &
+    INTEGER                    :: Anisotropy, Anelasticity, Plasticity, pmethod, Adjoint, &
                                   MaterialType, RandomField_Flag, nMechanisms
     REAL                       :: rho, mu, lambda, FreqCentral, FreqRatio, &
                                   PlasticCo, BulkFriction, Tv
     CHARACTER(LEN=600)         :: MaterialFileName, AdjFileName
     CHARACTER(LEN=600), DIMENSION(:), ALLOCATABLE  :: RF_Files   
     NAMELIST                   /Equations/ Anisotropy, Anelasticity, Plasticity, &
-                                           PlasticCo, BulkFriction, Tv, &
+                                           PlasticCo, BulkFriction, Tv, pmethod, &
                                            Adjoint, MaterialType, rho, mu, lambda, &
                                            MaterialFileName, nMechanisms, FreqCentral, &
                                            FreqRatio, RandomField_Flag, AdjFileName
@@ -289,6 +289,7 @@ CONTAINS
       STOP
     END SELECT
     !
+
 #if defined(GENERATEDKERNELS) && defined(USE_PLASTICITY)
     if (Plasticity .eq. 0) then
       logError(*) 'Plasticity is disabled, but this version was compiled with Plasticity.'
@@ -306,11 +307,13 @@ CONTAINS
        stop
 #else
        logInfo0(*) '(Drucker-Prager) plasticity assumed .'
+
 #endif
         EQN%Plasticity = Plasticity
         EQN%PlastCo = PlasticCo
         EQN%BulkFriction = BulkFriction
         EQN%Tv = Tv
+        EQN%PlastMethod = pmethod
         !read additional values
     CASE DEFAULT
       logError(*) 'Choose 0 or 1 as plasticity assumption. '

@@ -128,7 +128,8 @@ CONTAINS
     REAL                           :: dudt_src(DISC%Galerkin%nDegFr,        & !
                                                EQN%nVar                     ) ! Auxilliary update dof
     REAL                           :: dudt_plastic(DISC%Galerkin%nDegFr,    &
-                                                EQN%nVar                    ) ! Auxilliary update dof for plastic calculations
+                                                6                    ) ! Auxilliary update dof for plastic calculations
+    REAL                           :: dudt_pstrain(1:6                      ) ! Auxilliary update for the plastic strain
     REAL                           :: auxvar(DISC%Galerkin%nDegFr,          & !
                                              EQN%nVar,                      & !
                                              DISC%Galerkin%nDegFrMat        ) ! Auxilliary variable
@@ -138,7 +139,7 @@ CONTAINS
     REAL                           :: CpuTime_ini                             ! Eval cpu time
     REAL                           :: CpuTime_end                             ! Eval cpu time
 
-    INTEGER                        :: i
+    INTEGER                        :: i, iPoly
     INTEGER                        :: LocnVar                                 !
     INTEGER                        :: LocnPoly                                !
     INTEGER                        :: LocnDegFr                               !
@@ -170,6 +171,10 @@ CONTAINS
     INTEGER                        :: iSide                                   ! Counter
     INTEGER                        :: iVar                                    ! Counter
     INTEGER                        :: nElem, nVarTotal
+    REAL, POINTER :: IntGaussP(:,:)     =>NULL()
+    REAL, POINTER :: IntGaussW(:)       =>NULL()
+    REAL, POINTER :: IntGPBaseFunc(:,:) =>NULL()
+    REAL, POINTER :: MassMatrix(:,:)    =>NULL()
 
     ! register ADERGalerkin3D_GTS function and epik/scorep region for volume integration, source terms and boundary integration
     EPIK_FUNC_REG("ADERGalerkin3D_GTS")
@@ -456,12 +461,31 @@ CONTAINS
 ! OFF-FAULT PLASTICITY 
 ! ==============================================================================
         IF(EQN%Plasticity.EQ.1) THEN
+
+           IF(EQN%PlastMethod .EQ. 0) THEN
+              iPoly  = DISC%Galerkin%nPoly
+              intGaussP     => DISC%Galerkin%intGaussP_Tet
+              intGaussW     => DISC%Galerkin%intGaussW_Tet
+              ! Basis func values
+              !IntGPBaseFunc => DISC%Galerkin%IntGPBaseFunc_Tet(1:DISC%Galerkin%nDegFr,1:DISC%Galerkin%nIntGP,iPoly)
+              ! Mass matrix
+              !MassMatrix    => DISC%Galerkin%MassMatrix_Tet(1:DISC%Galerkin%nDegFr,1:DISC%Galerkin%nDegFr,iPoly)
+          ENDIF
                 DO iElem = 1, nElem !for every element
 #ifndef GENERATEDKERNELS
-                 !updated the dofs and the plastic strain
-                 CALL Plasticity_3D(DISC%Galerkin%dgvar(:,1:6,iElem,1), DISC%Galerkin%DOFStress(:,1:6,iElem), DISC%Galerkin%nDegFr, &
-                                    DISC%Galerkin%nDegFr, &
-                                    EQN%BulkFriction, EQN%Tv, EQN%PlastCo, dt, EQN%mu, DISC%Galerkin%pstrain(1:7,iElem) )
+
+
+                SELECT CASE(EQN%PlastMethod) !two different implementations
+                  CASE(0) !high order implementation -> is working
+                      CALL Plasticity_3D_high(DISC%Galerkin%dgvar(:,1:6,iElem,1), DISC%Galerkin%DOFStress(:,1:6,iElem), DISC%Galerkin%nDegFr, DISC%Galerkin%nDegFr, &
+                                    EQN%BulkFriction, EQN%Tv, EQN%PlastCo, dt, EQN%mu, DISC%Galerkin%pstrain(1:7,iElem), intGaussP, intGaussW, &
+                                    !IntGPBaseFunc, MassMatrix, &
+                                    DISC, EQN%nVar, DISC%Galerkin%nIntGP)
+
+                  CASE(2) !average approximated with the first dof -> is working
+                     CALL Plasticity_3D_dof(DISC%Galerkin%dgvar(:,1:6,iElem,1), DISC%Galerkin%DOFStress(:,1:6,iElem), DISC%Galerkin%nDegFr, &
+                                            DISC%Galerkin%nDegFr, EQN%BulkFriction, EQN%Tv, EQN%PlastCo, dt, EQN%mu, DISC%Galerkin%pstrain(1:7,iElem) )
+                  END SELECT
 
 #endif
 !for the GK version the plasticity call is moved to Interoperability.cpp

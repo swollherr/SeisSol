@@ -547,6 +547,7 @@ CONTAINS
     ! Allocation of arrays
     ALLOCATE(                                                                                   &
          DISC%Galerkin%dgvar( DISC%Galerkin%nDegFr,EQN%nVarTotal,MESH%nElem,DISC%Galerkin%nRK), &
+
 #ifndef GENERATEDKERNELS
          DISC%Galerkin%DGwork(DISC%Galerkin%nDegFrRec,nDGWorkVar,MESH%nElem),                   &
 #endif
@@ -2684,43 +2685,43 @@ CONTAINS
                 ENDDO
             ENDIF
 
-            IF(EQN%Plasticity.EQ.1) THEN  
-#ifdef GENERATEDKERNELS
-              iniGP_plast(:) = eqn%iniStress(1:6,iElem)
-              do iDegFr = 1, nDegFr
-                phi = IntGPBaseFunc(iDegFr,iIntGP)
-                l_initialLoading(iDegFr,1:6) = l_initialLoading(iDegFr,1:6) + IntGaussW(iIntGP)*iniGP_plast(:)*phi
-              enddo
-#else
-              ! L2 projection of initial stress loading for the plastic calculations onto the DOFs
+            IF(EQN%Plasticity.EQ.1 .AND. EQN%PlastMethod .EQ. 2) THEN
+            ! L2 projection of initial stress loading for the plastic calculations onto the DOFs, only for the low order case
+
               iniGP_Plast(:) = EQN%IniStress(1:6,iElem)
               DO iDegFr = 1, nDegFr
-                phi = IntGPBaseFunc(iDegFr,iIntGP)
+                 phi = IntGPBaseFunc(iDegFr,iIntGP)
+#ifdef GENERATEDKERNELS
+                 l_initialLoading(iDegFr,1:6) = l_initialLoading(iDegFr,1:6) + IntGaussW(iIntGP)*iniGP_plast(:)*phi
+#else
                 DISC%Galerkin%DOFStress(iDegFr,1:6,iElem) = &
                 DISC%Galerkin%DOFStress(iDegFr,1:6,iElem) + IntGaussW(iIntGP)*iniGP_plast(:)*phi
+#endif
               ENDDO
-#endif
-           ENDIF
-        ENDDO
+            ENDIF
+    ENDDO !iIntGP
 
-        DO iDegFr = 1, nDegFr
+            DO iDegFr = 1, nDegFr
 #ifdef GENERATEDKERNELS
-            l_dofsUpdate(iDegFr, :) = l_dofsUpdate( iDegFr, : ) / massMatrix(iDegFr,iDegFr)
+               l_dofsUpdate(iDegFr, :) = l_dofsUpdate( iDegFr, : ) / massMatrix(iDegFr,iDegFr)
+               IF(EQN%Plasticity.EQ.1 .AND. EQN%PlastMethod .EQ. 2) THEN
+                  l_initialLoading(iDegFr, :) = l_initialLoading( iDegFr, : ) / massMatrix(iDegFr,iDegFr)
+               ENDIF
 #else
-            DISC%Galerkin%dgvar(iDegFr,:,iElem,1) = DISC%Galerkin%dgvar(iDegFr,:,iElem,1) / MassMatrix(iDegFr,iDegFr)
+               DISC%Galerkin%dgvar(iDegFr,:,iElem,1) = DISC%Galerkin%dgvar(iDegFr,:,iElem,1) / MassMatrix(iDegFr,iDegFr)
+               IF(EQN%Plasticity.EQ.1 .AND. EQN%PlastMethod .EQ. 2) THEN
+                  DISC%Galerkin%DOFStress(iDegFr,:,iElem) = DISC%Galerkin%DOFStress(iDegFr,:,iElem)/ MassMatrix(iDegFr, iDegFr)
+               ENDIF
 #endif
-        ENDDO
+            ENDDO
 
-        if(eqn%plasticity .eq. 1) then
-          do iDegFr = 1, nDegFr
-            ! multiply by inverse mass matrix
+        IF(EQN%Plasticity.EQ.1 .AND. EQN%PlastMethod .EQ. 0) THEN !elementwise assignement of the initial loading
 #ifdef GENERATEDKERNELS
-            l_initialLoading(iDegFr, :) = l_initialLoading( iDegFr, : ) / massMatrix(iDegFr,iDegFr)
+           l_initialLoading(1,1:6) = EQN%IniStress(1:6,iElem)
 #else
-            DISC%Galerkin%DOFStress(iDegFr,:,iElem) = DISC%Galerkin%DOFStress(iDegFr,:,iElem)/ MassMatrix(iDegFr, iDegFr)
+           DISC%Galerkin%DOFStress(1,1:6,iElem) = EQN%IniStress(1:6,iElem)
 #endif
-          enddo
-        endif
+        ENDIF
 
 #ifdef GENERATEDKERNELS
         ! write the update back
@@ -2739,6 +2740,7 @@ CONTAINS
         NULLIFY(intGaussW)
         NULLIFY(IntGPBaseFunc)
         NULLIFY(MassMatrix)
+
 
     ENDDO ! iElem
 

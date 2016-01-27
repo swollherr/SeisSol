@@ -184,8 +184,23 @@ module f_ctof_bind_interoperability
       call c_f_pointer( io_dofs,       l_dofs,       [i_numberOfAlignedBasisFunctions,6]   )
       call c_f_pointer( io_pstrain,    l_pstrain,    [7]                                   )
 
-      call plasticity_3d( dgvar        = l_dofs, &
-                          dofStress    = l_initialLoading, &
+
+      select case(l_domain%eqn%PlastMethod)
+      case(2) !average of an element
+      call plasticity_3d_dof( dgvar        = l_dofs, &
+                              dofStress    = l_initialLoading, &
+                              nDegFr       = NUMBER_OF_BASIS_FUNCTIONS, &
+                              nAlignedDegFr = i_numberOfAlignedBasisFunctions, &
+                              bulkFriction = l_domain%eqn%BulkFriction, &
+                              tv           = l_domain%eqn%Tv, &
+                              plastCo      = l_domain%eqn%PlastCo, &
+                              dt           = l_timeStep, &
+                              mu           = l_domain%eqn%mu, &
+                              pstrain      = l_pstrain )
+
+      case(0) !values at internal GP
+      call plasticity_3d_high( dgvar   = l_dofs, &
+                          dofStress    = l_initialLoading, & !l_domain%eqn%inistress, & !l_initialLoading is the same as inistress for the high-order case
                           nDegFr       = NUMBER_OF_BASIS_FUNCTIONS, &
                           nAlignedDegFr = i_numberOfAlignedBasisFunctions, &
                           bulkFriction = l_domain%eqn%BulkFriction, &
@@ -193,7 +208,18 @@ module f_ctof_bind_interoperability
                           plastCo      = l_domain%eqn%PlastCo, &
                           dt           = l_timeStep, &
                           mu           = l_domain%eqn%mu, &
-                          pstrain = l_pstrain )
+                          pstrain = l_pstrain, &
+                          intGaussP    = l_domain%disc%Galerkin%intGaussP_Tet,&
+                          intGaussW    = l_domain%disc%Galerkin%intGaussW_Tet,&
+                          !IntGPBaseFunc = l_domain%disc%Galerkin%IntGPBaseFunc_Tet(:,:,l_domain%DISC%Galerkin%nPoly),&
+                          !IntGPBaseFunc = l_domain%disc%Galerkin%IntGPBaseFunc_Tet(1:NUMBER_OF_BASIS_FUNCTIONS,1:l_domain%DISC%Galerkin%nIntGP,l_domain%DISC%Galerkin%nPoly),&
+                          !MassMatrix = l_domain%disc%Galerkin%MassMatrix_Tet(NUMBER_OF_BASIS_FUNCTIONS,NUMBER_OF_BASIS_FUNCTIONS,l_domain%DISC%Galerkin%nPoly), &
+                          disc         = l_domain%disc, &
+                          nVar         = l_domain%eqn%nVar, &
+                          nIntGP       =l_domain%disc%galerkin%nIntGP)
+      end select
+
+
     end subroutine
 
     subroutine f_interoperability_writeReceivers( i_domain, i_fullUpdateTime, i_timeStepWidth, i_receiverTime, i_numberOfReceivers, i_receiverIds ) bind (c, name='f_interoperability_writeReceivers')
