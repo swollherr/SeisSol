@@ -1804,9 +1804,9 @@ MODULE ini_model_DR_mod
 
                   IF (zGP.GE. -11250.0D0) THEN !depth less than 11250m
                    omega = 1.0D0
-                  ELSEIF ((zGP.LT. -112500.0D0) .AND. (zGP .GE. -15000.0D0) ) THEN !depth between 15000 and 20000m
+                  ELSEIF ((zGP.LT. -11250.0D0) .AND. (zGP .GE. -15000.0D0) ) THEN !depth between 11250 and 15000
                    omega = (15000.0D0-abs(zGP))/3750.0D0
-                  ELSE ! depth more than 20000m
+                  ELSE ! depth more than 15000m
                    omega = 0.0D0
                   ENDIF
 

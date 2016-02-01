@@ -724,8 +724,8 @@ MODULE Eval_friction_law_mod
      DISC%DynRup%SlipRate1(iFace,iBndGP) = LocSR1
      DISC%DynRup%SlipRate2(iFace,iBndGP) = LocSR2
      DISC%DynRup%Slip(iFace,iBndGP)      = LocSlip
-     DISC%DynRup%Slip1(iFace,iBndGP)      = LocSlip1
-     DISC%DynRup%Slip2(iFace,iBndGP)      = LocSlip2
+     DISC%DynRup%Slip1(iFace,iBndGP)     = LocSlip1
+     DISC%DynRup%Slip2(iFace,iBndGP)     = LocSlip2
      !
     ENDDO ! iBndGP=1,DISC%Galerkin%nBndGP
 
