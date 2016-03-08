@@ -1294,14 +1294,18 @@ CONTAINS
     ! localVariables
     INTEGER                    :: OutputMask(8)
     INTEGER                    :: printtimeinterval
-    INTEGER                    :: refinement_strategy, refinement, BinaryOutput
-    !------------------------------------------------------------------------
+    INTEGER                    :: printIntervalCriterion
+    INTEGER                    :: refinement_strategy, refinement
+    REAL                       :: printtimeinterval_sec
+    !-----------------------------------------------------------------------
     INTENT(INOUT)              :: EQN, IO, DISC
     INTENT(INOUT)              :: BND
     NAMELIST                   /Elementwise/ printtimeinterval, OutputMask, refinement_strategy, &
-                                                refinement, BinaryOutput
+                                                refinement, printIntervalCriterion,printtimeinterval_sec
     !Setting default values
     printtimeinterval = 2
+    printtimeinterval_sec = 1d0
+    printIntervalCriterion = 1
     OutputMask(:) = 1
     OutputMask(4) = 0
     OutputMask(6) = 0
@@ -1309,27 +1313,26 @@ CONTAINS
     OutputMask(8) = 0
     refinement_strategy = 2
     refinement = 2
-    BinaryOutput = 0 ! 0/ASCII 1/binary float 2/binary double
     !
     READ(IO%UNIT%FileIn, nml = Elementwise)
     !
-    DISC%DynRup%DynRup_out_elementwise%printtimeinterval = printtimeinterval   ! read time interval at which output will be written
+    DISC%DynRup%DynRup_out_elementwise%printIntervalCriterion = printIntervalCriterion
+    if (printIntervalCriterion.EQ.1) THEN
+        DISC%DynRup%DynRup_out_elementwise%printtimeinterval = printtimeinterval   ! read time interval at which output will be written
+    else
+        DISC%DynRup%DynRup_out_elementwise%printtimeinterval_sec = printtimeinterval_sec   ! read time interval at which output will be written
+    endif
+
+    ! if 2, printtimeinterval is set afterwards, when dt is known
     DISC%DynRup%DynRup_out_elementwise%OutputMask(1:8) =  OutputMask(1:8)      ! read info of desired output 1/ yes, 0/ no
                                                                                      ! position: 1/ slip rate 2/ stress 3/ normal velocity
                                                                                      ! 4/ in case of rate and state output friction and state variable
                                                                                      ! 5/ background values 6/Slip 7/rupture speed
     DISC%DynRup%DynRup_out_elementwise%refinement_strategy = refinement_strategy
-    DISC%DynRup%DynRup_out_elementwise%BinaryOutput = BinaryOutput             
 
     IF (DISC%DynRup%DynRup_out_elementwise%refinement_strategy.NE.2 .AND. & 
        DISC%DynRup%DynRup_out_elementwise%refinement_strategy.NE.1) THEN
         logError(*) 'Undefined refinement strategy for fault output!'
-        STOP
-    ENDIF
-    IF (DISC%DynRup%DynRup_out_elementwise%BinaryOutput.LT.0 .OR. & 
-       DISC%DynRup%DynRup_out_elementwise%BinaryOutput.GT.2) THEN
-        logError(*) 'Unkown value for BinaryOutput!'
-        logError(*) '(0: ASCII 1:binary float 2:binary double)'
         STOP
     ENDIF
 
@@ -1505,7 +1508,7 @@ CONTAINS
                                               RS_sv0, XRef, YRef, ZRef, GPwise, Rupspeed, &
                                               Mu_D_ini, Mu_S_ini, Mu_SNuc_ini, H_Length, D_C_ini, RS_f0, &
                                               RS_sr0, RS_a, RS_b, RS_sl0, RS_iniSlipRate1, &
-                                              RS_iniSlipRate2, v_star, L, XHypo, YHypo, ZHypo, R_crit, t_0, Mu_W, RS_srW,  &
+                                              RS_iniSlipRate2, v_star, L, XHypo, YHypo, ZHypo, R_crit, t_0, Vs_nucl, Mu_W, RS_srW,  &
                                               NucDirX, NucXmin, NucXmax, NucDirY, NucYmin, NucYmax, &
                                               NucBulk_xx_0, NucBulk_yy_0, NucBulk_zz_0, NucShearXY_0, &
                                               NucShearYZ_0, NucShearXZ_0, NucRS_sv0, r_s, cohesion_0
@@ -1516,7 +1519,7 @@ CONTAINS
                                                 GPwise, inst_healing, Rupspeed, &
                                                 Mu_D_ini, Mu_S_ini,Mu_SNuc_ini, H_Length, D_C_ini, RS_f0, &
                                                 RS_sr0, RS_a, RS_b, RS_sl0, RS_iniSlipRate1, &
-                                                RS_iniSlipRate2, v_star, L, XHypo, YHypo, ZHypo, R_crit, t_0, Mu_W, RS_srW, Nucleation, &
+                                                RS_iniSlipRate2, v_star, L, XHypo, YHypo, ZHypo, R_crit, t_0, Vs_nucl, Mu_W, RS_srW, Nucleation, &
                                                 NucDirX, NucXmin, NucXmax, NucDirY, NucYmin, NucYmax, &
                                                 NucBulk_xx_0, NucBulk_yy_0, NucBulk_zz_0, NucShearXY_0, &
                                                 NucShearYZ_0, NucShearXZ_0, NucRS_sv0, r_s, RF_output_on, &
@@ -1558,6 +1561,7 @@ CONTAINS
     v_star = 0
     R_crit = 0
     t_0 = 0
+    Vs_nucl = 0
     L = 0
     Mu_W = 0
     RS_srW = 0
@@ -1670,6 +1674,7 @@ CONTAINS
              DISC%DynRup%ZHypo  = ZHypo
              DISC%DynRup%R_crit   = R_crit    ! radius of the nucleation patch
              DISC%DynRup%t_0      = t_0       ! forced rupture decay time
+             DISC%DynRup%Vs_nucl     = Vs_nucl       ! forced rupture decay time
            CASE(103)
              DISC%DynRup%RS_f0 = RS_f0    ! mu_0, reference friction coefficient
              DISC%DynRup%RS_sr0 = RS_sr0  ! V0, reference velocity scale
@@ -1737,7 +1742,9 @@ CONTAINS
            DISC%DynRup%OutputPointType = OutputPointType
 
            !
-           IF(DISC%DynRup%OutputPointType.EQ.3) THEN
+           if (DISC%DynRup%OutputPointType .eq. 0) then
+                logInfo0(*) 'Disabling fault output'
+           elseif(DISC%DynRup%OutputPointType.EQ.3) THEN
                 ! in case of OutputPointType 3, read in receiver locations:
                 ! DISC%DynRup%DynRup_out_atPickpoint%nOutPoints is for option 3 the number of pickpoints
                 call readpar_faultAtPickpoint(EQN,BND,IC,DISC,IO,CalledFromStructCode)
@@ -2790,6 +2797,7 @@ ALLOCATE( SpacePositionx(nDirac), &
     INTEGER                    :: j ,k
     INTEGER                    :: i, stat
     CHARACTER(LEN=45)          :: Name
+    LOGICAL                    :: file_exits
     !------------------------------------------------------------------------
     INTENT(INOUT)              :: MESH,BND,SOURCE,IO
     INTENT(IN)                 :: IC
@@ -2856,6 +2864,13 @@ ALLOCATE( SpacePositionx(nDirac), &
           endif
 
           IO%MeshFile=Name(1:35)
+
+          inquire( file=IO%MeshFile , exist=file_exits )
+          if ( .NOT.file_exits ) then
+             logError(*) 'mesh file ',IO%MeshFile,'does not exists'
+             STOP
+          endif
+
           !
           logInfo(*) 'Mesh is READ from file      ',    IO%MeshFile
           !

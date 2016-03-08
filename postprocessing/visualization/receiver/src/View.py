@@ -42,12 +42,13 @@ from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt4agg import NavigationToolbar2QTAgg as NavigationToolbar
 import matplotlib.pyplot as plt
 
-import math
 import Navigation
-import numpy
-import scipy.fftpack
+import Filters
 import re
+import math
+import numpy
 import os.path
+import scipy.fftpack
 
 class View(QWidget):
 
@@ -64,6 +65,13 @@ class View(QWidget):
     layout = QHBoxLayout(self)
     self.navigations = []
     self.addNavigation(True)
+    
+    self.filters = [ Filters.Lowpass(), Filters.Deconvolve(), Filters.Rotate() ]
+    filterLayout = QVBoxLayout()    
+    for f in self.filters:
+      filterLayout.addWidget(f)
+      f.filterChanged.connect(self.plot)
+    filterLayout.addStretch()
     
     addIcon = QIcon.fromTheme('list-add')
     addNaviButton = QPushButton(addIcon, 'Add navigation', self)
@@ -93,6 +101,7 @@ class View(QWidget):
     plotLayout.addWidget(self.canvas)
     layout.addLayout(self.navigationLayout)
     layout.addLayout(plotLayout)
+    layout.addLayout(filterLayout)
     
   def addNavigation(self, noclose = False):
     navigation = Navigation.Navigation(noclose)
@@ -109,14 +118,14 @@ class View(QWidget):
     self.plot()
 
   def plot(self):
-    waveforms = []
-    numPlots = 0
-    names = set()
-    for nav in self.navigations:
-      for wf in nav.getActiveWaveforms():
-        numPlots = max(numPlots, len(wf.names))
-        names.update(set(wf.names))
-        waveforms.append(wf)
+    wfc = [wf for nav in self.navigations for wf in nav.getActiveWaveforms()]
+    for filt in self.filters:
+      if filt.isChecked():
+        for wf in wfc:
+          filt.apply(wf)
+
+    names = set([name for wf in wfc for name in wf.waveforms.iterkeys()])
+    numPlots = len(names)
         
     self.figure.clear()
     if numPlots > 0:
@@ -129,20 +138,20 @@ class View(QWidget):
       for i in range(0, len(names)):
         subplots[ names[i] ] = self.figure.add_subplot(numRows, numCols, i+1)
 
-      for wf in waveforms:
-        for name in wf.names:
+      for wf in wfc:
+        for name, waveform in wf.waveforms.iteritems():
           p = subplots[name]
           if self.spectrum.isChecked():
-            n = len(wf.waveforms[name])
+            n = len(waveform)
             dt = wf.time[1]-wf.time[0] # assume equally spaced samples
             f = scipy.fftpack.fftfreq(n, dt)
-            W = dt * scipy.fftpack.fft(wf.waveforms[name])
+            W = dt * scipy.fftpack.fft(waveform)
             maxFreqIndices = numpy.argwhere(f > self.maxFreq.value())
             L = maxFreqIndices[0] if len(maxFreqIndices) > 0 else n/2
             p.loglog(f[1:L], numpy.absolute(W[1:L]))
             p.set_xlabel('f [Hz]')
           else:
-            p.plot(wf.time, wf.waveforms[name])
+            p.plot(wf.time, waveform)
             p.set_xlabel('t (s)')
           p.set_ylabel(name)
 

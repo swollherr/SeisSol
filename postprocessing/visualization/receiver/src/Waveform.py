@@ -40,7 +40,7 @@
 import numpy
 
 class Waveform:
-  def __init__(self, names, data):
+  def __init__(self, names, data, coordinates):
     data = numpy.array(data)
     
     self.waveforms = dict()
@@ -50,6 +50,5 @@ class Waveform:
       else:
         self.waveforms[ names[i] ] = data[:,i]
     
-    names.remove('Time')
-    self.names = names
+    self.coordinates = numpy.array(coordinates)
 

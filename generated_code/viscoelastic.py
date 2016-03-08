@@ -69,8 +69,8 @@ db.update(Tools.parseMatrixFile('{}/matrices_viscoelastic.xml'.format(cmdLineArg
 
 # Determine sparsity patterns that depend on the number of mechanisms
 riemannSolverSpp = np.bmat([[np.matlib.ones((9, numberOfQuantities), dtype=np.float64)], [np.matlib.zeros((numberOfQuantities-9, numberOfQuantities), dtype=np.float64)]])
-db['AplusT'] = DB.MatrixInfo('AplusT', numberOfQuantities, numberOfQuantities, sparsityPattern=riemannSolverSpp)
-db['AminusT'] = DB.MatrixInfo('AminusT', numberOfQuantities, numberOfQuantities, sparsityPattern=riemannSolverSpp)
+db.insert(DB.MatrixInfo('AplusT', numberOfQuantities, numberOfQuantities, sparsityPattern=riemannSolverSpp))
+db.insert(DB.MatrixInfo('AminusT', numberOfQuantities, numberOfQuantities, sparsityPattern=riemannSolverSpp))
 
 mechMatrix = np.matlib.zeros((15, numberOfQuantities))
 mechMatrix[0:9,0:9] = np.matlib.identity(9)
@@ -80,14 +80,14 @@ tallMatrix = np.matlib.zeros((numberOfQuantities, 15))
 tallMatrix[0:15,0:15] = db[clones['star'][0]].spp
 starMatrix = tallMatrix * mechMatrix
 for clone in clones['star']:
-  db[clone] = DB.MatrixInfo(clone, starMatrix.shape[0], starMatrix.shape[1], starMatrix)
+  db.insert(DB.MatrixInfo(clone, starMatrix.shape[0], starMatrix.shape[1], starMatrix))
 
 source = np.matlib.zeros((numberOfQuantities, numberOfQuantities))
 for m in range(0, numberOfMechanisms):
   r = slice(9+6*m, 9+6*(m+1))
   source[r,0:6] = db['ET'].spp
   source[r,r] = np.matlib.identity(6)
-db['source'] = DB.MatrixInfo('source', numberOfQuantities, numberOfQuantities, source)
+db.insert(DB.MatrixInfo('source', numberOfQuantities, numberOfQuantities, source))
 
 # Load sparse-, dense-, block-dense-config
 Tools.memoryLayoutFromFile(cmdLineArgs.memLayout, db, clones)
@@ -105,8 +105,8 @@ DB.determineGlobalMatrixIds(globalMatrixIdRules, db)
 # Kernels
 kernels = list()
 
-db['timeIntegrated'] = DB.MatrixInfo('timeIntegrated', numberOfBasisFunctions, numberOfQuantities)
-db['timeDerivative0'] = DB.MatrixInfo('timeDerivative0', numberOfBasisFunctions, numberOfQuantities)
+db.insert(DB.MatrixInfo('timeIntegrated', numberOfBasisFunctions, numberOfQuantities))
+db.insert(DB.MatrixInfo('timeDerivative0', numberOfBasisFunctions, numberOfQuantities))
 
 volume = db['kXiDivM'] * db['timeIntegrated'] * db['AstarT'] \
        + db['kEtaDivM'] * db['timeIntegrated'] * db['BstarT'] \
@@ -133,7 +133,7 @@ for i in range(1, order):
              + db[lastD] * db['source']
   derivative.fitBlocksToSparsityPattern()
   kernels.append(('derivative[{}]'.format(i), derivative))
-  db[newD] = derivative.flat(newD)
+  db.insert(derivative.flat(newD))
   db[newD].fitBlocksToSparsityPattern()
 
 # Generate code

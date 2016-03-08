@@ -89,7 +89,7 @@ void seissol::model::getTransposedRiemannSolver( seissol::model::Material const&
     }
   }
   
-  seissol::model::applyBoundaryConditionToElasticFluxSolver(type, Fneighbor.block<NUMBER_OF_QUANTITIES, 9>(0, 0));
+  seissol::model::applyBoundaryConditionToElasticFluxSolver(type, Fneighbor.block<9, NUMBER_OF_QUANTITIES>(0, 0));
 }
 
 void seissol::model::setMaterial( double* i_materialVal,
@@ -118,4 +118,15 @@ void seissol::model::getFaceRotationMatrix( VrtxCoords const i_normal,
   
   seissol::transformations::inverseSymmetricTensor2RotationMatrix(i_normal, i_tangent1, i_tangent2, o_Tinv.block<6,6>(0, 0));
   seissol::transformations::inverseTensor1RotationMatrix(i_normal, i_tangent1, i_tangent2, o_Tinv.block<3,3>(6, 6));
+}
+
+void seissol::model::initializeSpecificLocalData( seissol::model::Material const&,
+                                                  seissol::model::LocalData* )
+{
+}
+
+void seissol::model::initializeSpecificNeighborData(  seissol::model::Material const&,
+                                                      seissol::model::Material const (&)[4],
+                                                      seissol::model::NeighborData* )
+{
 }

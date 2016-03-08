@@ -5,9 +5,10 @@
 !! @author Atanas Atanasov (atanasoa AT in.tum.de, http://www5.in.tum.de/wiki/index.php/Atanas_Atanasov)
 !! @author Alice Gabriel (gabriel AT geophysik.uni-muenchen.de, http://www.geophysik.uni-muenchen.de/Members/gabriel)
 !! @author Christian Pelties (pelties AT geophysik.uni-muenchen.de, http://www.geophysik.uni-muenchen.de/Members/pelties)
+!! @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
 !!
 !! @section LICENSE
-!! Copyright (c) 2013, SeisSol Group
+!! Copyright (c) 2013-2016, SeisSol Group
 !! All rights reserved.
 !! 
 !! Redistribution and use in source and binary forms, with or without
@@ -128,13 +129,26 @@ CONTAINS
        !Fault Element Output
        CASE(4)
          ! fault output iterations, including iteration 1 and last timestep
-         IF ( MOD(DISC%iterationstep-1,DISC%DynRup%DynRup_out_elementwise%printtimeinterval).EQ.0.OR. &
-         ((min(DISC%EndTime,dt*DISC%MaxIteration)-time).LE.(dt*1.005d0))) THEN
-            CONTINUE
-!         ELSEIF(DISC%iterationstep .EQ. 0 ) THEN  ! uncomment to print setup at time 0 for intial stresses
-!            CONTINUE
-         ELSE  ! all timesteps without fault output
-            RETURN
+         IF (DISC%DynRup%DynRup_out_elementwise%printIntervalCriterion.EQ.1) THEN
+            IF ( MOD(DISC%iterationstep-1,DISC%DynRup%DynRup_out_elementwise%printtimeinterval).EQ.0.OR. &
+            ((min(DISC%EndTime,dt*DISC%MaxIteration)-time).LE.(dt*1.005d0))) THEN
+               CONTINUE
+!            ELSEIF(DISC%iterationstep .EQ. 0 ) THEN  ! uncomment to print setup at time 0 for intial stresses
+!               CONTINUE
+            ELSE  ! all timesteps without fault output
+               RETURN
+            ENDIF
+         ELSE
+            IF ((DISC%iterationstep.EQ.1).OR. ((DISC%iterationstep.GE.2) .AND. &
+            ((MOD(time,DISC%DynRup%DynRup_out_elementwise%printtimeinterval_sec).LE.0.5*dt).OR. &
+            ((ceiling(time/DISC%DynRup%DynRup_out_elementwise%printtimeinterval_sec)*DISC%DynRup%DynRup_out_elementwise%printtimeinterval_sec-time).LT.0.5*dt).OR. &
+            ((min(DISC%EndTime,dt*DISC%MaxIteration)-time).LE.(dt*1.005d0))))) THEN
+               CONTINUE
+!            ELSEIF(DISC%iterationstep .EQ. 0 ) THEN  ! uncomment to print setup at time 0 for intial stresses
+!               CONTINUE
+            ELSE  ! all timesteps without fault output
+               RETURN
+            ENDIF
          ENDIF
          ! DR output at each element
          CALL calc_FaultOutput(DISC%DynRup%DynRup_out_elementwise, DISC, EQN, MESH, MaterialVal, BND, time)
@@ -152,10 +166,20 @@ CONTAINS
             isOnPickpoint = .TRUE.
          ENDIF
          ! check time for fault plane output 
-         IF ( MOD(DISC%iterationstep-1,DISC%DynRup%DynRup_out_elementwise%printtimeinterval).EQ.0 &
-         .OR. (min(DISC%EndTime,dt*DISC%MaxIteration)-time).LE.(dt*1.005d0) ) THEN
-            isOnElementwise=.TRUE.
-		 ENDIF
+         IF (DISC%DynRup%DynRup_out_elementwise%printIntervalCriterion.EQ.1) THEN
+            IF ( MOD(DISC%iterationstep-1,DISC%DynRup%DynRup_out_elementwise%printtimeinterval).EQ.0.OR. &
+            ((min(DISC%EndTime,dt*DISC%MaxIteration)-time).LE.(dt*1.005d0))) THEN
+               isOnElementwise=.TRUE.
+            ENDIF
+         ELSE
+            IF ((DISC%iterationstep.EQ.1).OR. ((DISC%iterationstep.GE.2) .AND. &
+            ((MOD(time,DISC%DynRup%DynRup_out_elementwise%printtimeinterval_sec).LE.0.5*dt).OR. &
+            ((ceiling(time/DISC%DynRup%DynRup_out_elementwise%printtimeinterval_sec)*DISC%DynRup%DynRup_out_elementwise%printtimeinterval_sec-time).LT.0.5*dt).OR. &
+            ((min(DISC%EndTime,dt*DISC%MaxIteration)-time).LE.(dt*1.005d0))))) THEN
+               isOnElementwise=.TRUE.
+            ENDIF
+         ENDIF
+
          ! print always first timestep
          IF(DISC%iterationstep .EQ. 1) THEN
            isOnPickpoint = .TRUE.
@@ -679,256 +703,14 @@ CONTAINS
     SCOREP_USER_FUNC_END()
     !
   END SUBROUTINE calc_FaultOutput
-  !
-  !> modular subroutine for finding the middle point of an element
-  !<
-  SUBROUTINE findMiddleOutputPoint( &
-    point_1_x, &
-    point_1_y, &
-    point_1_z, &
-    point_2_x, &
-    point_2_y, &
-    point_2_z, &
-    point_3 )
-    !-------------------------------------------------------------------------!
-    ! Argument list declaration
-    REAL:: point_1_x,point_1_y,point_1_z
-    REAL:: point_2_x,point_2_y,point_2_z
-    REAL:: point_3(3)
-    !-------------------------------------------------------------------------!
-    !
-    point_3(1)=0.5*point_1_x+0.5*point_2_x
-    point_3(2)=0.5*point_1_y+0.5*point_2_y
-    point_3(3)=0.5*point_1_z+0.5*point_2_z
-  END SUBROUTINE
-    !
-    !> recursive function for 2D refinement strategy 2
-    !> element edge middle points are connected
-    !<
-    RECURSIVE SUBROUTINE  refineFaultOutputPoints_strategy2(MESH,plotter,element_x,element_y,element_z,refinement)
- 	 !-------------------------------------------------------------------------!
- 	 USE vtk
- 	 !-------------------------------------------------------------------------!
- 	 ! Argument list declaration
-  	 TYPE(tUnstructMesh)      :: MESH
-  	 INTEGER(8)               :: plotter
-  	 REAL                     :: element_x(MESH%GlobalElemType), element_y(MESH%GlobalElemType), element_z(MESH%GlobalElemType)
-  	 INTEGER, VALUE           :: refinement
-  	 !-------------------------------------------------------------------------!
-     ! Local variable declaration
-	 REAL                     :: local_element_x(MESH%GlobalElemType),local_element_y(MESH%GlobalElemType),local_element_z(MESH%GlobalElemType)
-     INTEGER                  :: j
-  	 REAL                     :: p1_local(3)
-  	 REAL                     :: p2_local(3)
-  	 REAL                     :: p3_local(3)
-  	 !-------------------------------------------------------------------------!
-  	 IF (refinement.EQ.0) THEN
-  	 	    DO j=1,3
-      			CALL insert_vertex_vtk_writer(plotter, element_x(j),element_y(j),element_z(j))
-            ENDDO
-	 	RETURN
-	 ELSE
-		CALL findMiddleOutputPoint(&
-			element_x(1), element_y(1), element_z(1), &
-			element_x(2), element_y(2), element_z(2), &
-			p1_local &
-		)
-		CALL findMiddleOutputPoint(&
-			element_x(2), element_y(2), element_z(2), &
-			element_x(3), element_y(3), element_z(3), &
-			p2_local &
-		)
-		CALL findMiddleOutputPoint(&
-			element_x(3), element_y(3), element_z(3), &
-			element_x(1), element_y(1), element_z(1), &
-			p3_local &
-		)
-		! 1 traingle (1 - (1-2)/2 - (1-3)/2)
-		local_element_x(1)=element_x(1)
-	    local_element_x(2)=p1_local(1)
-	    local_element_x(3)=p3_local(1)
 
-	    local_element_y(1)=element_y(1)
-	    local_element_y(2)=p1_local(2)
-	    local_element_y(3)=p3_local(2)
-
-	    local_element_z(1)=element_z(1)
-	    local_element_z(2)=p1_local(3)
-	    local_element_z(3)=p3_local(3)
-
-		CALL refineFaultOutputPoints_strategy2(MESH,plotter,&
-	 							local_element_x,&
-	 							local_element_y,&
-	 							local_element_z,&
-	 							refinement-1)
-	    ! (1-2)/2 - 2 - (2-3)/2
-	    local_element_x(1)=p1_local(1)
-	    local_element_x(2)=element_x(2)
-	    local_element_x(3)=p2_local(1)
-
-	    local_element_y(1)=p1_local(2)
-	    local_element_y(2)=element_y(2)
-	    local_element_y(3)=p2_local(2)
-
-	    local_element_z(1)=p1_local(3)
-	    local_element_z(2)=element_z(2)
-	    local_element_z(3)=p2_local(3)
-
-	    CALL refineFaultOutputPoints_strategy2(MESH,plotter,&
-	 							local_element_x,&
-	 							local_element_y,&
-	 							local_element_z,&
-	 							refinement-1)
-	 	! (1-2)/2 - (2-3)/2 - (3-1)/2
-	 	local_element_x(1)=p1_local(1)
-	    local_element_x(2)=p2_local(1)
-	    local_element_x(3)=p3_local(1)
-
-	    local_element_y(1)=p1_local(2)
-	    local_element_y(2)=p2_local(2)
-	    local_element_y(3)=p3_local(2)
-
-	    local_element_z(1)=p1_local(3)
-	    local_element_z(2)=p2_local(3)
-	    local_element_z(3)=p3_local(3)
-
-	    CALL refineFaultOutputPoints_strategy2(MESH,plotter,&
-	 							local_element_x,&
-	 							local_element_y,&
-	 							local_element_z,&
-	 							refinement-1)
-
-	 	! (3-1)/2 - (2-3)/2 - 3
-	 	local_element_x(1)=p3_local(1)
-	    local_element_x(2)=p2_local(1)
-	    local_element_x(3)=element_x(3)
-
-	    local_element_y(1)=p3_local(2)
-	    local_element_y(2)=p2_local(2)
-	    local_element_y(3)=element_y(3)
-
-	    local_element_z(1)=p3_local(3)
-	    local_element_z(2)=p2_local(3)
-	    local_element_z(3)=element_z(3)
-
-	    CALL refineFaultOutputPoints_strategy2(MESH,plotter,&
-	 							local_element_x,&
-	 							local_element_y,&
-	 							local_element_z,&
-	 							refinement-1)
-
-	 ENDIF !ELSE (refinement.EQ.0)
-    END SUBROUTINE  refineFaultOutputPoints_strategy2
-    !
-    !> recursive function for 2D refinement strategy 1
-    !> Barycenters of elements are connected
-    !<
-    RECURSIVE SUBROUTINE refineFaultOutputPoints_strategy1(MESH,plotter,element_x,element_y,element_z,refinement)
-     !-------------------------------------------------------------------------!
-     USE vtk
-     !-------------------------------------------------------------------------!
-     ! Argument list declaration
-     TYPE(tUnstructMesh)      :: MESH
-     INTEGER(8)               :: plotter
-     REAL                     :: element_x(MESH%GlobalElemType), element_y(MESH%GlobalElemType), element_z(MESH%GlobalElemType)
-     INTEGER, VALUE           :: refinement
-     !-------------------------------------------------------------------------!
-     ! Local variable declaration
-     REAL                     :: local_element_x(MESH%GlobalElemType),local_element_y(MESH%GlobalElemType),local_element_z(MESH%GlobalElemType)
-     INTEGER                  ::j
-     !-------------------------------------------------------------------------!
-     !
-     IF (refinement.EQ.0) THEN
-            DO j=1,3
-                CALL insert_vertex_vtk_writer(plotter, element_x(j),element_y(j),element_z(j))
-            ENDDO
-        RETURN
-     ELSE
-        !case 1 : 1,2,mid-point
-        local_element_x(1)=element_x(1)
-        local_element_x(2)=element_x(2)
-        local_element_x(3)=(element_x(1)+element_x(2)+element_x(3))/3.0
-
-        local_element_y(1)=element_y(1)
-        local_element_y(2)=element_y(2)
-        local_element_y(3)=(element_y(1)+element_y(2)+element_y(3))/3.0
-
-        local_element_z(1)=element_z(1)
-        local_element_z(2)=element_z(2)
-        local_element_z(3)=(element_z(1)+element_z(2)+element_z(3))/3.0
-
-        CALL refineFaultOutputPoints_strategy1(MESH,plotter,&
-                                local_element_x,&
-                                local_element_y,&
-                                local_element_z,&
-                                refinement-1)
-        !case 2 : mid-point,2,3
-        local_element_x(1)=(element_x(1)+element_x(2)+element_x(3))/3.0
-        local_element_x(2)=element_x(2)
-        local_element_x(3)=element_x(3)
-
-        local_element_y(1)=(element_y(1)+element_y(2)+element_y(3))/3.0
-        local_element_y(2)=element_y(2)
-        local_element_y(3)=element_y(3)
-
-        local_element_z(1)=(element_z(1)+element_z(2)+element_z(3))/3.0
-        local_element_z(2)=element_z(2)
-        local_element_z(3)=element_z(3)
-
-        CALL refineFaultOutputPoints_strategy1(MESH,plotter,&
-                                local_element_x,&
-                                local_element_y,&
-                                local_element_z,&
-                                refinement-1)
-        !case 3 : 1,mid-point,3
-        local_element_x(1)=element_x(1)
-        local_element_x(2)=(element_x(1)+element_x(2)+element_x(3))/3.0
-        local_element_x(3)=element_x(3)
-
-        local_element_y(1)=element_y(1)
-        local_element_y(2)=(element_y(1)+element_y(2)+element_y(3))/3.0
-        local_element_y(3)=element_y(3)
-
-        local_element_z(1)=element_z(1)
-        local_element_z(2)=(element_z(1)+element_z(2)+element_z(3))/3.0
-        local_element_z(3)=element_z(3)
-
-        CALL refineFaultOutputPoints_strategy1(MESH,plotter,&
-                                local_element_x,&
-                                local_element_y,&
-                                local_element_z,&
-                                refinement-1)
-        RETURN
-     ENDIF ! ELSE (refinement.EQ.0)
-  END SUBROUTINE refineFaultOutputPoints_strategy1
-    !
-    !> subroutine handling recursive functions for 2D refinement strategy 1 and 2
-    !<
-  SUBROUTINE refineFaultOutputPoints(strategy,MESH,plotter,element_x,element_y,element_z,refinement)
-	    !-------------------------------------------------------------------------!
-	    USE vtk
-	    !-------------------------------------------------------------------------!
-	    ! Argument list declaration
-  	    TYPE(tUnstructMesh)      :: MESH
-  	    INTEGER(8)               :: plotter
-  	    REAL                     :: element_x(MESH%GlobalElemType), element_y(MESH%GlobalElemType), element_z(MESH%GlobalElemType)
-  	    INTEGER, VALUE           :: refinement
-  	    INTEGER                  :: strategy
-  	    !-------------------------------------------------------------------------!
-  	    !
-  	    IF(strategy.EQ.1) THEN
-  	 	    CALL refineFaultOutputPoints_strategy1(MESH,plotter,element_x,element_y,element_z,refinement)
-  	    ELSE
-  	 	    CALL refineFaultOutputPoints_strategy2(MESH,plotter,element_x,element_y,element_z,refinement)
-  	    ENDIF
-  END SUBROUTINE
   !
   !> Subroutine initializing the fault output
   !<
   SUBROUTINE write_FaultOutput_elementwise(EQN, DISC, MESH, IO, MPI, MaterialVal, BND, time, dt)
       !-------------------------------------------------------------------------!
       USE JacobiNormal_mod
-      USE vtk
+      use FaultWriter
       use, intrinsic :: iso_c_binding
       !-------------------------------------------------------------------------!
       IMPLICIT NONE
@@ -969,7 +751,6 @@ CONTAINS
       ENDIF
       SubElem = number_of_triangles**DISC%DynRup%DynRup_out_elementwise%refinement
       IF  (DISC%DynRup%DynRup_out_elementwise%nDR_pick.eq.0) THEN
-        logInfo (*) in,'inDR_pick=0 for',DISC%iterationstep, '.vtk file.'
         EPIK_FUNC_END()
         SCOREP_USER_FUNC_END()
       	RETURN
@@ -989,41 +770,16 @@ CONTAINS
       ENDDO
       !
       IF (in>0) THEN
-        CALL create_vtk_writer(plotter,MPI%myrank,DISC%iterationstep, trim(IO%OutputFile) // c_null_char, &
-                  DISC%DynRup%DynRup_out_elementwise%BinaryOutput) 
         !
-        ! Loop generating tet coordinates and refining to subtets
- 	DO iOutPoints = 1, DISC%DynRup%DynRup_out_elementwise%nDR_pick !Subtets in this domain
-      		DO j=1,3
-      		   CALL insert_vertex_vtk_writer(plotter,&
-      		   DISC%DynRup%DynRup_out_elementwise%RecPoint(iOutPoints)%coordx(j),&
-      		   DISC%DynRup%DynRup_out_elementwise%RecPoint(iOutPoints)%coordy(j),&
-      		   DISC%DynRup%DynRup_out_elementwise%RecPoint(iOutPoints)%coordz(j))			 
-                ENDDO
-	ENDDO
-	!
-	CALL open_vtk_writer(plotter)
-        CALL write_vertices_vtk_writer(plotter)
-	CALL plot_cells_vtk_writer(plotter)
-        !
+        call writeFault(time)
         DO j=1,SIZE(DISC%DynRup%DynRup_out_elementwise%TmpState,3)
-    	  CALL start_cell_data_vtk_writer(plotter,DISC%DynRup%DynRup_out_elementwise%OutputLabel(j))
-          !
-          DO iOutPoints=1,DISC%DynRup%DynRup_out_elementwise%nDR_pick
-              iFault = DISC%DynRup%DynRup_out_elementwise%RecPoint(iOutPoints)%globalreceiverindex
-        	  DO k=1,DISC%DynRup%DynRup_out_elementwise%CurrentPick(iOutPoints)
-         		CALL plot_cell_data_vtk_writer(plotter,DISC%DynRup%DynRup_out_elementwise%TmpState(iOutPoints,k,j))
-         	  ENDDO ! CurrentPick
-         ENDDO ! nDR_pick
-         !
-         CALL end_cell_data_vtk_writer(plotter)
+         call writeFaultData(j, DISC%DynRup%DynRup_out_elementwise%TmpState(:,:,j))
         ENDDO !OutVars
+        call flushFault()
         !
         DO iOutPoints = 1,DISC%DynRup%DynRup_out_elementwise%nDR_pick
     	   DISC%DynRup%DynRup_out_elementwise%CurrentPick(iOutPoints) = 0
         ENDDO
-        CALL close_vtk_writer(plotter)
-        CALL destroy_vtk_writer(plotter)
       END IF !IF (in>0)
 
       EPIK_FUNC_END()

@@ -1966,6 +1966,14 @@ CONTAINS
         DISC%DynRup%FluxInt = 0.0D0
         !
 #if __INTEL_COMPILER == 1600
+!#if __INTEL_COMPILER_UPDATE > 1
+!#ifdef OMP
+!        !$omp parallel private(iFace, iElem, iSide, iNeighbor, iLocalNeighborSide, iObject, MPIIndex, xV, yV, zV, x_host, y_host, z_host, iBndGP, chi, tau, xi, eta, zeta, xGP, yGP, zGP, iDegFr, iDegFr2, phi_iDegFr, phi_iDegFr2) shared( mesh, disc, eqn, bnd) default( none )
+!        !$omp do schedule(static)
+!#else
+        logWarning(*) 'Intel Compiler 16.x were used to compile SeisSol, DR setup is not parallized'
+!#endif
+!#endif
 #else
 #ifdef OMP
         !$omp parallel private(iFace, iElem, iSide, iNeighbor, iLocalNeighborSide, iObject, MPIIndex, xV, yV, zV, x_host, y_host, z_host, iBndGP, chi, tau, xi, eta, zeta, xGP, yGP, zGP, iDegFr, iDegFr2, phi_iDegFr, phi_iDegFr2) shared( mesh, disc, eqn, bnd) default( none )
@@ -2061,6 +2069,11 @@ CONTAINS
             !
         ENDDO ! iFace
 #if __INTEL_COMPILER == 1600
+!#if __INTEL_COMPILER_UPDATE > 1
+!#ifdef OMP
+!        !$omp end parallel
+!#endif
+!#endif
 #else
 #ifdef OMP
         !$omp end parallel
@@ -2725,8 +2738,9 @@ CONTAINS
 
 #ifdef GENERATEDKERNELS
         ! write the update back
-        call c_interoperability_addToDofs(  i_meshId  = iElem, \
-                                            i_update  = l_dofsUpdate )
+        call c_interoperability_addToDofs(  i_meshId           = iElem, \
+                                            i_update           = l_dofsUpdate, \
+                                            numberOfQuantities = eqn%nVarTotal )
 
 #ifdef USE_PLASTICITY
         ! initialize loading in C
@@ -3385,6 +3399,7 @@ CONTAINS
 #ifdef HDF
     USE hdf_faultoutput_mod
 #endif
+    use FaultWriter
     use, intrinsic :: iso_c_binding
 
     !-------------------------------------------------------------------!
@@ -3437,6 +3452,7 @@ CONTAINS
     REAL, POINTER :: S_inc(:)
     REAL, ALLOCATABLE :: chi_vector(:), tau_vector(:)
     REAL    :: S_tmp, chi, tau, phi1, phi2
+    integer :: hasDR
     INTEGER :: iNeighbor, iNeighborSide, NeigBndGP, l, iFault, iDegFr, iP, iBndGP, iPlusElem
     !
     !-------------------------------------------------------------------------!
@@ -3624,6 +3640,12 @@ CONTAINS
     !
     ! Initialize fault rupture output
     ! only in case Dynamic rupture is turned on, and for + elements assigned to the fault
+    if (EQN%DR.EQ.1 .AND. DISC%DynRup%DR_output) then
+        hasDr = 1
+    else
+        hasDr = 0
+    endif
+    call fault_create_comm(hasDr)
     IF(EQN%DR.EQ.1 .AND. DISC%DynRup%DR_output) THEN
         ! Case 3
         ! output at certain positions specified in the *.dyn file
@@ -3668,10 +3690,6 @@ CONTAINS
     ! but only in cases dynamic rupture is turned on and output is set to 4 or 5
     IF(DISC%DynRup%OutputPointType.EQ.4.OR.DISC%DynRup%OutputPointType.EQ.5) THEN
      logInfo(*) "Initialize fault-output.pvd file to wrap fault output data"
-     IF (MPI%myrank.eq.0) THEN
-            CALL create_pvd_writer(IO%meta_plotter, trim(IO%OutputFile) // c_null_char)
-            CALL open_pvd_writer(IO%meta_plotter)
-     ENDIF
      ! MPI_GATHER
      CALL create_meta(DISC,MPI,DISC%DynRup%DynRup_out_elementwise%nDR_pick)
     ENDIF

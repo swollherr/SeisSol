@@ -46,8 +46,6 @@
 #include <generated_code/sizes.h>
 #include <generated_code/init.h>
 
-using namespace seissol::model::source;
-
 void getTransposedViscoelasticCoefficientMatrix( real            i_omega,
                                                  unsigned        i_dim,
                                                  unsigned        mech,
@@ -136,7 +134,7 @@ void seissol::model::getTransposedRiemannSolver( seissol::model::Material const&
     }
   }
   
-  seissol::model::applyBoundaryConditionToElasticFluxSolver(type, Fneighbor.block<NUMBER_OF_QUANTITIES, 9>(0, 0));
+  seissol::model::applyBoundaryConditionToElasticFluxSolver(type, Fneighbor.block<9, NUMBER_OF_QUANTITIES>(0, 0));
 }
 
 void seissol::model::setMaterial( double* i_materialVal,
@@ -180,9 +178,10 @@ void seissol::model::getFaceRotationMatrix( VrtxCoords const i_normal,
   }
 }
 
-void seissol::model::setSourceMatrix( seissol::model::Material const& local,
-                                      MatrixView                      sourceMatrix )
+void seissol::model::initializeSpecificLocalData( seissol::model::Material const& material,
+                                                  seissol::model::LocalData* localData )
 {
+  MatrixView sourceMatrix(localData->sourceMatrix, seissol::model::source::reals, seissol::model::source::index);
   sourceMatrix.setZero();
 
   //       | E_1^T |
@@ -190,7 +189,7 @@ void seissol::model::setSourceMatrix( seissol::model::Material const& local,
   //       | E_L^T |
   for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
     unsigned offset = 9 + mech * 6;
-    real const* theta = local.theta[mech];
+    real const* theta = material.theta[mech];
     sourceMatrix(offset,     0) = theta[0];
     sourceMatrix(offset + 1, 0) = theta[1];
     sourceMatrix(offset + 2, 0) = theta[1];
@@ -209,7 +208,13 @@ void seissol::model::setSourceMatrix( seissol::model::Material const& local,
   for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
     for (unsigned i = 0; i < 6; ++i) {
       unsigned idx = 9 + 6*mech + i;
-      sourceMatrix(idx, idx) = -local.omega[mech];
+      sourceMatrix(idx, idx) = -material.omega[mech];
     }
   }
+}
+
+void seissol::model::initializeSpecificNeighborData(  seissol::model::Material const&,
+                                                      seissol::model::Material const (&)[4],
+                                                      seissol::model::NeighborData* )
+{
 }

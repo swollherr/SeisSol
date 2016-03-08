@@ -47,6 +47,8 @@
 #include "SeisSol.h"
 #include <Initializer/CellLocalMatrices.h>
 #include <Model/Setup.h>
+#include <Monitoring/FlopCounter.hpp>
+#include "ResultWriter/FaultWriterC.h"
 
 seissol::Interoperability e_interoperability;
 
@@ -158,9 +160,10 @@ extern "C" {
 			  numSides, numBndGP, refinement);
   }
 
-  void c_interoperability_addToDofs( int    i_meshId,
-                                     double i_update[NUMBER_OF_DOFS] ) {
-    e_interoperability.addToDofs( i_meshId, i_update );
+  void c_interoperability_addToDofs( int      i_meshId,
+                                     double*  i_update,
+                                     int      numberOfQuantities ) {
+    e_interoperability.addToDofs( i_meshId, i_update, numberOfQuantities );
   }
 
   void c_interoperability_getTimeDerivatives( int    i_meshId,
@@ -531,9 +534,10 @@ void seissol::Interoperability::getDynamicRuptureTimeStep(int &o_timeStep)
 	f_interoperability_getDynamicRuptureTimeStep(m_domain, &o_timeStep);
 }
 
-void seissol::Interoperability::addToDofs( int    i_meshId,
-                                           double i_update[NUMBER_OF_DOFS] ) {
-  seissol::kernels::addToAlignedDofs( i_update, m_dofs[ m_meshToCopyInterior[(i_meshId)-1] ] );
+void seissol::Interoperability::addToDofs( int      i_meshId,
+                                           double*  i_update,
+                                           int      numberOfQuantities ) {
+  seissol::kernels::addToAlignedDofs( i_update, m_dofs[ m_meshToCopyInterior[(i_meshId)-1] ], static_cast<unsigned>(numberOfQuantities) );
 }
 
 void seissol::Interoperability::getTimeDerivatives( int    i_meshId,
@@ -541,18 +545,27 @@ void seissol::Interoperability::getTimeDerivatives( int    i_meshId,
   real l_timeIntegrated[NUMBER_OF_ALIGNED_DOFS] __attribute__((aligned(ALIGNMENT)));
   real l_timeDerivatives[NUMBER_OF_ALIGNED_DERS] __attribute__((aligned(ALIGNMENT)));
 
+  unsigned nonZeroFlops, hardwareFlops;
+#ifdef REQUIRE_SOURCE_MATRIX
+  m_timeKernel.computeAder( 0,
+                            m_globalData,
+                            &m_cellData->localIntegration[ m_meshToCopyInterior[ (i_meshId)-1] ],
+                            m_dofs[ m_meshToCopyInterior[(i_meshId)-1] ],
+                            l_timeIntegrated,
+                            l_timeDerivatives );
+#else
   m_timeKernel.computeAder( 0,
                             m_globalData->stiffnessMatricesTransposed,
                             m_dofs[ m_meshToCopyInterior[(i_meshId)-1] ],
                             m_cellData->localIntegration[ m_meshToCopyInterior[ (i_meshId)-1] ].starMatrices,
-#ifdef REQUIRE_SOURCE_MATRIX
-                            m_cellData->localIntegration[ m_meshToCopyInterior[ (i_meshId)-1] ].sourceMatrix,
-#endif
                             l_timeIntegrated,
                             l_timeDerivatives );
+#endif
+  m_timeKernel.flopsAder(nonZeroFlops, hardwareFlops);
+  g_SeisSolNonZeroFlopsOther += nonZeroFlops;
+  g_SeisSolHardwareFlopsOther += hardwareFlops;
 
-  seissol::kernels::Time::convertAlignedCompressedTimeDerivatives( l_timeDerivatives,
-                                                             o_timeDerivatives );
+  seissol::kernels::Time::convertAlignedCompressedTimeDerivatives( l_timeDerivatives, o_timeDerivatives );
 }
 
 void seissol::Interoperability::getFaceDerInt( int    i_meshId,
@@ -583,8 +596,6 @@ void seissol::Interoperability::getFaceDerInt( int    i_meshId,
   m_timeKernel.computeIntegral( 0,
                                 0,
                                 i_timeStepWidth,
-                                m_globalData,
-                                &m_cellData->localIntegration[localCell].timeIntegration,
                                 m_derivatives[localCell],
                                 l_timeIntegrated );
 
@@ -594,9 +605,7 @@ void seissol::Interoperability::getFaceDerInt( int    i_meshId,
 
   m_timeKernel.computeIntegral( 0,
                                 0,
-                                i_timeStepWidth,                                
-                                m_globalData,
-                                &m_cellData->neighboringIntegration[neighborCell].timeIntegration[face],
+                                i_timeStepWidth,
                                 m_faceNeighbors[neighborCell][face],
                                 l_timeIntegrated );
 
@@ -638,6 +647,7 @@ void seissol::Interoperability::finalizeIO()
 {
 	seissol::SeisSol::main.waveFieldWriter().close();
 	seissol::SeisSol::main.checkPointManager().close();
+	fault_hdf_close();
 }
 
 void seissol::Interoperability::writeReceivers( double i_fullUpdateTime,

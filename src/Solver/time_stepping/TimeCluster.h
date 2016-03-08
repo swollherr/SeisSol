@@ -79,9 +79,16 @@
 #include <Initializer/typedefs.hpp>
 #include <SourceTerm/typedefs.hpp>
 #include <utils/logger.h>
+
 #include <Kernels/Time.h>
+
+#ifdef REQUIRE_SOURCE_MATRIX
+#include <Kernels/Local.h>
+#include <Kernels/Neighbor.h>
+#else
 #include <Kernels/Volume.h>
 #include <Kernels/Boundary.h>
+#endif
 
 // some check for correct functionality
 #ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
@@ -121,11 +128,11 @@ private:
     //! time kernel
     kernels::Time     &m_timeKernel;
 
-    //! volume kernel
-    kernels::Volume   &m_volumeKernel;
+    //! local kernel
+    kernels::Local   &m_localKernel;
 
-    //! boundary kernel
-    kernels::Boundary &m_boundaryKernel;
+    //! neighbor kernel
+    kernels::Neighbor &m_neighborKernel;
 
     /*
      * mesh structure
@@ -187,6 +194,19 @@ private:
 
     //! true if dynamic rupture faces are present
     bool m_dynamicRuptureFaces;
+    
+    enum ComputePart {
+      LocalInterior = 0,
+      NeighborInterior,
+#ifdef USE_MPI
+      LocalCopy,
+      NeighborCopy,
+#endif
+      NUM_COMPUTE_PARTS
+    };
+    
+    long long m_flops_nonZero[NUM_COMPUTE_PARTS];
+    long long m_flops_hardware[NUM_COMPUTE_PARTS];
 
 #ifdef USE_MPI
     /**
@@ -286,6 +306,17 @@ private:
                                         real                  (*io_dofs)[NUMBER_OF_ALIGNED_DOFS],
 										real                  (*io_pstrain)[7] );
 
+    void computeLocalIntegrationFlops(  unsigned                    numberOfCells,
+                                        CellLocalInformation const* cellInformation,
+                                        long long&                  nonZeroFlops,
+                                        long long&                  hardwareFlops  );
+
+    void computeNeighborIntegrationFlops( unsigned                    numberOfCells,
+                                          CellLocalInformation const* cellInformation,
+                                          long long&                  nonZeroFlops,
+                                          long long&                  hardwareFlops);
+    void computeFlops();
+
   public:
     //! flags identifiying if the respective part is allowed to be updated
     struct {
@@ -358,8 +389,8 @@ private:
     TimeCluster( unsigned int                   i_clusterId,
                  unsigned int                   i_globalClusterId,
                  kernels::Time                 &i_timeKernel,
-                 kernels::Volume               &i_volumeKernel,
-                 kernels::Boundary             &i_boundaryKernel,
+                 kernels::Local                &i_localKernel,
+                 kernels::Neighbor             &i_neighborKernel,
                  struct MeshStructure          *i_meshStructure,
 #ifdef USE_MPI
                  struct CellLocalInformation   *i_copyCellInformation,

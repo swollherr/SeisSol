@@ -45,7 +45,8 @@
 namespace seissol {
   namespace model {
     struct Material : public ElasticMaterial {};
-    struct TimeIntegrationData {};
+    struct LocalData {};
+    struct NeighborData {};
   }
 }
 

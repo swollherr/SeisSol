@@ -46,6 +46,10 @@ import os
 import sys
 import commands
 
+# import helpers
+import arch
+import memlayout
+
 # print the welcome message
 print '********************************************'
 print '** Welcome to the build script of SeisSol **'
@@ -84,7 +88,7 @@ vars.AddVariables(
   EnumVariable( 'equations',
                 'system of PDEs that will be solved',
                 'elastic',
-                allowed_values=('elastic', 'viscoelastic')
+                allowed_values=('elastic', 'viscoelastic', 'viscoelastic2')
               ),
   
 
@@ -95,8 +99,6 @@ vars.AddVariables(
               ),
 
   ( 'numberOfMechanisms', 'Number of anelastic mechanisms (needs to be set if equations=viscoelastic).', '0' ),
-
-  ( 'libxsmmGenerator', 'Path to code generator from libxsmm (needs to be set if equations=viscoelastic).' ),
   
   ( 'memLayout', 'Path to memory layout file (needs to be set if equations=viscoelastic).' ),
 
@@ -190,7 +192,7 @@ vars.AddVariables(
   EnumVariable( 'arch',
                 'precision -- s for single- and d for double precision -- and architecture used. Warning: \'noarch\' calls the fall-back code and is outperformed by architecture-specific optimizations (if available) greatly.',
                 'dnoarch',
-                allowed_values=( 'snoarch', 'dnoarch', 'swsm', 'dwsm', 'ssnb', 'dsnb', 'sknc', 'dknc', 'shsw', 'dhsw', 'sknl', 'dknl' )
+                allowed_values=arch.getArchitectures()
               ),
 
   EnumVariable( 'scalasca', 'instruments code with scalasca. \n \'default\': instruments only outer loops. \n'+\
@@ -201,8 +203,6 @@ vars.AddVariables(
                 allowed_values=('none', 'default', 'kernels', 'default_2.x', 'kernels_2.x')
               ),
 )
-
-env.Tool('MPITool', vars=vars, toolpath=['build/scons/Tools'])
 
 # set environment
 env = Environment(variables=vars)
@@ -230,8 +230,6 @@ if env['order'] == 'none':
 if env['equations'] == 'viscoelastic':
   if env['numberOfMechanisms'] == '0':
     ConfigurationError("*** Number of mechanisms not set.")
-  if not os.path.exists(os.path.expanduser(env['libxsmmGenerator'])):
-    ConfigurationError("*** Path to libxsmm code generator not set.")
   
 # check for architecture
 if env['arch'] == 'snoarch' or env['arch'] == 'dnoarch':
@@ -239,10 +237,19 @@ if env['arch'] == 'snoarch' or env['arch'] == 'dnoarch':
   
 if not env['generatedKernels'] and ( env['parallelization'] == 'omp' or env['parallelization'] == 'hybrid' ):
   ConfigurationError("*** Classic version does not support hybrid parallelization")
+  
+if not env.has_key('memLayout'):
+  env['memLayout'] = memlayout.guessMemoryLayout(env)
 
 #
 # preprocessor, compiler and linker
 #
+
+numberOfQuantities = {
+  'elastic' : 9,
+  'viscoelastic' : 9 + int(env['numberOfMechanisms']) * 6
+}
+numberOfQuantities['viscoelastic2'] = numberOfQuantities['viscoelastic']
 
 # Basic compiler setting
 if env['compiler'] == 'intel':
@@ -262,7 +269,7 @@ else:
     
 # Parallel compiler required?
 if env['parallelization'] in ['mpi', 'hybrid']:
-    env.Tool('MPITool', toolpath=['build/scons/Tools'])
+    env.Tool('MPITool')
     
     # Do not include C++ MPI Bindings
     env.Append(CPPDEFINES=['OMPI_SKIP_MPICXX'])
@@ -362,65 +369,12 @@ elif env['compiler'] == 'gcc':
 #
 # Architecture dependent settings
 #
-
-# set vector instruction set
-if env['arch'] in ['snoarch', 'dnoarch']:
-  env['alignment'] = 16
-elif env['arch'] in ['ssnb', 'dsnb']:
-  env['alignment'] = 32
-  env.Append( CFLAGS    = ['-mavx'],
-              CXXFLAGS  = ['-mavx'],
-              F90FLAGS  = ['-mavx'],
-              LINKFLAGS = ['-mavx'] )
-elif env['arch'] in ['swsm', 'dwsm']:
-  env['alignment'] = 16
-  env.Append( CFLAGS    = ['-msse3'],
-              CXXFLAGS  = ['-msse3'],
-              F90FLAGS  = ['-msse3'],
-              LINKFLAGS = ['-msse3']  )
-elif env['arch'] in ['shsw', 'dhsw']:
-  env['alignment'] = 32
-  if env['compiler'] == 'intel':
-    env.Append( CFLAGS    = ['-xCORE-AVX2', '-fma'],
-                CXXFLAGS  = ['-xCORE-AVX2', '-fma'],
-                F90FLAGS  = ['-xCORE-AVX2', '-fma'],
-                LINKFLAGS = ['-xCORE-AVX2', '-fma']  )
-  else:
-    env.Append( CFLAGS    = ['-mavx2', '-mfma'],
-                CXXFLAGS  = ['-mavx2', '-mfma'],
-                F90FLAGS  = ['-mavx2', '-mfma'],
-                LINKFLAGS = ['-mavx2', '-mfma']  )
-elif env['arch'] in ['sknc', 'dknc']:
-  env['alignment'] = 64
-  env.Append( CFLAGS    = ['-mmic', '-fma'],
-              CXXFLAGS  = ['-mmic', '-fma'],
-              F90FLAGS  = ['-mmic', '-fma'],
-              LINKFLAGS = ['-mmic', '-fma'] )
-elif env['arch'] in ['sknl', 'dknl']:
-  env['alignment'] = 64
-  if env['compiler'] == 'intel':
-    env.Append( CFLAGS    = ['-xMIC-AVX512', '-fma', '-DENABLE_MATRIX_PREFETCH', '-DENABLE_STREAM_MATRIX_PREFETCH', '-DNUMBER_OF_THREADS_PER_GLOBALDATA_COPY=4'],
-                CXXFLAGS  = ['-xMIC-AVX512', '-fma', '-DENABLE_MATRIX_PREFETCH', '-DENABLE_STREAM_MATRIX_PREFETCH', '-DNUMBER_OF_THREADS_PER_GLOBALDATA_COPY=4'],
-                F90FLAGS  = ['-xMIC-AVX512', '-fma', '-DENABLE_MATRIX_PREFETCH', '-DENABLE_STREAM_MATRIX_PREFETCH', '-DNUMBER_OF_THREADS_PER_GLOBALDATA_COPY=4'],
-                LINKFLAGS = ['-xMIC-AVX512', '-fma', '-DENABLE_MATRIX_PREFETCH', '-DENABLE_STREAM_MATRIX_PREFETCH', '-DNUMBER_OF_THREADS_PER_GLOBALDATA_COPY=4'] ) 
-  else:
-    env.Append( CFLAGS    = ['-mavx512f', '-mavx512cd', '-mavx512pf', '-mavx512er', '-mfma', '-DENABLE_MATRIX_PREFETCH', '-DENABLE_STREAM_MATRIX_PREFETCH', '-DNUMBER_OF_THREADS_PER_GLOBALDATA_COPY=4'],
-                CXXFLAGS  = ['-mavx512f', '-mavx512cd', '-mavx512pf', '-mavx512er', '-mfma', '-DENABLE_MATRIX_PREFETCH', '-DENABLE_STREAM_MATRIX_PREFETCH', '-DNUMBER_OF_THREADS_PER_GLOBALDATA_COPY=4'],
-                F90FLAGS  = ['-mavx512f', '-mavx512cd', '-mavx512pf', '-mavx512er', '-mfma', '-DENABLE_MATRIX_PREFETCH', '-DENABLE_STREAM_MATRIX_PREFETCH', '-DNUMBER_OF_THREADS_PER_GLOBALDATA_COPY=4'],
-                LINKFLAGS = ['-mavx512f', '-mavx512cd', '-mavx512pf', '-mavx512er', '-mfma', '-DENABLE_MATRIX_PREFETCH', '-DENABLE_STREAM_MATRIX_PREFETCH', '-DNUMBER_OF_THREADS_PER_GLOBALDATA_COPY=4']  )
-else:
-  #assert(env['compileMode'] == 'debug')
-  pass
-
-env.Append(CPPDEFINES=['ALIGNMENT='+str(env['alignment']),
-                       str(env['arch']).upper()])
-
-# enable interproc. opts for small cores
-if env['arch'] in ['sknc', 'dknc', 'sknl', 'dknl']:
-  env.Append( F90FLAGS  = ['-ip', '-ipo'],
-              CFLAGS    = ['-ip', '-ipo'],
-              CXXFLAGS  = ['-ip', '-ipo'],
-              LINKFLAGS = ['-ip', '-ipo'] )
+archFlags = arch.getFlags(env['arch'], env['compiler'])
+env.Append( CFLAGS    = archFlags,
+            CXXFLAGS  = archFlags,
+            F90FLAGS  = archFlags,
+            LINKFLAGS = archFlags )
+env.Append(CPPDEFINES=['ALIGNMENT=' + str(arch.getAlignment(env['arch'])), env['arch'].upper()])
   
 #
 # Compile mode settings
@@ -463,8 +417,6 @@ if env['compileMode'] in ['relWithDebInfo', 'release']:
 
 # set precompiler mode for the number of quantities and basis functions
 env.Append(CPPDEFINES=['CONVERGENCE_ORDER='+env['order']])
-
-numberOfQuantities = { 'elastic' : 9, 'viscoelastic' : 9 + int(env['numberOfMechanisms']) * 6 }
 env.Append(CPPDEFINES=['NUMBER_OF_QUANTITIES=' + str(numberOfQuantities[ env['equations'] ]), 'NUMBER_OF_RELAXATION_MECHANISMS=' + str(env['numberOfMechanisms'])])
 
 # set number of temporal integration points for dynamic ruputure boundary conditions
@@ -531,8 +483,11 @@ env.Append( CPPPATH=['#/submodules'] )
 # add libraries
 #
 
+# Libxsmm
+env.Tool('LibxsmmTool', required=env['equations'].startswith('viscoelastic'))
+
 # Library pathes
-env.Tool('DirTool', fortran=True, toolpath=['build/scons/Tools'])
+env.Tool('DirTool', fortran=True)
 
 # GLM
 env.Append(CPPPATH=['#/submodules/glm'])
@@ -540,22 +495,22 @@ env.Append(CPPDEFINES=['GLM_FORCE_COMPILER_UNKNOWN'])
 
 # HDF5
 if env['hdf5']:
-    env.Tool('Hdf5Tool', required=(not helpMode), toolpath=['build/scons/Tools'])
+    env.Tool('Hdf5Tool', required=(not helpMode))
     env.Append(CPPDEFINES=['USE_HDF'])
 
 # memkind
 if env['memkind']:
-  env.Tool('MemkindTool', toolpath=['build/scons/Tools'])
+  env.Tool('MemkindTool')
   env.Append(CPPDEFINES=['USE_MEMKIND'])
 
 # netCDF
 if env['netcdf']:
-    env.Tool('NetcdfTool', parallel=(env['parallelization'] in ['hybrid', 'mpi']), required=(not helpMode), toolpath=['build/scons/Tools'])
+    env.Tool('NetcdfTool', parallel=(env['parallelization'] in ['hybrid', 'mpi']), required=(not helpMode))
     env.Append(CPPDEFINES=['USE_NETCDF'])
     
 # sionlib still need to create a Tool for autoconfiguration
 if env['sionlib']:
-  env.Tool('SionTool', parallel=(env['parallelization'] in ['hybrid', 'mpi']), toolpath=['build/scons/Tools'])
+  env.Tool('SionTool', parallel=(env['parallelization'] in ['hybrid', 'mpi']))
 else:
   env['sionlib'] = False
 
@@ -622,7 +577,7 @@ for sourceFile in env.sourceFiles:
 env.Program('#/'+env['programFile'], sourceFiles)
 
 # build unit tests
-if env['unitTests'] != 'none' and env['generatedKernels']:
+if env['unitTests'] != 'none':
   # Anything done here should only affect tests
   env = env.Clone()
   
@@ -645,7 +600,7 @@ if env['unitTests'] != 'none' and env['generatedKernels']:
   env.Append(CPPDEFINES={'SEISSOL_TESTS': '"\\"' + Dir('.').srcnode().abspath + '/src/tests/\\""'})
   
   # add cxxtest-tool
-  env.Tool('cxxtest', toolpath=['build/scons/Tools'])
+  env.Tool('cxxtest')
   
   # Get test source files
   env.sourceFiles = []
