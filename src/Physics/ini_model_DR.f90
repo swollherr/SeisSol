@@ -161,9 +161,10 @@ MODULE ini_model_DR_mod
    CASE(16,17)
        !  SCEC TPV16/17 with heterogeneous initial stress field
        CALL background_TPV1617(EQN,MESH,IO,DISC,BND)
-   CASE(26,30)
+   CASE(26,30,77)
        !  26 = SCEC TPV26/27 with heterogeneous initial stress field
        !  30 = convergence test setup
+       !  77 = homogeneous initial stress field
        CALL background_TPV2627(EQN,MESH,DISC,BND)
     CASE(50)
        ! Tohoku 1
@@ -1717,18 +1718,22 @@ MODULE ini_model_DR_mod
   REAL                           :: xi, eta, zeta, XGp, YGp, ZGp
   REAL                           :: b11, b33, b13, Pf
   REAL                           :: omega !depth dependent
-  !LOGICAL                        :: nodewise=.FALSE.
+  !LOGICAL                        :: nodewise
   !-------------------------------------------------------------------------!
   INTENT(IN)    :: MESH, BND
   INTENT(INOUT) :: DISC,EQN
   !-------------------------------------------------------------------------!
-
 
   ! based on SCEC TPV26/27 test right-lateral strike-slip fault, z negative in depth
   ! 26 with elastic and 27 with viscoplastic material properties
   b11 = 0.926793
   b33 = 1.073206
   b13 = -0.169029
+
+  VertexSide(1,:) =  (/ 1, 3, 2 /)   ! Local tet. vertices of tet. side I   !
+  VertexSide(2,:) =  (/ 1, 2, 4 /)   ! Local tet. vertices of tet. side II  !
+  VertexSide(3,:) =  (/ 1, 4, 3 /)   ! Local tet. vertices of tet. side III !
+  VertexSide(4,:) =  (/ 2, 3, 4 /)   ! Local tet. vertices of tet. side IV  !
 
   ! Loop over every mesh element
   DO i = 1, MESH%Fault%nSide
@@ -1753,6 +1758,8 @@ MODULE ini_model_DR_mod
       EQN%IniShearXZ(i,:)  =  EQN%ShearXZ_0
       EQN%IniStateVar(i,:) =  EQN%RS_sv0
 
+
+      IF (EQN%GPwise.EQ.1) THEN
       ! Gauss node coordinate definition and stress assignment
       ! get vertices of complete tet
       IF (MESH%Fault%Face(i,1,1) == 0) THEN
@@ -1786,12 +1793,12 @@ MODULE ini_model_DR_mod
               !
               !depth, negative in depth
               !average = zGP   ! Averaging not needed here
-              Pf = 9800.0D0* abs(zGP) !fluid pressure, hydrostatic with water table at the surface
+
               !
 
               SELECT CASE(DISC%DynRup%BackgroundType)
                 CASE(26)
-
+                   Pf = 9800.0D0* abs(zGP) !fluid pressure, hydrostatic with water table at the surface
                   IF (zGP.GE. -15000.0D0) THEN !depth less than 15000m
                    omega = 1.0D0
                   ELSEIF ((zGP.LT. -15000.0D0) .AND. (zGP .GE. -20000.0D0) ) THEN !depth between 15000 and 20000m
@@ -1800,17 +1807,6 @@ MODULE ini_model_DR_mod
                    omega = 0.0D0
                   ENDIF
 
-                CASE(30)
-
-                  IF (zGP.GE. -11250.0D0) THEN !depth less than 11250m
-                   omega = 1.0D0
-                  ELSEIF ((zGP.LT. -11250.0D0) .AND. (zGP .GE. -15000.0D0) ) THEN !depth between 11250 and 15000
-                   omega = (15000.0D0-abs(zGP))/3750.0D0
-                  ELSE ! depth more than 15000m
-                   omega = 0.0D0
-                  ENDIF
-
-             END SELECT
 
              EQN%IniBulk_zz(i,iBndGP)  = -2670D0*9.8D0 * abs(zGP)
              EQN%IniBulk_xx(i,iBndGP)  = omega*(b11*(EQN%IniBulk_zz(i,iBndGP)+Pf)-Pf)+(1-omega)*EQN%IniBulk_zz(i,iBndGP)
@@ -1823,10 +1819,64 @@ MODULE ini_model_DR_mod
              EQN%IniBulk_yy(i,iBndGP)  = EQN%IniBulk_yy(i,iBndGP)+Pf
              EQN%IniBulk_zz(i,iBndGP)  = EQN%IniBulk_zz(i,iBndGP)+Pf
 
+                CASE(30) !smaller geometry
+                   Pf = 9800.0D0* abs(zGP) !fluid pressure, hydrostatic with water table at the surface
+                  IF (zGP.GE. -12500.0D0) THEN !depth less than 11250m
+                   omega = 1.0D0
+                  ELSEIF ((zGP.LT. -12500.0D0) .AND. (zGP .GE. -15000.0D0) ) THEN !depth between 11250 and 15000
+                   omega = (15000.0D0-abs(zGP))/3750.0D0
+                  ELSE ! depth more than 15000m
+                   omega = 0.0D0
+                  ENDIF
+             EQN%IniBulk_zz(i,iBndGP)  = -2670D0*9.8D0 * abs(zGP)
+             EQN%IniBulk_xx(i,iBndGP)  = omega*(b11*(EQN%IniBulk_zz(i,iBndGP)+Pf)-Pf)+(1-omega)*EQN%IniBulk_zz(i,iBndGP)
+             EQN%IniBulk_yy(i,iBndGP)  = omega*(b33*(EQN%IniBulk_zz(i,iBndGP)+Pf)-Pf)+(1-omega)*EQN%IniBulk_zz(i,iBndGP)
+             EQN%IniShearXY(i,iBndGP)  = omega*(b13*(EQN%IniBulk_zz(i,iBndGP)+Pf))
+             EQN%IniShearXZ(i,iBndGP)  = 0.0D0
+             EQN%IniShearYZ(i,iBndGP)  = 0.0D0
+             !add fluid pressure
+             EQN%IniBulk_xx(i,iBndGP)  = EQN%IniBulk_xx(i,iBndGP)+Pf
+             EQN%IniBulk_yy(i,iBndGP)  = EQN%IniBulk_yy(i,iBndGP)+Pf
+             EQN%IniBulk_zz(i,iBndGP)  = EQN%IniBulk_zz(i,iBndGP)+Pf
+
+
+             CASE(77)
+
+
+             !omega = 1.0D0
+             Pf = 9800.0D0* 10500.0D0
+
+             !with tappering, otherwise:
+             !omega = 1.0D0
+
+             IF (zGP.GE. -15000.0D0) THEN !depth less than 11250m
+                   omega = 1.0D0
+             ELSEIF ((zGP.LT. -15000.0D0) .AND. (zGP .GE. -20000.0D0) ) THEN !depth between 11250 and 15000
+                   omega = (20000.0D0-abs(zGP))/5000.0D0
+             ELSE ! depth more than 20000m
+                   omega = 0.0D0
+             ENDIF
+
+             EQN%IniBulk_zz(i,iBndGP)  = -2670D0*9.8D0 * 10500.0D0
+             EQN%IniBulk_xx(i,iBndGP)  = omega*(b11*(EQN%IniBulk_zz(i,iBndGP)+Pf)-Pf)+(1-omega)*EQN%IniBulk_zz(i,iBndGP)
+             EQN%IniBulk_yy(i,iBndGP)  = omega*(b33*(EQN%IniBulk_zz(i,iBndGP)+Pf)-Pf)+(1-omega)*EQN%IniBulk_zz(i,iBndGP)
+             EQN%IniShearXY(i,iBndGP)  = omega*(b13*(EQN%IniBulk_zz(i,iBndGP)+Pf))
+             EQN%IniShearXZ(i,iBndGP)  = 0.0D0
+             EQN%IniShearYZ(i,iBndGP)  = 0.0D0
+             !add fluid pressure
+             EQN%IniBulk_xx(i,iBndGP)  = EQN%IniBulk_xx(i,iBndGP)+Pf
+             EQN%IniBulk_yy(i,iBndGP)  = EQN%IniBulk_yy(i,iBndGP)+Pf
+             EQN%IniBulk_zz(i,iBndGP)  = EQN%IniBulk_zz(i,iBndGP)+Pf
+
+
+             END SELECT
+
+
+
              !depth dependent frictional cohesion, negative in seissol, in benchmark positive
 
              SELECT CASE(DISC%DynRup%BackgroundType)
-             CASE(26) !tpv26/tpv27
+             CASE(26,77) !tpv26/tpv27
 
                 IF (zGP.GE.-5000.0D0) THEN
                    DISC%DynRup%cohesion(i,iBndGP) = -0.4D6 - 0.00072D6*(5000D0-abs(zGP))
@@ -1845,6 +1895,130 @@ MODULE ini_model_DR_mod
 
          ENDDO ! iBndGP
 
+      ! element wise stress assignment
+      ELSE
+      ! get coordinates needed for special background types and nucleation zone
+      IF (iElem .NE. 0) THEN
+          !
+          DO j=1,3
+              xp(j) = MESH%VRTX%xyNode(1,MESH%ELEM%Vertex(VertexSide(iSide,j),iElem))
+              yp(j) = MESH%VRTX%xyNode(2,MESH%ELEM%Vertex(VertexSide(iSide,j),iElem))
+              zp(j) = MESH%VRTX%xyNode(3,MESH%ELEM%Vertex(VertexSide(iSide,j),iElem))
+          ENDDO
+      ELSEIF (iElem == 0) THEN ! in case "+" element is not present in the local domain
+          !
+          iLocalNeighborSide = MESH%Fault%Face(i,2,2)
+          DO j=1,3
+              xp(j) = MESH%VRTX%xyNode(1,MESH%ELEM%Vertex(VertexSide(iLocalNeighborSide,j),MESH%Fault%Face(i,1,2)))
+              yp(j) = MESH%VRTX%xyNode(2,MESH%ELEM%Vertex(VertexSide(iLocalNeighborSide,j),MESH%Fault%Face(i,1,2)))
+              zp(j) = MESH%VRTX%xyNode(3,MESH%ELEM%Vertex(VertexSide(iLocalNeighborSide,j),MESH%Fault%Face(i,1,2)))
+          ENDDO
+      ENDIF
+      !
+      !depth (negative in z)
+      zGP = sum(zp(:))/3.0D0 !average but named zGP as above
+
+
+      Pf = 9800.0D0* abs(zGP) !fluid pressure, hydrostatic with water table at the surface
+              !
+
+
+       SELECT CASE(DISC%DynRup%BackgroundType)
+         CASE(26)
+
+                  IF (zGP.GE. -15000.0D0) THEN !depth less than 15000m
+                   omega = 1.0D0
+                  ELSEIF ((zGP.LT. -15000.0D0) .AND. (zGP .GE. -20000.0D0) ) THEN !depth between 15000 and 20000m
+                   omega = (20000.0D0-abs(zGP))/5000.0D0
+                  ELSE ! depth more than 20000m
+                   omega = 0.0D0
+                  ENDIF
+
+
+             EQN%IniBulk_zz(i,:)  = -2670D0*9.8D0 * abs(zGP)
+             EQN%IniBulk_xx(i,:)  = omega*(b11*(EQN%IniBulk_zz(i,:)+Pf)-Pf)+(1-omega)*EQN%IniBulk_zz(i,:)
+             EQN%IniBulk_yy(i,:)  = omega*(b33*(EQN%IniBulk_zz(i,:)+Pf)-Pf)+(1-omega)*EQN%IniBulk_zz(i,:)
+             EQN%IniShearXY(i,:)  = omega*(b13*(EQN%IniBulk_zz(i,:)+Pf))
+             EQN%IniShearXZ(i,:)  = 0.0D0
+             EQN%IniShearYZ(i,:)  = 0.0D0
+             !add fluid pressure
+             EQN%IniBulk_xx(i,:)  = EQN%IniBulk_xx(i,:)+Pf
+             EQN%IniBulk_yy(i,:)  = EQN%IniBulk_yy(i,:)+Pf
+             EQN%IniBulk_zz(i,:)  = EQN%IniBulk_zz(i,:)+Pf
+
+         CASE(30)
+
+                  IF (zGP.GE. -12500.0D0) THEN !depth less than 11250m
+                   omega = 1.0D0
+                  ELSEIF ((zGP.LT. -12500.0D0) .AND. (zGP .GE. -15000.0D0) ) THEN !depth between 11250 and 15000
+                   omega = (15000.0D0-abs(zGP))/3750.0D0
+                  ELSE ! depth more than 15000m
+                   omega = 0.0D0
+                  ENDIF
+             EQN%IniBulk_zz(i,:)  = -2670D0*9.8D0 * abs(zGP)
+             EQN%IniBulk_xx(i,:)  = omega*(b11*(EQN%IniBulk_zz(i,:)+Pf)-Pf)+(1-omega)*EQN%IniBulk_zz(i,:)
+             EQN%IniBulk_yy(i,:)  = omega*(b33*(EQN%IniBulk_zz(i,:)+Pf)-Pf)+(1-omega)*EQN%IniBulk_zz(i,:)
+             EQN%IniShearXY(i,:)  = omega*(b13*(EQN%IniBulk_zz(i,:)+Pf))
+             EQN%IniShearXZ(i,:)  = 0.0D0
+             EQN%IniShearYZ(i,:)  = 0.0D0
+             !add fluid pressure
+             EQN%IniBulk_xx(i,:)  = EQN%IniBulk_xx(i,:)+Pf
+             EQN%IniBulk_yy(i,:)  = EQN%IniBulk_yy(i,:)+Pf
+             EQN%IniBulk_zz(i,:)  = EQN%IniBulk_zz(i,:)+Pf
+
+
+             CASE(77)
+
+
+             !omega = 1.0D0
+             Pf = 9800.0D0* 10000.0D0
+
+             IF (zGP.GE. -15000.0D0) THEN !depth less than 11250m
+                   omega = 1.0D0
+             ELSEIF ((zGP.LT. -15000.0D0) .AND. (zGP .GE. -20000.0D0) ) THEN !depth between 11250 and 15000
+                   omega = (20000.0D0-abs(zGP))/5000.0D0
+             ELSE ! depth more than 15000m
+                   omega = 0.0D0
+             ENDIF
+
+             EQN%IniBulk_zz(i,:)  = -2670D0*9.8D0 * 10000.0D0
+             EQN%IniBulk_xx(i,:)  = omega*(b11*(EQN%IniBulk_zz(i,:)+Pf)-Pf)+(1-omega)*EQN%IniBulk_zz(i,:)
+             EQN%IniBulk_yy(i,:)  = omega*(b33*(EQN%IniBulk_zz(i,:)+Pf)-Pf)+(1-omega)*EQN%IniBulk_zz(i,:)
+             EQN%IniShearXY(i,:)  = omega*(b13*(EQN%IniBulk_zz(i,:)+Pf))
+             EQN%IniShearXZ(i,:)  = 0.0D0
+             EQN%IniShearYZ(i,:)  = 0.0D0
+             !add fluid pressure
+             EQN%IniBulk_xx(i,:)  = EQN%IniBulk_xx(i,:)+Pf
+             EQN%IniBulk_yy(i,:)  = EQN%IniBulk_yy(i,:)+Pf
+             EQN%IniBulk_zz(i,:)  = EQN%IniBulk_zz(i,:)+Pf
+
+
+             END SELECT
+
+
+
+             !depth dependent frictional cohesion, negative in seissol, in benchmark positive
+
+             SELECT CASE(DISC%DynRup%BackgroundType)
+             CASE(26,77) !tpv26/tpv27
+
+                IF (zGP.GE.-5000.0D0) THEN
+                   DISC%DynRup%cohesion(i,:) = -0.4D6 - 0.00072D6*(5000D0-abs(zGP))
+                ELSE
+                   DISC%DynRup%cohesion(i,:) = -0.4D6
+                ENDIF
+
+             CASE(30) !convergence test
+               IF (zGP.GE.-3750.0D0) THEN
+                  DISC%DynRup%cohesion(i,:) = -0.4D6 - 0.00072D6*(3750D0-abs(zGP))
+               ELSE
+                  DISC%DynRup%cohesion(i,:) = -0.4D6
+               ENDIF
+
+            END SELECT
+
+
+     ENDIF !node or elementwise
 
      ENDDO !    MESH%Fault%nSide
   END SUBROUTINE

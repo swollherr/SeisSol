@@ -314,6 +314,7 @@ CONTAINS
         EQN%BulkFriction = BulkFriction
         EQN%Tv = Tv
         EQN%PlastMethod = pmethod
+        logInfo0(*) 'Plastic relaxation Tv is set to: '
         !read additional values
     CASE DEFAULT
       logError(*) 'Choose 0 or 1 as plasticity assumption. '
@@ -387,7 +388,7 @@ CONTAINS
       logInfo(*) ' mu = ', EQN%mu       ! (2)
       logInfo(*) ' lambda = ', EQN%lambda   ! (3)
       !
-    CASE(1,11)          ! get material properties from file
+    CASE(1,11, 78)          ! get material properties from file
       call readmaterial(IO, EQN, DISC )
     !
     CASE(2)                !special case for radially symmetric PREM data
@@ -534,7 +535,7 @@ CONTAINS
       ENDDO
       CLOSE(IO%UNIT%other01)      
       !
-  CASE(12, 26, 28) ! Plasticity with constant material properties, initial stress (loading) must be assigned to every element in the domain
+  CASE(12, 26, 28, 77) ! Plasticity with constant material properties, initial stress (loading) must be assigned to every element in the domain
            ! special case for TPV13, add other cases that use plasticity with different initial stress values here
       IF (EQN%Plasticity.EQ.1)THEN
         logInfo(*) 'Jacobians are globally constant with rho0, mu, lambda:'
@@ -1539,7 +1540,7 @@ CONTAINS
     XRef = 0
     YRef = 0
     ZRef = 0
-    GPwise = 1
+    GPwise = 1 !1=GPwise and 0=elementwise
     inst_healing = 0
     Rupspeed = 0
     Mu_D_ini = 1.0
@@ -1592,7 +1593,7 @@ CONTAINS
            !BACKGROUND VALUES
            DISC%DynRup%BackgroundType = BackgroundType
            SELECT CASE(DISC%DynRup%BackgroundType)
-           CASE(0,1,2,3,4,5,7,10,11,12,13,14,15,30,50,60,61,62,70,100,101,103)
+           CASE(0,1,2,3,4,5,7,10,11,12,13,14,15,26,30,50,60,61,62,70,77,100,101,103)
              EQN%Bulk_xx_0 = Bulk_xx_0
              EQN%Bulk_yy_0 = Bulk_yy_0
              EQN%Bulk_zz_0 = Bulk_zz_0
@@ -1604,6 +1605,13 @@ CONTAINS
              EQN%YRef = YRef
              EQN%ZRef = ZRef
              DISC%DynRup%cohesion_0 = cohesion_0
+             EQN%GPwise = GPwise
+             IF (EQN%GPwise .EQ.1) THEN
+                 logInfo0(*) 'GPwise initialization. '
+             ELSE
+                 logInfo0(*) 'elementwise initialization. '
+             ENDIF
+
            CASE(16,17)
              IO%FileName_BackgroundStress = FileName_BackgroundStress
              EQN%GPwise = GPwise

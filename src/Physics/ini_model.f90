@@ -540,16 +540,27 @@ CONTAINS
         ENDDO
         !
 
-        CASE(26, 28)
+        CASE(26, 28, 77, 78)
         ! 26 = special case for TPV27; 28 = convergence tests
         ! depth dependent initial shear/normal stresses are defined for the whole domain for the plastic calculations
         ! but otherwise constant material properties
 
+        ! Initialisation of IniStress(6 stress components in 3D)
+        !
+        SELECT CASE(EQN%LinType)
+        CASE(78)
+            DO iElem = 1, MESH%nElem
+                iLayer = MESH%ELEM%Reference(0,iElem)        ! Zone number is given by reference 0
+                MaterialVal(iElem,:) = EQN%MODEL(iLayer,:)   ! Set material properties for this zone.
+            ENDDO
+        CASE(26,28,77)
+
         MaterialVal(:,1) = EQN%rho0
         MaterialVal(:,2) = EQN%mu
         MaterialVal(:,3) = EQN%lambda
-        ! Initialisation of IniStress(6 stress components in 3D)
-        !
+
+        END SELECT
+
         ALLOCATE(EQN%IniStress(6,MESH%nElem))
                  EQN%IniStress(:,:)=0.0D0
         b11 = 0.926793
@@ -562,13 +573,6 @@ CONTAINS
               Pf = 9800.0D0* abs(z) !fluid pressure, hydrostatic with water table at the surface
 
 
-              IF (z.GE. -15000.0D0) THEN !depth less than 15000m
-                 omega = 1.0D0
-              ELSEIF ((z.LT. -15000.0D0) .AND. (z.GE. -20000.0D0) ) THEN !depth between 15000 and 20000m
-                 omega = (20000.0D0-abs(z))/5000.0D0
-              ELSE ! depth more than 20000m
-                 omega = 0.0D0
-              ENDIF
 
 
               SELECT CASE(EQN%LinType)
@@ -581,15 +585,6 @@ CONTAINS
                      omega = 0.0D0
                   ENDIF
 
-              CASE(28)!convergence setup
-                   IF (z.GE. -11250.0D0) THEN !depth less than 11250m
-                      omega = 1.0D0
-                   ELSEIF ((z.LT. -112500.0D0) .AND. (z .GE. -15000.0D0) ) THEN !depth between 15000 and 20000m
-                      omega = (15000.0D0-abs(z))/3750.0D0
-                   ELSE ! depth more than 20000m
-                      omega = 0.0D0
-                   ENDIF
-              END SELECT
 
 
               EQN%IniStress(3,iElem)  = -2670D0*9.8D0 * abs(z) !zz
@@ -604,6 +599,79 @@ CONTAINS
               EQN%IniStress(1,iElem)  = EQN%IniStress(1,iElem) + Pf
               EQN%IniStress(2,iElem)  = EQN%IniStress(2,iElem) + Pf
               EQN%IniStress(3,iElem)  = EQN%IniStress(3,iElem) + Pf
+
+              CASE(28)!convergence setup
+                   IF (z.GE. -11250.0D0) THEN !depth less than 11250m
+                      omega = 1.0D0
+                   ELSEIF ((z.LT. -112500.0D0) .AND. (z .GE. -15000.0D0) ) THEN !depth between 15000 and 20000m
+                      omega = (15000.0D0-abs(z))/3750.0D0
+                   ELSE ! depth more than 20000m
+                      omega = 0.0D0
+                   ENDIF
+
+
+              EQN%IniStress(3,iElem)  = -2670D0*9.8D0 * abs(z) !zz
+              EQN%IniStress(1,iElem)  = omega*(b11*(EQN%IniStress(3,iElem)+Pf)-Pf)+(1-omega)*EQN%IniStress(3,iElem) !xx
+              EQN%IniStress(2,iElem)  = omega*(b33*(EQN%IniStress(3,iElem)+Pf)-Pf)+(1-omega)*EQN%IniStress(3,iElem) !yy
+
+              EQN%IniStress(4,iElem)  = omega*(b13*(EQN%IniStress(3,iElem)+Pf))  !shear stress xy
+              EQN%IniStress(5,iElem)  = 0.0  !shear stress xz
+              EQN%IniStress(6,iElem)  = 0.0  !shear stress yz
+
+              !add fluid pressure
+              EQN%IniStress(1,iElem)  = EQN%IniStress(1,iElem) + Pf
+              EQN%IniStress(2,iElem)  = EQN%IniStress(2,iElem) + Pf
+              EQN%IniStress(3,iElem)  = EQN%IniStress(3,iElem) + Pf
+
+              CASE(77) !homogen.initital stress
+              Pf = 9800.0D0* 10500.D0
+
+                  IF (z.GE. -15000.0D0) THEN !depth less than 15000m
+                     omega = 1.0D0
+                  ELSEIF ((z.LT. -15000.0D0) .AND. (z .GE. -20000.0D0) ) THEN !depth between 15000 and 20000m
+                     omega = (20000.0D0-abs(z))/5000.0D0
+                  ELSE ! depth more than 20000m
+                     omega = 0.0D0
+                  ENDIF
+
+
+
+              EQN%IniStress(3,iElem)  = -2670D0*9.8D0 * 10500.0D0 !zz
+              EQN%IniStress(1,iElem)  = omega*(b11*(EQN%IniStress(3,iElem)+Pf)-Pf)+(1-omega)*EQN%IniStress(3,iElem) !xx
+              EQN%IniStress(2,iElem)  = omega*(b33*(EQN%IniStress(3,iElem)+Pf)-Pf)+(1-omega)*EQN%IniStress(3,iElem) !yy
+
+              EQN%IniStress(4,iElem)  = omega*(b13*(EQN%IniStress(3,iElem)+Pf))  !shear stress xy
+              EQN%IniStress(5,iElem)  = 0.0  !shear stress xz
+              EQN%IniStress(6,iElem)  = 0.0  !shear stress yz
+
+              !add fluid pressure
+              EQN%IniStress(1,iElem)  = EQN%IniStress(1,iElem) + Pf
+              EQN%IniStress(2,iElem)  = EQN%IniStress(2,iElem) + Pf
+              EQN%IniStress(3,iElem)  = EQN%IniStress(3,iElem) + Pf
+
+
+
+              CASE(78) !homog. initial loading for convergence tests
+                   omega = 1.0D0
+                   z = -10000.0D0 !take the stress values of the nucleation patch
+                   Pf = 9800.0D0* abs(z) !fluid pressure, hydrostatic with water table at the surface
+
+              EQN%IniStress(3,iElem)  = -2670D0*9.8D0 * abs(z) !zz
+              EQN%IniStress(1,iElem)  = omega*(b11*(EQN%IniStress(3,iElem)+Pf)-Pf)+(1-omega)*EQN%IniStress(3,iElem) !xx
+              EQN%IniStress(2,iElem)  = omega*(b33*(EQN%IniStress(3,iElem)+Pf)-Pf)+(1-omega)*EQN%IniStress(3,iElem) !yy
+
+              EQN%IniStress(4,iElem)  = omega*(b13*(EQN%IniStress(3,iElem)+Pf))  !shear stress xy
+              EQN%IniStress(5,iElem)  = 0.0  !shear stress xz
+              EQN%IniStress(6,iElem)  = 0.0  !shear stress yz
+
+              !add fluid pressure
+              EQN%IniStress(1,iElem)  = EQN%IniStress(1,iElem) + Pf
+              EQN%IniStress(2,iElem)  = EQN%IniStress(2,iElem) + Pf
+              EQN%IniStress(3,iElem)  = EQN%IniStress(3,iElem) + Pf
+
+              END SELECT
+
+
 
                      !
         ENDDO
