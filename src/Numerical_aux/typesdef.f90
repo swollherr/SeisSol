@@ -953,6 +953,8 @@ MODULE TypesDef
      INTEGER                                :: magnitude_output_on              !< magnitude output on = 1, off = 0
      LOGICAL, ALLOCATABLE                   :: magnitude_out(:)                 !< magnitude output: true or false
      REAL, ALLOCATABLE                      :: averaged_Slip(:)                 !< slip averaged per element (length all + elements in this domain)
+     !energy output
+     INTEGER                                :: energy_output_on
      ! declarate output types
      LOGICAL                                :: DR_output                        !< Dynamic Rupture output just for domains with "+" elements
      INTEGER                                :: OutputPointType                  !< Type of output (3: at certain pickpoint positions, 4: at every element , 5: option 3 + 4)
@@ -1169,6 +1171,7 @@ MODULE TypesDef
      INTEGER                                :: Anelasticity                     !< (0) = elastic, (1) = anelastic
      INTEGER                                :: Poroelasticity                   !< (0) = non-porous, (1) = porous-HF, (2) = porous-LF with ST-DG, (3) = porous-LF with FS-DG
      INTEGER                                :: Plasticity                       !< (0) = elastic, (1) = (Drucker-Prager) visco-plastic 
+     REAL, POINTER                          :: PlasticEnergy(:,:)=> NULL()
      REAL                                   :: PlastCo                          !< Cohesion for the Drucker-Prager plasticity
      REAL                                   :: BulkFriction                     !< Bulk friction for the Drucker-Prager plasticity
      REAL                                   :: Tv                               !< relaxation coefficient for the update of stresses due to the Drucker-Prager plasticity, approx. (dx/V_s)
@@ -1400,8 +1403,10 @@ MODULE TypesDef
      REAL                                   :: k,k0,k1,k2,k3,k4                 !< for RD-Schemes
      REAL                                   :: a,b                              !<
      REAL                                   :: picktime                         !< Time for next pickpointing
+     REAL                                   :: picktime_energy
      REAL, POINTER                          :: localpicktime(:) => null()       !< Time for next pickpointing (local dt)
      REAL                                   :: pickdt                           !< Time increment for pickpointing
+     REAL                                   :: pickdt_energy                    !< Time increment for energy time series
      integer                                :: pickDtType                       !< Meaning of pickdt: 1 = time, 2 = timestep(s)
      INTEGER                                :: PickLarge                        !< 0 = IO at each time level, 1 = IO every some number of levels
      INTEGER                      , POINTER :: CurrentPick(:)                   !< Current storage time level

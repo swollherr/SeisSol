@@ -133,7 +133,7 @@ module f_ctof_bind_interoperability
     end subroutine
 
     subroutine f_interoperability_computePlasticity( i_domain, i_timeStep, &
-            i_numberOfAlignedBasisFunctions, i_initialLoading, io_dofs, io_pstrain ) bind( c, name='f_interoperability_computePlasticity')
+            i_numberOfAlignedBasisFunctions, i_plasticParameters, i_initialLoading, io_dofs, io_plasticEnergy, io_pstrain ) bind( c, name='f_interoperability_computePlasticity')
       use iso_c_binding
       use typesDef
       use plasticity_mod
@@ -146,11 +146,17 @@ module f_ctof_bind_interoperability
 
       integer(kind=c_int), value             :: i_numberOfAlignedBasisFunctions
 
+      type(c_ptr), value                     :: i_plasticParameters
+      real*8, pointer                        :: l_plasticParameters(:)
+
       type(c_ptr), value                     :: i_initialLoading
       real*8, pointer                        :: l_initialLoading(:,:)
 
       type(c_ptr), value                     :: io_dofs
       real*8, pointer                        :: l_dofs(:,:)
+
+      type(c_ptr), value                     :: io_plasticEnergy
+      real*8, pointer                        :: l_plasticEnergy(:)
 
       type(c_ptr), value                     :: io_pstrain
       real*8, pointer                        :: l_pstrain(:)
@@ -158,9 +164,11 @@ module f_ctof_bind_interoperability
       ! convert c to fotran pointers
       call c_f_pointer( i_domain,         l_domain                                         )
       call c_f_pointer( i_timeStep,       l_timeStep                                       )
+      call c_f_pointer( i_plasticParameters, l_plasticParameters, [2]                      )
       call c_f_pointer( i_initialLoading, l_initialLoading, [NUMBER_OF_BASIS_FUNCTIONS,6]  )
-      call c_f_pointer( io_dofs,       l_dofs,       [i_numberOfAlignedBasisFunctions,6]   )
-      call c_f_pointer( io_pstrain,    l_pstrain,    [7]                                   )
+      call c_f_pointer( io_dofs,          l_dofs,       [i_numberOfAlignedBasisFunctions,6])
+      call c_f_pointer( io_plasticEnergy, l_plasticEnergy, [2]                             )
+      call c_f_pointer( io_pstrain,       l_pstrain,    [7]                                )
 
 
       select case(l_domain%eqn%PlastMethod)
@@ -174,6 +182,8 @@ module f_ctof_bind_interoperability
                               plastCo      = l_domain%eqn%PlastCo, &
                               dt           = l_timeStep, &
                               mu           = l_domain%eqn%mu, &
+                              volume       = l_plasticParameters ,&
+                              plasticEnergy= l_plasticEnergy,&
                               pstrain      = l_pstrain )
 
       case(0) !values at internal GP

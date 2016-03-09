@@ -129,7 +129,6 @@ CONTAINS
                                                EQN%nVar                     ) ! Auxilliary update dof
     REAL                           :: dudt_plastic(DISC%Galerkin%nDegFr,    &
                                                 6                    ) ! Auxilliary update dof for plastic calculations
-    REAL                           :: dudt_pstrain(1:6                      ) ! Auxilliary update for the plastic strain
     REAL                           :: auxvar(DISC%Galerkin%nDegFr,          & !
                                              EQN%nVar,                      & !
                                              DISC%Galerkin%nDegFrMat        ) ! Auxilliary variable
@@ -468,7 +467,8 @@ CONTAINS
 
                   CASE(2) !average approximated with the first dof -> is working
                      CALL Plasticity_3D_dof(DISC%Galerkin%dgvar(:,1:6,iElem,1), DISC%Galerkin%DOFStress(:,1:6,iElem), DISC%Galerkin%nDegFr, &
-                                            DISC%Galerkin%nDegFr, EQN%BulkFriction, EQN%Tv, EQN%PlastCo, dt, EQN%mu, DISC%Galerkin%pstrain(1:7,iElem) )
+                                            DISC%Galerkin%nDegFr, EQN%BulkFriction, EQN%Tv, EQN%PlastCo, dt, EQN%mu, MESH%Elem%Volume(iElem), &
+                                            EQN%PlasticEnergy(1:2,iElem), DISC%Galerkin%pstrain(1:7,iElem) )
                   END SELECT
 
 #endif

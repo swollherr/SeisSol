@@ -5,7 +5,7 @@
 !! @author Stephanie Wollherr
 !!
 !! @section LICENSE
-!! Copyright (c) 2007-2014, SeisSol Group
+!! Copyright (c) 2007-2016, SeisSol Group
 !! All rights reserved.
 !! 
 !! Redistribution and use in source and binary forms, with or without
@@ -120,7 +120,8 @@ MODULE Plasticity_mod
     Stress_total = 0.0
 
     angfric = ATAN(BulkFriction) !angle of friction
-    relaxtime = dt/(Tv) !Tv=dx/V_s with dx=min(dx);  Tv smaller-> stronger plasticity
+    relaxtime = Tv !direct input via parameter file
+    !dt/(Tv) !Tv=dx/V_s with dx=min(dx);  Tv smaller-> stronger plasticity
     iPoly = DISC%Galerkin%nPoly
     ! Basis func values
     IntGPBaseFunc => DISC%Galerkin%IntGPBaseFunc_Tet(1:nDegFr,1:nIntGP,iPoly)
@@ -217,10 +218,7 @@ MODULE Plasticity_mod
      !Update
       dudt_plastic(1:nDegFr,1:6) = dgvar(1:nDegFr,1:6)- dgvar_new(1:nDegFr,1:6)
       dudt_pstrain(1:6) = (1/mu)*dudt_plastic(1,1:6) !for the plastic strain just take the first dof
-     !if ((check .eq. .false.) .and. (dudt_plastic(:,1:6) .NE. 0.0)) then
-                !logInfo(*) 'dgvar is unequal dgvar_new although no plast occured'
-     !endif
-     ! error if nothing has changed but dgvar neq dgvar_new (do we really get the exact same values??)
+     !mu or 2*mu?
    ENDIF !check = .true.
 
    dgvar(1:nDegFr,1:6) = dgvar(1:nDegFr,1:6) - dudt_plastic(1:nDegFr,1:6)
@@ -236,7 +234,7 @@ MODULE Plasticity_mod
 
 
 !yldfac is only caluclated from the first DOF, and all DOF's are adjusted by the same coefficient
-  SUBROUTINE Plasticity_3D_DOF(dgvar, DOFStress, nDegFr, nAlignedDegFr, BulkFriction, Tv, PlastCo, dt, mu, pstrain)
+  SUBROUTINE Plasticity_3D_DOF(dgvar, DOFStress, nDegFr, nAlignedDegFr, BulkFriction, Tv, PlastCo, dt, mu, volume, plasticEnergy, pstrain)
 
     !-------------------------------------------------------------------------!
 
@@ -267,9 +265,11 @@ MODULE Plasticity_mod
     REAL        :: dgvar(1:nAlignedDegFr,1:6)
     REAL        :: dudt_pstrain(1:6)
     REAL        :: pstrain(1:7)
+    REAL        :: plasticEnergy_tmp, plasticEnergy(1:2)
+    REAL        :: volume(1:2)
     !-------------------------------------------------------------------------!
-    INTENT(IN)    :: DOFStress, nDegFr, BulkFriction, Tv, PlastCo, dt, mu
-    INTENT(INOUT) :: dgvar, pstrain
+    INTENT(IN)    :: DOFStress, nDegFr, BulkFriction, Tv, PlastCo, dt, mu, volume
+    INTENT(INOUT) :: dgvar, pstrain, plasticEnergy
     !-------------------------------------------------------------------------!
 
     dudt_pstrain = 0.0
@@ -332,6 +332,12 @@ MODULE Plasticity_mod
 
     !update plastic strain
     pstrain(1:6) = pstrain(1:6) + dudt_pstrain(1:6) !plastic strain tensor
+    !calculate increment of dissipated plastic energy for this element
+    !take stress or dgvar?
+    plasticEnergy_tmp = dgvar(1,1)*dudt_pstrain(1) + dgvar(1,2)*dudt_pstrain(2) + dgvar(1,3)*dudt_pstrain(3) + 2*dgvar(1,4)*dudt_pstrain(4) &
+                      + 2*dgvar(1,5)*dudt_pstrain(5) + 2*dgvar(1,6)*dudt_pstrain(6)
+    plasticEnergy(1) = plasticEnergy_tmp*volume(1)
+
     !accumulated plastic strain
     pstrain(7) = pstrain(7)+ dt*sqrt(0.5*(dudt_pstrain(1)**2 + dudt_pstrain(2)**2 &
                                                    + dudt_pstrain(3)**2)+ dudt_pstrain(4)**2 + dudt_pstrain(5)**2 + dudt_pstrain(6)**2)

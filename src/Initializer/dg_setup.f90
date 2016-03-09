@@ -510,7 +510,8 @@ CONTAINS
 
     ! propagate the time step width to time manager
     do iElem = 1, mesh%nElem
-      l_timeStepWidth = optionalFields%dt_convectiv(iElem)
+      !l_timeStepWidth = optionalFields%dt_convectiv(iElem)
+      l_timeStepWidth = optionalFields%dt(iElem)
 
 #ifdef PERIODIC_LTS_SCALING
       ! perform the scaling of the time step width
@@ -2589,6 +2590,7 @@ CONTAINS
     ! temporary degrees of freedom
     real    :: l_dofsUpdate(disc%galerkin%nDegFr, eqn%nVarTotal)
     real    :: l_initialLoading( NUMBER_OF_BASIS_FUNCTIONS, 6 ) 
+    real    :: l_plasticParameters(2)
 #endif
     !-------------------------------------------------------------------------!
     !
@@ -2603,10 +2605,11 @@ CONTAINS
     !
 
     IF(EQN%Plasticity.EQ.1) THEN
-      ALLOCATE(DISC%Galerkin%DOFStress(DISC%Galerkin%nDegFr,6,MESH%nElem), DISC%Galerkin%pstrain(7, MESH%nElem))
+      ALLOCATE(DISC%Galerkin%DOFStress(DISC%Galerkin%nDegFr,6,MESH%nElem), DISC%Galerkin%pstrain(7, MESH%nElem), EQN%PlasticEnergy(2,1:MESH%nElem))
 !#ifdef GENERATEDKERNELS
                DISC%Galerkin%DOFStress = 0.
                DISC%Galerkin%pstrain = 0.
+               EQN%PlasticEnergy = 0.
 !#endif
     ENDIF
 
@@ -2617,12 +2620,13 @@ CONTAINS
     nDegFr = DISC%Galerkin%nDegFr
 
 #ifdef GENERATEDKERNELS
-    !$omp parallel do schedule(static) shared(eqn, disc, mesh, ic, source, io, iPoly, nIntGp, nDegFr) private(iElem, iIntGP, iDegFr, iVar, iVert, eType, locPoly, locDegFr, xi, eta, zeta, xGp, yGp, zGp, x, y, z, iniGp, iniGp_ane, phi, intGaussP, intGaussW, intGPBaseFunc, massMatrix, l_dofsUpdate,l_initialLoading,iniGP_plast)
+    !$omp parallel do schedule(static) shared(eqn, disc, mesh, ic, source, io, iPoly, nIntGp, nDegFr) private(iElem, iIntGP, iDegFr, iVar, iVert, eType, locPoly, locDegFr, xi, eta, zeta, xGp, yGp, zGp, x, y, z, iniGp, iniGp_ane, phi, intGaussP, intGaussW, intGPBaseFunc, massMatrix, l_dofsUpdate,l_initialLoading,l_plasticParameters, iniGP_plast)
 #endif
     DO iElem = 1,MESH%nElem
 #ifdef GENERATEDKERNELS
         l_dofsUpdate = 0
         l_initialLoading=0
+        l_plasticParameters=0
 #endif
 
         x = 0.; y = 0.; z = 0.;
@@ -2743,9 +2747,17 @@ CONTAINS
                                             numberOfQuantities = eqn%nVarTotal )
 
 #ifdef USE_PLASTICITY
+        ! initialize the element dependent plastic parameters
+        l_plasticParameters(1) = MESH%Elem%Volume(iElem)
+        l_plasticParameters(2) = EQN%PlastCo !currently constant, soon element-dependent
+
         ! initialize loading in C
         call c_interoperability_setInitialLoading( i_meshId         = c_loc( iElem), \
                                                    i_initialLoading = c_loc( l_initialLoading ) )
+
+        !initialize parameters in C
+        call c_interoperability_setPlasticParameters( i_meshId         = c_loc( iElem), \
+                                                   i_plasticParameters = c_loc( l_plasticParameters ) )
 #endif
 
 #endif
