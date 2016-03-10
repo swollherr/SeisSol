@@ -2605,11 +2605,13 @@ CONTAINS
     !
 
     IF(EQN%Plasticity.EQ.1) THEN
-      ALLOCATE(DISC%Galerkin%DOFStress(DISC%Galerkin%nDegFr,6,MESH%nElem), DISC%Galerkin%pstrain(7, MESH%nElem), EQN%PlasticEnergy(2,1:MESH%nElem))
+      ALLOCATE(DISC%Galerkin%DOFStress(DISC%Galerkin%nDegFr,6,MESH%nElem), DISC%Galerkin%pstrain(7, MESH%nElem), EQN%Energy(2,1:MESH%nElem),&
+               DISC%Galerkin%PlasticParameters(2,1:MESH%nElem))
 !#ifdef GENERATEDKERNELS
                DISC%Galerkin%DOFStress = 0.
                DISC%Galerkin%pstrain = 0.
-               EQN%PlasticEnergy = 0.
+               DISC%Galerkin%PlasticParameters = 0.
+               EQN%Energy = 0.
 !#endif
     ENDIF
 
@@ -2739,6 +2741,9 @@ CONTAINS
            DISC%Galerkin%DOFStress(1,1:6,iElem) = EQN%IniStress(1:6,iElem)
 #endif
         ENDIF
+
+        DISC%Galerkin%plasticParameters(1,iElem) = MESH%Elem%Volume(iElem)
+        DISC%Galerkin%plasticParameters(2,iElem) = EQN%PlastCo !currently constant, soon element-dependent
 
 #ifdef GENERATEDKERNELS
         ! write the update back

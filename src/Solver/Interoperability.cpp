@@ -239,7 +239,7 @@ extern "C" {
 													double  *i_plasticParameters,
                                                     double (*i_initialLoading)[NUMBER_OF_BASIS_FUNCTIONS],
                                                     double  *io_dofs,
-													double  *io_plasticEnergy,
+													double  *io_Energy,
 													double  *io_pstrain );
 
 
@@ -323,7 +323,7 @@ void seissol::Interoperability::initializeClusteredLts( int i_clustering ) {
                                                    m_buffers,
                                                    m_derivatives,
                                                    m_faceNeighbors,
-												   m_plasticEnergy,
+												   m_Energy,
 												   m_pstrain );
 }
 
@@ -706,7 +706,7 @@ void seissol::Interoperability::computePlasticity(  double i_timeStep,
 		                                            double *i_plasticParameters,
                                                     double (*i_initialLoading)[NUMBER_OF_BASIS_FUNCTIONS],
                                                     double *io_dofs,
-													double *io_plasticEnergy,
+													double *io_Energy,
 													double *io_pstrain ) {
   // call fortran routine
   f_interoperability_computePlasticity(  m_domain,
@@ -715,7 +715,7 @@ void seissol::Interoperability::computePlasticity(  double i_timeStep,
 										 i_plasticParameters,
                                          i_initialLoading,
                                          io_dofs,
-										 io_plasticEnergy,
+										 io_Energy,
 										 io_pstrain );
 }
 #endif

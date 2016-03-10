@@ -338,10 +338,10 @@ class seissol::initializers::MemoryManager {
       * Touches / zeros the buffers and derivatives of the cells using OMP's first touch policy.
       *
       * @param i_numberOfCells number of cells (split statically by the number of threads).
-      * @param o_plasticEnergy cell value which are touched.
+      * @param o_Energy cell value which are touched.
       */
-     void touchPlasticEnergy(unsigned int   i_numberOfCells,
-                            real         (*o_plasticEnergy)[2] );
+     void touchEnergy(unsigned int   i_numberOfCells,
+                            real         (*o_Energy)[2] );
 
     /**
      * Initializes the cell data.

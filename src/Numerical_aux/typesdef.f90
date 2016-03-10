@@ -426,6 +426,7 @@ MODULE TypesDef
 #endif
 ! never used    REAL, POINTER     :: dgvar_ane(:,:,:,:)          !< Data-array for expansion (Anel.)
     REAL, POINTER         :: DOFStress(:,:,:) => NULL() !< DOF's for the initial stress loading for the plastic calculations
+    REAL, POINTER         :: plasticParameters(:,:) => NULL()
     REAL, POINTER         :: pstrain(:,:) => NULL()     !< plastic strain
 #ifdef GENERATEDKERNELS
 !    integer              :: nSourceTermElems !< number of elemens having a source term
@@ -1171,7 +1172,7 @@ MODULE TypesDef
      INTEGER                                :: Anelasticity                     !< (0) = elastic, (1) = anelastic
      INTEGER                                :: Poroelasticity                   !< (0) = non-porous, (1) = porous-HF, (2) = porous-LF with ST-DG, (3) = porous-LF with FS-DG
      INTEGER                                :: Plasticity                       !< (0) = elastic, (1) = (Drucker-Prager) visco-plastic 
-     REAL, POINTER                          :: PlasticEnergy(:,:)=> NULL()
+     REAL, POINTER                          :: Energy(:,:)=> NULL()
      REAL                                   :: PlastCo                          !< Cohesion for the Drucker-Prager plasticity
      REAL                                   :: BulkFriction                     !< Bulk friction for the Drucker-Prager plasticity
      REAL                                   :: Tv                               !< relaxation coefficient for the update of stresses due to the Drucker-Prager plasticity, approx. (dx/V_s)

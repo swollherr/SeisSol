@@ -304,7 +304,7 @@ private:
                                         CellData               *i_cellData,
                                         real                 *(*i_faceNeighbors)[4],
                                         real                  (*io_dofs)[NUMBER_OF_ALIGNED_DOFS],
-										real                   (*io_plasticEnergy)[2],
+										real                   (*io_Energy)[2],
 										real                  (*io_pstrain)[7] );
 
     void computeLocalIntegrationFlops(  unsigned                    numberOfCells,

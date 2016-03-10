@@ -121,7 +121,7 @@ class seissol::Interoperability {
     real *(*m_faceNeighbors)[4];
 
     //! Dissipated plastic energy
-    real (*m_plasticEnergy)[2];
+    real (*m_Energy)[2];
 
     //! Plasticity strain output
     real (*m_pstrain)[7];
@@ -383,7 +383,7 @@ class seissol::Interoperability {
 		                   double  *i_plasticParameters,
                            double (*i_initialLoading)[NUMBER_OF_BASIS_FUNCTIONS],
                            double  *io_dofs,
-						   double  *io_plasticEnergy,
+						   double  *io_Energy,
 						   double  *io_pstrain );
 #endif
 

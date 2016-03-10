@@ -234,7 +234,7 @@ MODULE Plasticity_mod
 
 
 !yldfac is only caluclated from the first DOF, and all DOF's are adjusted by the same coefficient
-  SUBROUTINE Plasticity_3D_DOF(dgvar, DOFStress, nDegFr, nAlignedDegFr, BulkFriction, Tv, PlastCo, dt, mu, volume, plasticEnergy, pstrain)
+  SUBROUTINE Plasticity_3D_DOF(dgvar, DOFStress, nDegFr, nAlignedDegFr, BulkFriction, Tv, dt, mu, parameters , Energy, pstrain)
 
     !-------------------------------------------------------------------------!
 
@@ -260,16 +260,16 @@ MODULE Plasticity_mod
     REAL        :: LocnVar                                          !
     REAL        :: tau,taulim                                                 !tau= potential flow function, taulim= drucker-Prager yield stress.
     REAL        :: secInv                                                     !secInv=second Invariant of deviatoric stress
-    REAL        :: BulkFriction, Tv, PlastCo
+    REAL        :: BulkFriction, Tv
     REAL        :: DOFStress(1:nDegFr,1:6)
     REAL        :: dgvar(1:nAlignedDegFr,1:6)
     REAL        :: dudt_pstrain(1:6)
     REAL        :: pstrain(1:7)
-    REAL        :: plasticEnergy_tmp, plasticEnergy(1:2)
-    REAL        :: volume(1:2)
+    REAL        :: PlasticEnergy_tmp, Energy(1:2)
+    REAL        :: parameters(1:2)
     !-------------------------------------------------------------------------!
-    INTENT(IN)    :: DOFStress, nDegFr, BulkFriction, Tv, PlastCo, dt, mu, volume
-    INTENT(INOUT) :: dgvar, pstrain, plasticEnergy
+    INTENT(IN)    :: DOFStress, nDegFr, BulkFriction, Tv, dt, mu, parameters
+    INTENT(INOUT) :: dgvar, pstrain, Energy
     !-------------------------------------------------------------------------!
 
     dudt_pstrain = 0.0
@@ -305,7 +305,7 @@ MODULE Plasticity_mod
     tau= SQRT(secInv)
 
     ! Yield stress   
-    taulim = PlastCo*COS(angfric) - meanStress(1)*SIN(angfric)! minus before sinus is for compressional stress=negative.
+    taulim = parameters(2)*COS(angfric) - meanStress(1)*SIN(angfric)! minus before sinus is for compressional stress=negative.
     taulim = MAX(0.0, taulim)
 
 
@@ -334,9 +334,9 @@ MODULE Plasticity_mod
     pstrain(1:6) = pstrain(1:6) + dudt_pstrain(1:6) !plastic strain tensor
     !calculate increment of dissipated plastic energy for this element
     !take stress or dgvar?
-    plasticEnergy_tmp = dgvar(1,1)*dudt_pstrain(1) + dgvar(1,2)*dudt_pstrain(2) + dgvar(1,3)*dudt_pstrain(3) + 2*dgvar(1,4)*dudt_pstrain(4) &
+    PlasticEnergy_tmp = dgvar(1,1)*dudt_pstrain(1) + dgvar(1,2)*dudt_pstrain(2) + dgvar(1,3)*dudt_pstrain(3) + 2*dgvar(1,4)*dudt_pstrain(4) &
                       + 2*dgvar(1,5)*dudt_pstrain(5) + 2*dgvar(1,6)*dudt_pstrain(6)
-    plasticEnergy(1) = plasticEnergy_tmp*volume(1)
+    Energy(1) = PlasticEnergy_tmp*parameters(1) !volume
 
     !accumulated plastic strain
     pstrain(7) = pstrain(7)+ dt*sqrt(0.5*(dudt_pstrain(1)**2 + dudt_pstrain(2)**2 &

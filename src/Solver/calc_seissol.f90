@@ -250,7 +250,7 @@ CONTAINS
      ENDIF
 #endif
 
-       ! write receiver output
+       ! write receiver and energy output
      if(DISC%Galerkin%DGMethod.ne.3) then
 #ifdef HDF
           CALL receiver_hdf(                     &
@@ -272,14 +272,17 @@ CONTAINS
                dt_op     = OptionalFields%dt(1)  )
 
            ! write energy output (time series)
+        IF (DISC%DynRup%energy_output_on .EQ. 1) THEN
+        logInfo0(*) 'current energy dt is', IO%pickdt_energy
            CALL energies_output(                 &
                DISC      = DISC                 ,&
                EQN       = EQN                  ,&
                MESH      = MESH                 ,&
                MPI       = MPI                  ,&
                IO        = IO                   ,&
-               time      = time                 ,&
-               dt        = OptionalFields%dt(1)  )
+               time_op   = time                 ,&
+               dt_op     = OptionalFields%dt(1)  )
+        ENDIF
 #endif
      endif
 

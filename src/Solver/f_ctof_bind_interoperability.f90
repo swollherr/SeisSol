@@ -133,7 +133,7 @@ module f_ctof_bind_interoperability
     end subroutine
 
     subroutine f_interoperability_computePlasticity( i_domain, i_timeStep, &
-            i_numberOfAlignedBasisFunctions, i_plasticParameters, i_initialLoading, io_dofs, io_plasticEnergy, io_pstrain ) bind( c, name='f_interoperability_computePlasticity')
+            i_numberOfAlignedBasisFunctions, i_plasticParameters, i_initialLoading, io_dofs, io_Energy, io_pstrain ) bind( c, name='f_interoperability_computePlasticity')
       use iso_c_binding
       use typesDef
       use plasticity_mod
@@ -155,8 +155,8 @@ module f_ctof_bind_interoperability
       type(c_ptr), value                     :: io_dofs
       real*8, pointer                        :: l_dofs(:,:)
 
-      type(c_ptr), value                     :: io_plasticEnergy
-      real*8, pointer                        :: l_plasticEnergy(:)
+      type(c_ptr), value                     :: io_Energy
+      real*8, pointer                        :: l_Energy(:)
 
       type(c_ptr), value                     :: io_pstrain
       real*8, pointer                        :: l_pstrain(:)
@@ -167,7 +167,7 @@ module f_ctof_bind_interoperability
       call c_f_pointer( i_plasticParameters, l_plasticParameters, [2]                      )
       call c_f_pointer( i_initialLoading, l_initialLoading, [NUMBER_OF_BASIS_FUNCTIONS,6]  )
       call c_f_pointer( io_dofs,          l_dofs,       [i_numberOfAlignedBasisFunctions,6])
-      call c_f_pointer( io_plasticEnergy, l_plasticEnergy, [2]                             )
+      call c_f_pointer( io_Energy,        l_Energy, [2]                             )
       call c_f_pointer( io_pstrain,       l_pstrain,    [7]                                )
 
 
@@ -179,11 +179,10 @@ module f_ctof_bind_interoperability
                               nAlignedDegFr = i_numberOfAlignedBasisFunctions, &
                               bulkFriction = l_domain%eqn%BulkFriction, &
                               tv           = l_domain%eqn%Tv, &
-                              plastCo      = l_domain%eqn%PlastCo, &
                               dt           = l_timeStep, &
                               mu           = l_domain%eqn%mu, &
-                              volume       = l_plasticParameters ,&
-                              plasticEnergy= l_plasticEnergy,&
+                              parameters   = l_plasticParameters ,&
+                              Energy       = l_Energy,&
                               pstrain      = l_pstrain )
 
       case(0) !values at internal GP

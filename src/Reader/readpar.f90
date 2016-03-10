@@ -1501,7 +1501,7 @@ CONTAINS
     TYPE (tInitialCondition)               :: IC
     INTENT(INOUT)                          :: IO, EQN, DISC, BND
     INTEGER                                :: FL, BackgroundType, Nucleation, inst_healing, RF_output_on, &
-                                              OutputPointType, magnitude_output_on,energy_output_on, pickdt_energy, &
+                                              OutputPointType, magnitude_output_on,energy_output_on, &
                                               read_fault_file
     CHARACTER(600)                         :: FileName_BackgroundStress
     REAL                                   :: Bulk_xx_0, Bulk_yy_0, &
@@ -1512,7 +1512,7 @@ CONTAINS
                                               RS_iniSlipRate2, v_star, L, XHypo, YHypo, ZHypo, R_crit, t_0, Vs_nucl, Mu_W, RS_srW,  &
                                               NucDirX, NucXmin, NucXmax, NucDirY, NucYmin, NucYmax, &
                                               NucBulk_xx_0, NucBulk_yy_0, NucBulk_zz_0, NucShearXY_0, &
-                                              NucShearYZ_0, NucShearXZ_0, NucRS_sv0, r_s, cohesion_0
+                                              NucShearYZ_0, NucShearXZ_0, NucRS_sv0, r_s, cohesion_0, pickdt_energy
     !------------------------------------------------------------------------
     NAMELIST                              /DynamicRupture/ FL, BackgroundType, Bulk_xx_0, Bulk_yy_0, &
                                                 Bulk_zz_0, ShearXY_0, ShearYZ_0, ShearXZ_0, &
@@ -1745,11 +1745,11 @@ CONTAINS
            !
            ! energy output on = 1, off =0
            DISC%DynRup%energy_output_on = energy_output_on
-           !own timestep for energy output but outputtype is the same as for receivers
+           !own timestep for energy output but output-type is the same as for receivers
            !default type is 1 (time interval-wise)
            !default time interval = 0.1
            IO%pickdt_energy = pickdt_energy
-
+           logInfo0(*) 'current energy dt is', IO%pickdt_energy
            !
            DISC%DynRup%OutputPointType = OutputPointType
 

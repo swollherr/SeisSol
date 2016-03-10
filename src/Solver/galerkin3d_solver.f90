@@ -467,8 +467,8 @@ CONTAINS
 
                   CASE(2) !average approximated with the first dof -> is working
                      CALL Plasticity_3D_dof(DISC%Galerkin%dgvar(:,1:6,iElem,1), DISC%Galerkin%DOFStress(:,1:6,iElem), DISC%Galerkin%nDegFr, &
-                                            DISC%Galerkin%nDegFr, EQN%BulkFriction, EQN%Tv, EQN%PlastCo, dt, EQN%mu, MESH%Elem%Volume(iElem), &
-                                            EQN%PlasticEnergy(1:2,iElem), DISC%Galerkin%pstrain(1:7,iElem) )
+                                            DISC%Galerkin%nDegFr, EQN%BulkFriction, EQN%Tv, dt, EQN%mu, DISC%Galerkin%plasticParameters(1:2,iElem), &
+                                            EQN%Energy(1:2,iElem), DISC%Galerkin%pstrain(1:7,iElem) )
                   END SELECT
 
 #endif

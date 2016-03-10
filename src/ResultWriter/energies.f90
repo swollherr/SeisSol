@@ -65,6 +65,7 @@ CONTAINS
 #else
   SUBROUTINE energies_output(DISC,EQN,MESH,MPI,IO, time_op, dt_op)
 #endif
+
     !< routine outputs the diisipated plastic energy for each MPI domain
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
@@ -75,24 +76,28 @@ CONTAINS
     TYPE(tEquations)                :: EQN
     TYPE(tMPI)                      :: MPI
     TYPE(tInputOutput)              :: IO
-    REAL, OPTIONAL                  :: time_op, dt_op
+    REAL,OPTIONAL                   :: time_op, dt_op
     !-------------------------------------------------------------------------!
     ! Local variable declaration                                              !
     INTEGER                         :: iElem, nElem
     INTEGER                         :: stat, UNIT_ENERGY
-    REAL                            :: time
+    REAL                            :: time, dt
     REAL                            :: plast_energy
     !REAL                            :: MaterialVal(:,:)
     LOGICAL                         :: exist
-     REAL                           :: localpicktime, dt
+     REAL                           :: localpicktime
     CHARACTER (LEN=5)               :: cmyrank
     CHARACTER (len=200)             :: ENERGY_FILE
+#ifdef OMP
+    INTEGER                         :: TID,omp_get_thread_num
+    CHARACTER (LEN=2)               :: c_TID
+#endif
 #ifdef GENERATEDKERNELS
-    real*8  :: i_fullUpdateTime
-    real*8  :: i_timeStepWidth
-    real*8  :: i_receiverTime
-    !integer :: i_numberOfReceivers
-    !integer :: i_receiverIds(:)
+    real*8                          :: i_fullUpdateTime
+    real*8                          :: i_timeStepWidth
+    real*8                          :: i_receiverTime
+    integer                         :: i_numberOfReceivers
+    integer                         :: i_receiverIds(:)
 #endif
 
     !-------------------------------------------------------------------------!
@@ -104,6 +109,8 @@ CONTAINS
         dt            = i_timeStepWidth
         localpicktime = i_receiverTime !change that to picktime_energy!
 #else
+        time          = time_op
+        dt            = dt_op
         localpicktime = IO%picktime_energy !current picktime
 #endif
 
@@ -117,18 +124,18 @@ CONTAINS
     TID = omp_get_thread_num()
     WRITE(c_TID,'(I2.2)') TID
     WRITE(cmyrank,'(I5.5)') MPI%myrank                           ! myrank -> cmyrank
-    WRITE(ENERGY_FILE, '(a,a5,a5,a4)') TRIM(IO%OutputFile),'-EN-',TRIM(cmyrank),'.dat'
-    UNIT_ENERGY = 299875+MPI%myrank+TID
+    WRITE(ENERGY_FILE, '(a,a4,a5,a4)') TRIM(IO%OutputFile),'-EN-',TRIM(cmyrank),'.dat'
+    UNIT_ENERGY = 99875+MPI%myrank+TID
 #else
     !pure mpi case
     WRITE(cmyrank,'(I5.5)') MPI%myrank                           ! myrank -> cmyrank
-    WRITE(ENERGY_FILE, '(a,a5,a5,a4)') TRIM(IO%OutputFile),'-EN-',TRIM(cmyrank),'.dat'
-    UNIT_ENERGY = 299875+MPI%myrank
+    WRITE(ENERGY_FILE, '(a,a4,a5,a4)') TRIM(IO%OutputFile),'-EN-',TRIM(cmyrank),'.dat'
+    UNIT_ENERGY = 99875+MPI%myrank
 #endif
 #else
     !no parallelization
-    WRITE(MAG_FILE, '(a,a4,a4)') TRIM(IO%OutputFile),'-EN-','.dat'
-    UNIT_MAG = 299875
+    WRITE(ENERGY_FILE, '(a,a4,a4)') TRIM(IO%OutputFile),'-EN-','.dat'
+    UNIT_ENERGY = 99875
 #endif
 
     !
@@ -167,7 +174,7 @@ CONTAINS
     ! sum over each element in the mpi domain
     nElem = MESH%nELEM
     DO iElem = 1,nElem
-           plast_energy = plast_energy + EQN%PlasticEnergy(1,iElem)
+           plast_energy = plast_energy + EQN%Energy(1,iElem)
     ENDDO
     !
     ! Write output
