@@ -96,8 +96,6 @@ CONTAINS
     real*8                          :: i_fullUpdateTime
     real*8                          :: i_timeStepWidth
     real*8                          :: i_receiverTime
-    integer                         :: i_numberOfReceivers
-    integer                         :: i_receiverIds(:)
 #endif
 
     !-------------------------------------------------------------------------!

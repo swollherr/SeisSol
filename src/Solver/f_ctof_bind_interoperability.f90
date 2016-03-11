@@ -186,24 +186,25 @@ module f_ctof_bind_interoperability
                               pstrain      = l_pstrain )
 
       case(0) !values at internal GP
-      call plasticity_3d_high( dgvar   = l_dofs, &
-                          dofStress    = l_initialLoading, & !l_domain%eqn%inistress, & !l_initialLoading is the same as inistress for the high-order case
-                          nDegFr       = NUMBER_OF_BASIS_FUNCTIONS, &
+      call plasticity_3d_high( dgvar    = l_dofs, &
+                          dofStress     = l_initialLoading, & !l_domain%eqn%inistress, & !l_initialLoading is the same as inistress for the high-order case
+                          nDegFr        = NUMBER_OF_BASIS_FUNCTIONS, &
                           nAlignedDegFr = i_numberOfAlignedBasisFunctions, &
-                          bulkFriction = l_domain%eqn%BulkFriction, &
-                          tv           = l_domain%eqn%Tv, &
-                          plastCo      = l_domain%eqn%PlastCo, &
-                          dt           = l_timeStep, &
-                          mu           = l_domain%eqn%mu, &
-                          pstrain = l_pstrain, &
-                          intGaussP    = l_domain%disc%Galerkin%intGaussP_Tet,&
-                          intGaussW    = l_domain%disc%Galerkin%intGaussW_Tet,&
+                          bulkFriction  = l_domain%eqn%BulkFriction, &
+                          tv            = l_domain%eqn%Tv, &
+                          dt            = l_timeStep, &
+                          mu            = l_domain%eqn%mu, &
+                          parameters    = l_plasticParameters, &
+                          Energy        = l_Energy, &
+                          pstrain       = l_pstrain, &
+                          intGaussP     = l_domain%disc%Galerkin%intGaussP_Tet,&
+                          intGaussW     = l_domain%disc%Galerkin%intGaussW_Tet,&
                           !IntGPBaseFunc = l_domain%disc%Galerkin%IntGPBaseFunc_Tet(:,:,l_domain%DISC%Galerkin%nPoly),&
                           !IntGPBaseFunc = l_domain%disc%Galerkin%IntGPBaseFunc_Tet(1:NUMBER_OF_BASIS_FUNCTIONS,1:l_domain%DISC%Galerkin%nIntGP,l_domain%DISC%Galerkin%nPoly),&
                           !MassMatrix = l_domain%disc%Galerkin%MassMatrix_Tet(NUMBER_OF_BASIS_FUNCTIONS,NUMBER_OF_BASIS_FUNCTIONS,l_domain%DISC%Galerkin%nPoly), &
-                          disc         = l_domain%disc, &
-                          nVar         = l_domain%eqn%nVar, &
-                          nIntGP       =l_domain%disc%galerkin%nIntGP)
+                          disc          = l_domain%disc, &
+                          nVar          = l_domain%eqn%nVar, &
+                          nIntGP        =l_domain%disc%galerkin%nIntGP)
       end select
 
 
