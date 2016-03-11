@@ -82,7 +82,7 @@ CONTAINS
     INTEGER                         :: iElem, nElem
     INTEGER                         :: stat, UNIT_ENERGY
     REAL                            :: time, dt
-    REAL                            :: plast_energy
+    REAL                            :: plast_energy, kinetic_energy
     !REAL                            :: MaterialVal(:,:)
     LOGICAL                         :: exist
      REAL                           :: localpicktime
@@ -172,13 +172,16 @@ CONTAINS
     !
     ! Compute output
     ! sum over each element in the mpi domain
+
     nElem = MESH%nELEM
     DO iElem = 1,nElem
-           plast_energy = plast_energy + EQN%Energy(1,iElem)
+           plast_energy = plast_energy + EQN%Energy(1,iElem) !dissiputed plastic energy
+           kinetic_energy = kinetic_energy + EQN%Energy(2,iElem)
+           !estrain_energy = estrain_energy + EQN%Energy(3,iElem)
     ENDDO
     !
     ! Write output
-    WRITE(UNIT_ENERGY,*) time, plast_energy !TODO: add kinematic energy, fracture energy etc...
+    WRITE(UNIT_ENERGY,*) time, plast_energy, kinetic_energy ! , estrain_energy !TODO: add kinetic energy, fracture energy etc...
 
     CLOSE( UNIT_ENERGY )
 

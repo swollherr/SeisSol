@@ -41,9 +41,9 @@
 #
 
 # build options
-compileMode                 = 'debug'
+compileMode                 = 'release'
 parallelization             = 'mpi'
-generatedKernels            = 'yes'
+generatedKernels            = 'no'
 measureNodeLevelPerformance = 'none'
 useExecutionEnvironment     = 'yes'
 plasticity                  = 'yes'

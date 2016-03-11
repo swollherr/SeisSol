@@ -424,7 +424,7 @@ void seissol::Interoperability::setInitialLoading( int* i_meshId, double *i_init
 void seissol::Interoperability::setPlasticParameters( int* i_meshId, double* i_plasticParameters) {\
   unsigned int l_copyInteriorId = m_meshToCopyInterior[(*i_meshId) - 1];
 
-  for( unsigned int l_para = 0; l_para < 2; l_para++ ) {
+  for( unsigned int l_para = 0; l_para < 3; l_para++ ) {
       m_cellData->plasticity[l_copyInteriorId].plasticParameters[l_para] = i_plasticParameters[l_para];
 
 }}
@@ -465,7 +465,7 @@ void seissol::Interoperability::synchronizeCellLocalData() {
 
     // sync plasticity parameters
     	// TODO use memcpy
-    for( unsigned int l_para = 0; l_para < 2; l_para++ ) {
+    for( unsigned int l_para = 0; l_para < 3; l_para++ ) {
         m_cellData->plasticity[l_cell].plasticParameters[l_para] = m_cellData->plasticity[sourceId].plasticParameters[l_para];
     }
 

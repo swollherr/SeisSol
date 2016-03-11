@@ -164,9 +164,9 @@ module f_ctof_bind_interoperability
       ! convert c to fotran pointers
       call c_f_pointer( i_domain,         l_domain                                         )
       call c_f_pointer( i_timeStep,       l_timeStep                                       )
-      call c_f_pointer( i_plasticParameters, l_plasticParameters, [2]                      )
+      call c_f_pointer( i_plasticParameters, l_plasticParameters, [3]                      )
       call c_f_pointer( i_initialLoading, l_initialLoading, [NUMBER_OF_BASIS_FUNCTIONS,6]  )
-      call c_f_pointer( io_dofs,          l_dofs,       [i_numberOfAlignedBasisFunctions,6])
+      call c_f_pointer( io_dofs,          l_dofs,       [i_numberOfAlignedBasisFunctions,9])
       call c_f_pointer( io_Energy,        l_Energy, [2]                             )
       call c_f_pointer( io_pstrain,       l_pstrain,    [7]                                )
 

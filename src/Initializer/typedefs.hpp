@@ -332,7 +332,7 @@ struct PlasticityData {
   // initial loading (stress tensor)
   real initialLoading[6][NUMBER_OF_BASIS_FUNCTIONS];
   // cell dependent plastic parameters
-  real plasticParameters[2];
+  real plasticParameters[3];
 };
 
 /**

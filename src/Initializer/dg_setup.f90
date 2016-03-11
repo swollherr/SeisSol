@@ -2590,7 +2590,7 @@ CONTAINS
     ! temporary degrees of freedom
     real    :: l_dofsUpdate(disc%galerkin%nDegFr, eqn%nVarTotal)
     real    :: l_initialLoading( NUMBER_OF_BASIS_FUNCTIONS, 6 ) 
-    real    :: l_plasticParameters(2)
+    real    :: l_plasticParameters(3)
 #endif
     !-------------------------------------------------------------------------!
     !
@@ -2606,7 +2606,7 @@ CONTAINS
 
     IF(EQN%Plasticity.EQ.1) THEN
       ALLOCATE(DISC%Galerkin%DOFStress(DISC%Galerkin%nDegFr,6,MESH%nElem), DISC%Galerkin%pstrain(7, MESH%nElem), EQN%Energy(2,1:MESH%nElem),&
-               DISC%Galerkin%PlasticParameters(2,1:MESH%nElem))
+               DISC%Galerkin%PlasticParameters(3,1:MESH%nElem))
 !#ifdef GENERATEDKERNELS
                DISC%Galerkin%DOFStress = 0.
                DISC%Galerkin%pstrain = 0.
@@ -2744,6 +2744,7 @@ CONTAINS
 
         DISC%Galerkin%plasticParameters(1,iElem) = MESH%Elem%Volume(iElem)
         DISC%Galerkin%plasticParameters(2,iElem) = EQN%PlastCo !currently constant, soon element-dependent
+        DISC%Galerkin%plasticParameters(3,iElem) = EQN%Rho0
 
 #ifdef GENERATEDKERNELS
         ! write the update back
@@ -2755,6 +2756,7 @@ CONTAINS
         ! initialize the element dependent plastic parameters
         l_plasticParameters(1) = MESH%Elem%Volume(iElem)
         l_plasticParameters(2) = EQN%PlastCo !currently constant, soon element-dependent
+        l_plasticParameters(3) = EQN%Rho0    !density
 
         ! initialize loading in C
         call c_interoperability_setInitialLoading( i_meshId         = c_loc( iElem), \
