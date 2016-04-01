@@ -120,8 +120,8 @@ class seissol::Interoperability {
     //! raw pointers to face neighbors: covering all clusters and layers.
     real *(*m_faceNeighbors)[4];
 
-    //! Dissipated plastic energy
-    real (*m_Energy)[2];
+    //! energy variable
+    real (*m_Energy)[4];
 
     //! Plasticity strain output
     real (*m_pstrain)[7];

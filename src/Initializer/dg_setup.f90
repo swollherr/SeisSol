@@ -2581,6 +2581,7 @@ CONTAINS
     REAL    :: iniGP_Ane(EQN%nAneFuncperMech*EQN%nMechanisms)                 ! Initial anelastic state vector at Gausspoint
     REAL    :: iniGP_Plast(6)                                                 ! Initial stress loading for plastic calculations
     REAL    :: phi                                                            ! Value of the base function at GP      !
+    REAL    :: Einv, v                                                        ! Inverse of Young's modulus, Poisson ratio v
     !
     REAL, POINTER :: IntGaussP(:,:)     =>NULL()
     REAL, POINTER :: IntGaussW(:)       =>NULL()
@@ -2605,13 +2606,14 @@ CONTAINS
     !
 
     IF(EQN%Plasticity.EQ.1) THEN
-      ALLOCATE(DISC%Galerkin%DOFStress(DISC%Galerkin%nDegFr,6,MESH%nElem), DISC%Galerkin%pstrain(7, MESH%nElem), EQN%Energy(2,1:MESH%nElem),&
-               DISC%Galerkin%PlasticParameters(3,1:MESH%nElem))
+      ALLOCATE(DISC%Galerkin%DOFStress(DISC%Galerkin%nDegFr,6,MESH%nElem), DISC%Galerkin%pstrain(7, MESH%nElem), EQN%Energy(4,1:MESH%nElem),&
+               DISC%Galerkin%PlasticParameters(3,1:MESH%nElem), DISC%Galerkin%Strain_Matrix(6,6))
 !#ifdef GENERATEDKERNELS
                DISC%Galerkin%DOFStress = 0.
                DISC%Galerkin%pstrain = 0.
                DISC%Galerkin%PlasticParameters = 0.
                EQN%Energy = 0.
+               DISC%Galerkin%Strain_Matrix = 0.
 !#endif
     ENDIF
 
@@ -2757,6 +2759,24 @@ CONTAINS
         l_plasticParameters(1) = MESH%Elem%Volume(iElem)
         l_plasticParameters(2) = EQN%PlastCo !currently constant, soon element-dependent
         l_plasticParameters(3) = EQN%Rho0    !density
+
+        !initialize the stress-strain relation matrix, mu and lambda should be element dependent
+        Einv = (EQN%lambda+EQN%mu)/(EQN%mu*(3*EQN%lambda+2*EQN%mu)!Inv of the Young's modulus
+        v = EQN%lambda/(2*(EQN%lambda+EQN%mu)) !Poisson's ratio
+
+        DISC%Galerkin%Strain_Matrix(1,1) = Einv
+        DISC%Galerkin%Strain_Matrix(2,2) = Einv
+        DISC%Galerkin%Strain_Matrix(3,3) = Einv
+        DISC%Galerkin%Strain_Matrix(4,4) = 1/EQN%mu
+        DISC%Galerkin%Strain_Matrix(5,5) = 1/EQN%mu
+        DISC%Galerkin%Strain_Matrix(6,6) = 1/EQN%mu
+
+        DISC%Galerkin%Strain_Matrix(1,2) = -v*Einv
+        DISC%Galerkin%Strain_Matrix(1,3) = -v*Einv
+        DISC%Galerkin%Strain_Matrix(2,1) = -v*Einv
+        DISC%Galerkin%Strain_Matrix(2,3) = -v*Einv
+        DISC%Galerkin%Strain_Matrix(3,1) = -v*Einv
+        DISC%Galerkin%Strain_Matrix(3,2) = -v*Einv
 
         ! initialize loading in C
         call c_interoperability_setInitialLoading( i_meshId         = c_loc( iElem), \

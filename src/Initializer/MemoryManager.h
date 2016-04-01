@@ -341,7 +341,7 @@ class seissol::initializers::MemoryManager {
       * @param o_Energy cell value which are touched.
       */
      void touchEnergy(unsigned int   i_numberOfCells,
-                            real         (*o_Energy)[2] );
+                            real         (*o_Energy)[4] );
 
     /**
      * Initializes the cell data.

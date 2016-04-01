@@ -167,13 +167,14 @@ module f_ctof_bind_interoperability
       call c_f_pointer( i_plasticParameters, l_plasticParameters, [3]                      )
       call c_f_pointer( i_initialLoading, l_initialLoading, [NUMBER_OF_BASIS_FUNCTIONS,6]  )
       call c_f_pointer( io_dofs,          l_dofs,       [i_numberOfAlignedBasisFunctions,9])
-      call c_f_pointer( io_Energy,        l_Energy, [2]                             )
+      call c_f_pointer( io_Energy,        l_Energy, [4]                             )
       call c_f_pointer( io_pstrain,       l_pstrain,    [7]                                )
 
 
       select case(l_domain%eqn%PlastMethod)
       case(2) !average of an element
-      call plasticity_3d_dof( dgvar        = l_dofs, &
+      call plasticity_3d_dof( disc         = l_domain%disc, &
+                              dgvar        = l_dofs, &
                               dofStress    = l_initialLoading, &
                               nDegFr       = NUMBER_OF_BASIS_FUNCTIONS, &
                               nAlignedDegFr = i_numberOfAlignedBasisFunctions, &
@@ -194,6 +195,7 @@ module f_ctof_bind_interoperability
                           tv            = l_domain%eqn%Tv, &
                           dt            = l_timeStep, &
                           mu            = l_domain%eqn%mu, &
+                          lambda        = l_domain%eqn%lambda, &
                           parameters    = l_plasticParameters, &
                           Energy        = l_Energy, &
                           pstrain       = l_pstrain, &

@@ -273,7 +273,6 @@ CONTAINS
 
            ! write energy output (time series)
         IF (DISC%DynRup%energy_output_on .EQ. 1) THEN
-        logInfo0(*) 'current energy dt is', IO%pickdt_energy
            CALL energies_output(                 &
                DISC      = DISC                 ,&
                EQN       = EQN                  ,&

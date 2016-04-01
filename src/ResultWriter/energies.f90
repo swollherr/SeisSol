@@ -37,7 +37,7 @@
 !! @section DESCRIPTION
 !! routine outputs the total dissipated plastic energy for each MPI domain
 !! the results need to be gathered and summarized in a postprocessing step
-!! formula see Xu et al. 2012
+!! formulas see Xu et al. 2012
 !! 
 
 #ifdef BG
@@ -82,7 +82,7 @@ CONTAINS
     INTEGER                         :: iElem, nElem
     INTEGER                         :: stat, UNIT_ENERGY
     REAL                            :: time, dt
-    REAL                            :: plast_energy, kinetic_energy
+    REAL                            :: plast_energy, kinetic_energy, estrain_energy, fracture_energy
     !REAL                            :: MaterialVal(:,:)
     LOGICAL                         :: exist
      REAL                           :: localpicktime
@@ -111,7 +111,8 @@ CONTAINS
         dt            = dt_op
         localpicktime = IO%picktime_energy !current picktime
 #endif
-
+    plast_energy = 0.0
+    kinetic_energy = 0.0
     !only output at specific timesteps/times
     DO WHILE( (localpicktime.GE.time).AND.(localpicktime.LE.time+dt+1e-10).AND.(localpicktime.LE.DISC%EndTime+1e-10) )
 
@@ -171,15 +172,17 @@ CONTAINS
     ! Compute output
     ! sum over each element in the mpi domain
 
+
     nElem = MESH%nELEM
     DO iElem = 1,nElem
            plast_energy = plast_energy + EQN%Energy(1,iElem) !dissiputed plastic energy
            kinetic_energy = kinetic_energy + EQN%Energy(2,iElem)
-           !estrain_energy = estrain_energy + EQN%Energy(3,iElem)
+           estrain_energy = estrain_energy + EQN%Energy(3,iElem)
+           fracture_energy = fracture_energy + EQN%Energy(4,iElem)
     ENDDO
     !
     ! Write output
-    WRITE(UNIT_ENERGY,*) time, plast_energy, kinetic_energy ! , estrain_energy !TODO: add kinetic energy, fracture energy etc...
+    WRITE(UNIT_ENERGY,*) time, plast_energy, kinetic_energy, estrain_energy, fracture_energy
 
     CLOSE( UNIT_ENERGY )
 

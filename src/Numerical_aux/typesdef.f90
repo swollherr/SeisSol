@@ -420,14 +420,14 @@ MODULE TypesDef
     !   Reference: Intel® Fortran Compiler XE 13.0 User and Reference Guides
     !              "Because its elements do not need to be contiguous in memory, a Fortran pointer target or assumed-shape array cannot be passed to C.
     !               However, you can pass an allocated allocatable array to C, and you can associate an array allocated in C with a Fortran pointer."
-    real*8, allocatable   :: dgvar(:,:,:,:)            !< storage of all unknowns (solution).
+    real*8, allocatable   :: dgvar(:,:,:,:)                     !< storage of all unknowns (solution).
 #else
-    REAL, POINTER         :: dgvar(:,:,:,:)  => NULL() !< Data-array for expansion
+    REAL, POINTER         :: dgvar(:,:,:,:)  => NULL()          !< Data-array for expansion
 #endif
-! never used    REAL, POINTER     :: dgvar_ane(:,:,:,:)          !< Data-array for expansion (Anel.)
-    REAL, POINTER         :: DOFStress(:,:,:) => NULL() !< DOF's for the initial stress loading for the plastic calculations
+    REAL, POINTER         :: DOFStress(:,:,:) => NULL()         !< DOF's for the initial stress loading for the plastic calculations
     REAL, POINTER         :: plasticParameters(:,:) => NULL()
-    REAL, POINTER         :: pstrain(:,:) => NULL()     !< plastic strain
+    REAL, POINTER         :: pstrain(:,:) => NULL()             !< plastic strain
+    REAL, POINTER         :: Strain_matrix(:,:) => NULL()         !< transformation matrix for converting stresses to strains
 #ifdef GENERATEDKERNELS
 !    integer              :: nSourceTermElems !< number of elemens having a source term
 !    real*8, allocatable  :: dgsourceterms(:,:,:)            !< storage of source terms
@@ -436,14 +436,13 @@ MODULE TypesDef
     REAL, POINTER     :: DGwork(:,:,:) => NULL()     !< Work array for DG method
 #endif
     REAL, POINTER     :: DGTaylor(:,:,:,:) => NULL() !< Work array for local dt DG
-! never used    REAL, POINTER     :: AneWork(:,:,:,:)            !< As above, but for ane. variables
     real              :: totcputime
     REAL, POINTER     :: OutFlow(:,:,:,:) => NULL()  !< Outflowing flux for backpropagation
     !< Geometry
     REAL, POINTER     :: geoNormals(:,:,:) => NULL() !< Side normal vectors
     REAL, POINTER     :: geoTangent1(:,:,:) => NULL()!< Vector 1 in the side plane
     REAL, POINTER     :: geoTangent2(:,:,:) => NULL()!< Vector 2 in the side plane
-    REAL, POINTER     :: geoSurfaces(:,:) => NULL()  !< Cell side lengths in 2D
+    REAL, POINTER     :: geoSurfaces(:,:) => NULL()  !< Triangle surface in 2D for fault
     !< Other variables related to the DG - Method
     REAL, ALLOCATABLE :: cPoly(:,:,:,:)              !< Coeff. of base polynomials
     REAL, ALLOCATABLE :: cPoly_Tri(:,:,:,:)          !< Coeff. of base polynomials
