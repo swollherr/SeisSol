@@ -469,10 +469,14 @@ CONTAINS
                    disc,           &
                    io                )
 
-#ifdef PERIODIC_LTS_SCALING
     ! get gts time step width
     l_gts = minval( optionalFields%dt_convectiv(:) )
+    if (l_gts .le. 0.0) then
+      logError(*) 'Invalid timestep width'
+      stop
+    endif
 
+#ifdef PERIODIC_LTS_SCALING
     ! compute total load per half-sapce
     !         _____________________
     !        /         /     /    /|
@@ -1105,6 +1109,7 @@ CONTAINS
       ALLOCATE(DISC%DynRup%Slip2(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
       ALLOCATE(DISC%DynRup%Mu(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
       ALLOCATE(DISC%DynRup%StateVar(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
+      ALLOCATE(DISC%DynRup%PeakSR(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
       !
       DISC%DynRup%SlipRate1     = EQN%IniSlipRate1
       DISC%DynRup%SlipRate2     = EQN%IniSlipRate2
@@ -1113,6 +1118,7 @@ CONTAINS
       DISC%DynRup%Slip2          = 0.0D0
       DISC%DynRup%Mu(:,:)       = EQN%IniMu(:,:)
       DISC%DynRup%StateVar(:,:) = EQN%IniStateVar(:,:)
+      DISC%DynRup%PeakSR          = 0.0D0
 
     else
         ! Allocate dummy arrays to avoid debug errors
@@ -1123,6 +1129,7 @@ CONTAINS
             DISC%DynRup%Slip2(0,0),          &
             DISC%DynRup%Mu(0,0),             &
             DISC%DynRup%StateVar(0,0),       &
+            DISC%DynRup%PeakSR(0,0),       &
             DISC%DynRup%Strength(0,0))
     ENDIF
     !

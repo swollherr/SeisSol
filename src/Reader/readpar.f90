@@ -6,7 +6,7 @@
 !! @author Sebastian Rettenberger (sebastian.rettenberger @ tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
 !!
 !! @section LICENSE
-!! Copyright (c) 2010-2015, SeisSol Group
+!! Copyright (c) 2010-2016, SeisSol Group
 !! All rights reserved.
 !! 
 !! Redistribution and use in source and binary forms, with or without
@@ -383,10 +383,10 @@ CONTAINS
     !                                                      
     SELECT CASE(EQN%linType)                                   
     CASE(0)         ! use constant material properties                                                                                        
-      logInfo(*) 'Jacobians are globally constant with rho0, mu, lambda:'
-      logInfo(*) ' rho0 = ', EQN%rho0     ! (1)
-      logInfo(*) ' mu = ', EQN%mu       ! (2)
-      logInfo(*) ' lambda = ', EQN%lambda   ! (3)
+      logInfo0(*) 'Jacobians are globally constant with rho0, mu, lambda:'
+      logInfo0(*) ' rho0 = ', EQN%rho0     ! (1)
+      logInfo0(*) ' mu = ', EQN%mu       ! (2)
+      logInfo0(*) ' lambda = ', EQN%lambda   ! (3)
       !
     CASE(1,11, 78)          ! get material properties from file
       call readmaterial(IO, EQN, DISC )
@@ -394,11 +394,11 @@ CONTAINS
     CASE(2)                !special case for radially symmetric PREM data
       SELECT CASE(EQN%Anelasticity)
       CASE(0)
-         logInfo(*) 'The Jacobians are based on the PREM model. '
+         logInfo0(*) 'The Jacobians are based on the PREM model. '
       CASE(1)
-         logInfo(*) 'Model has ',EQN%nMechanisms,' attenuation mechanisms.'
-         logInfo(*) 'with central frequency ',EQN%FreqCentral
-         logInfo(*) 'and frequency ratio ',EQN%FreqRatio
+         logInfo0(*) 'Model has ',EQN%nMechanisms,' attenuation mechanisms.'
+         logInfo0(*) 'with central frequency ',EQN%FreqCentral
+         logInfo0(*) 'and frequency ratio ',EQN%FreqRatio
          EQN%nBackgroundVar  = 3 + EQN%nMechanisms * 4
          EQN%nAneMaterialVar = 5        ! rho, mu, lambda, Qp, Qs
          EQN%nVarTotal = EQN%nVar + EQN%nAneFuncperMech * EQN%nMechanisms                                                    !
@@ -407,8 +407,8 @@ CONTAINS
       !
     CASE(3)                !special case for layered medium linear variation of material parameters
         
-      logInfo(*) 'Material property is defined by linear spline. '
-      logInfo(*) 'Linear spline data are read from file : ', TRIM(EQN%MaterialFileName)
+      logInfo0(*) 'Material property is defined by linear spline. '
+      logInfo0(*) 'Linear spline data are read from file : ', TRIM(EQN%MaterialFileName)
       CALL OpenFile(                                        &                        
             UnitNr       = IO%UNIT%other01                , &                        
             Name         = EQN%MaterialFileName           , &
@@ -424,8 +424,8 @@ CONTAINS
       logInfo(*) 'Linear spline data are read from file.     '
       !
     CASE(4)  !special case for Sismovalp 2D benchmark test (model M2)
-      logInfo(*) 'Material property zones are defined by the mesh generator. '
-      logInfo(*) 'Material properties are read from file : ', TRIM(EQN%MaterialFileName)
+      logInfo0(*) 'Material property zones are defined by the mesh generator. '
+      logInfo0(*) 'Material properties are read from file : ', TRIM(EQN%MaterialFileName)
       CALL OpenFile(                                        &                        
             UnitNr       = IO%UNIT%other01                , &                        
             Name         = EQN%MaterialFileName           , &                        
@@ -446,8 +446,8 @@ CONTAINS
       logInfo(*) '   ', EQN%lambda   ! (3)
       !
     CASE(5)  !special case for Sismovalp 2D benchmark test (model M2 SH-wave)
-      logInfo(*) 'Material property zones are defined by the mesh generator. '
-      logInfo(*) 'Material properties are read from file : ', TRIM(EQN%MaterialFileName)
+      logInfo0(*) 'Material property zones are defined by the mesh generator. '
+      logInfo0(*) 'Material properties are read from file : ', TRIM(EQN%MaterialFileName)
       CALL OpenFile(                                        &                        
             UnitNr       = IO%UNIT%other01                , &                        
             Name         = EQN%MaterialFileName           , &
@@ -469,8 +469,8 @@ CONTAINS
       !   
     CASE(6,7)  !special case for (6) Grenoble benchmark test
                !                 (7) Euroseistest benchmark (Volvi Lake)
-      logInfo(*) 'Material property zones are defined by the mesh generator. '
-      logInfo(*) 'Material properties are read from file : ', TRIM(EQN%MaterialFileName)
+      logInfo0(*) 'Material property zones are defined by the mesh generator. '
+      logInfo0(*) 'Material properties are read from file : ', TRIM(EQN%MaterialFileName)
       CALL OpenFile(                                        &                        
             UnitNr       = IO%UNIT%other01                , &                        
             Name         = EQN%MaterialFileName           , &
@@ -497,8 +497,8 @@ CONTAINS
       !
     CASE(8)  !special case for Sonic logging
       !
-      logInfo(*) 'Material property zones are defined by the mesh generator. '
-      logInfo(*) 'Material properties are read from file : ', TRIM(EQN%MaterialFileName)
+      logInfo0(*) 'Material property zones are defined by the mesh generator. '
+      logInfo0(*) 'Material properties are read from file : ', TRIM(EQN%MaterialFileName)
       CALL OpenFile(                                        &                        
             UnitNr       = IO%UNIT%other01                , &                        
             Name         = EQN%MaterialFileName           , &
@@ -517,8 +517,8 @@ CONTAINS
       !
     CASE(9)  ! special case for a hemisphere with different material properties at the top of a box
       !
-      logInfo(*) 'Material property zones are defined by SeisSol. '
-      logInfo(*) 'Material properties are read from file : ', TRIM(EQN%MaterialFileName)
+      logInfo0(*) 'Material property zones are defined by SeisSol. '
+      logInfo0(*) 'Material properties are read from file : ', TRIM(EQN%MaterialFileName)
       CALL OpenFile(                                        &                        
             UnitNr       = IO%UNIT%other01                , &                        
             Name         = EQN%MaterialFileName           , &
@@ -538,58 +538,29 @@ CONTAINS
   CASE(12, 26, 28, 77) ! Plasticity with constant material properties, initial stress (loading) must be assigned to every element in the domain
            ! special case for TPV13, add other cases that use plasticity with different initial stress values here
       IF (EQN%Plasticity.EQ.1)THEN
-        logInfo(*) 'Jacobians are globally constant with rho0, mu, lambda:'
-        logInfo(*) ' rho0 = ', EQN%rho0     ! (1)
-        logInfo(*) ' mu = ', EQN%mu       ! (2)
-        logInfo(*) ' lambda = ', EQN%lambda   ! (3)
+        logInfo0(*) 'Jacobians are globally constant with rho0, mu, lambda:'
+        logInfo0(*) ' rho0 = ', EQN%rho0     ! (1)
+        logInfo0(*) ' mu = ', EQN%mu       ! (2)
+        logInfo0(*) ' lambda = ', EQN%lambda   ! (3)
       ELSE
         logInfo(*) '| ERROR: MaterialType 12 is only used for plastic calculations.'
       ENDIF
       !
   CASE(60,61) ! special case of 1D landers example
       !
-      logInfo(*) 'Material property zones are defined by SeisSol. '
+      logInfo0(*) 'Material property zones are defined by SeisSol. '
+  CASE(33) ! special case of TPV33, T Ulrich 14.01.2016
+      !
+      logInfo0(*) 'Material property zones are defined by SeisSol. '
   CASE(99,100) ! special case of 1D layered medium, imposed without meshed layers
       !
-      logInfo(*) 'Material property zones are defined by SeisSol. '
+      logInfo0(*) 'Material property zones are defined by SeisSol. '
 
   CASE(101) ! special case of 3D complex medium, imposed without meshed layers
       ! e.g. SCEC 3D velocity model surrounding the Northridge fault
       !
-      logInfo(*) 'No material property zones are defined. '
-      logInfo(*) 'Material properties are read from file : ', TRIM(EQN%MaterialFileName)
-      CALL OpenFile(                                        &
-            UnitNr       = IO%UNIT%other01                , &
-            Name         = EQN%MaterialFileName           , &
-            create       = .FALSE.                          )
-      logInfo(*) 'Reading material property file ...  '
-      ALLOCATE(EQN%MaterialGridSpace(3))
-      READ(IO%UNIT%other01,*) lines, ix, iy, iz, EQN%MaterialGridSpace(1), EQN%MaterialGridSpace(2), EQN%MaterialGridSpace(3)
-      ! Sepcifications of structured grid of material parameters (total number of lines, nx, ny, nz, dx, dz)
-      ALLOCATE(IO%MaterialVal(lines,6))
-      ! Read data (6 columns) x,y,z,rho,mu,lamda: linewise
-      DO i = 1,lines
-           READ(IO%UNIT%other01,*) IO%MaterialVal(i,:)
-      ENDDO ! i lines
-      CLOSE(IO%UNIT%other01)
-      ! Reorder Material array for trilinear interpolation
-      ALLOCATE( EQN%MaterialGrid(ix,iy,iz,3) )      ! x,y,z,rho,mu,lamda: grid
-      intDummy=0
-      DO i = 1,ix
-      DO j = 1,iy
-      DO k = 1,iz
-        intDummy=intDummy+1
-        EQN%MaterialGrid(i,j,k,1:3) = IO%MaterialVal(intDummy,4:6)
-      ENDDO
-      ENDDO
-      ENDDO
-      ! check correct dimensions of structured grid
-      IF (intDummy.EQ.(ix*iy*iz)) THEN
-           logInfo(*) 'Material model read in successfully! '
-      ELSE
-           logInfo(*) 'Material model in wrong format (must be (x*y*z) values of structured grid in x,y,z order!)'
-           STOP
-      ENDIF
+      logInfo0(*) 'No material property zones are defined. '
+      logInfo0(*) 'Material properties are read from file : ', TRIM(EQN%MaterialFileName)
       !
   CASE DEFAULT
          logError(*) 'Wrong linearization type.'
@@ -1292,7 +1263,7 @@ CONTAINS
     TYPE (tInputOutput)        :: IO
     LOGICAL                    :: CalledFromStructCode
     ! localVariables
-    INTEGER                    :: OutputMask(8)
+    INTEGER                    :: OutputMask(9)
     INTEGER                    :: printtimeinterval
     INTEGER                    :: printIntervalCriterion
     INTEGER                    :: refinement_strategy, refinement
@@ -1307,10 +1278,7 @@ CONTAINS
     printtimeinterval_sec = 1d0
     printIntervalCriterion = 1
     OutputMask(:) = 1
-    OutputMask(4) = 0
-    OutputMask(6) = 0
-    OutputMask(7) = 0
-    OutputMask(8) = 0
+    OutputMask(4:9) = 0
     refinement_strategy = 2
     refinement = 2
     !
@@ -1324,7 +1292,7 @@ CONTAINS
     endif
 
     ! if 2, printtimeinterval is set afterwards, when dt is known
-    DISC%DynRup%DynRup_out_elementwise%OutputMask(1:8) =  OutputMask(1:8)      ! read info of desired output 1/ yes, 0/ no
+    DISC%DynRup%DynRup_out_elementwise%OutputMask(1:9) =  OutputMask(1:9)      ! read info of desired output 1/ yes, 0/ no
                                                                                      ! position: 1/ slip rate 2/ stress 3/ normal velocity
                                                                                      ! 4/ in case of rate and state output friction and state variable
                                                                                      ! 5/ background values 6/Slip 7/rupture speed
@@ -1501,8 +1469,8 @@ CONTAINS
     TYPE (tInitialCondition)               :: IC
     INTENT(INOUT)                          :: IO, EQN, DISC, BND
     INTEGER                                :: FL, BackgroundType, Nucleation, inst_healing, RF_output_on, &
-                                              OutputPointType, magnitude_output_on,energy_output_on, &
-                                              read_fault_file
+                                              OutputPointType, magnitude_output_on, moment_rate_output_on,moment_rate_printtimeinterval, &
+                                              energy_output_on, read_fault_file
     CHARACTER(600)                         :: FileName_BackgroundStress
     REAL                                   :: Bulk_xx_0, Bulk_yy_0, &
                                               Bulk_zz_0, ShearXY_0, ShearYZ_0, ShearXZ_0, &
@@ -1524,8 +1492,8 @@ CONTAINS
                                                 NucDirX, NucXmin, NucXmax, NucDirY, NucYmin, NucYmax, &
                                                 NucBulk_xx_0, NucBulk_yy_0, NucBulk_zz_0, NucShearXY_0, &
                                                 NucShearYZ_0, NucShearXZ_0, NucRS_sv0, r_s, RF_output_on, &
-                                                OutputPointType, magnitude_output_on, energy_output_on, pickdt_energy,&
-                                                cohesion_0, read_fault_file
+                                                OutputPointType, magnitude_output_on, moment_rate_output_on, moment_rate_printtimeinterval, &
+                                                energy_output_on, pickdt_energy, cohesion_0, read_fault_file
     !------------------------------------------------------------------------                                                                                   
     
     ! Setting default values
@@ -1536,6 +1504,8 @@ CONTAINS
     magnitude_output_on = 0
     energy_output_on = 0
     pickdt_energy = 0.1
+    moment_rate_output_on = 0
+    moment_rate_printtimeinterval = 1
     OutputPointType = 3
     Bulk_xx_0 = 0
     Bulk_yy_0 = 0
@@ -1601,7 +1571,7 @@ CONTAINS
            !BACKGROUND VALUES
            DISC%DynRup%BackgroundType = BackgroundType
            SELECT CASE(DISC%DynRup%BackgroundType)
-           CASE(0,1,2,3,4,5,7,10,11,12,13,14,15,26,30,50,60,61,62,70,77,100,101,103)
+           CASE(0,1,2,3,4,5,7,10,11,12,13,14,15,26,30,33,50,60,61,62,70,77,100,101,103)
              EQN%Bulk_xx_0 = Bulk_xx_0
              EQN%Bulk_yy_0 = Bulk_yy_0
              EQN%Bulk_zz_0 = Bulk_zz_0
@@ -1742,6 +1712,8 @@ CONTAINS
            !
            ! magnitude output on = 1, off = 0
            DISC%DynRup%magnitude_output_on = magnitude_output_on
+           DISC%DynRup%moment_rate_output_on = moment_rate_output_on
+           DISC%DynRup%moment_rate_printtimeinterval = moment_rate_printtimeinterval
            !
            ! energy output on = 1, off =0
            DISC%DynRup%energy_output_on = energy_output_on
@@ -3336,12 +3308,7 @@ ALLOCATE( SpacePositionx(nDirac), &
          stop
 #endif
       case(6)
-#ifdef USE_HDF
-         logInfo0(*) 'Output data are in XDMF format (new implemantation)'
-#else
-         logError(*) 'This version does not support HDF5'
-         stop
-#endif
+         logInfo0(*) 'Output data is in XDMF format (new implemantation)'
       case(10)
          logInfo0(*) 'Output data is disabled'
       CASE DEFAULT
