@@ -137,6 +137,7 @@ CONTAINS
 
     REAL                           :: CpuTime_ini                             ! Eval cpu time
     REAL                           :: CpuTime_end                             ! Eval cpu time
+    REAL                           :: KineticEnergy_tmp                       ! kinetic energy
 
     INTEGER                        :: i, iPoly
     INTEGER                        :: LocnVar                                 !
@@ -435,6 +436,10 @@ CONTAINS
             ENDDO
         ENDDO
         !
+        !Calculate the kinetic energy
+        KineticEnergy_tmp = 0.0
+        KineticEnergy_tmp = EQN%Rho0*(DISC%Galerkin%dgvar(1,7, iElem,1)**2 + DISC%Galerkin%dgvar(1,8, iElem, 1)**2 + DISC%Galerkin%dgvar(1,9, iELem, 1)**2)
+        EQN%Energy(1,iElem) = 0.5*KineticEnergy_tmp*MESH%Elem%Volume(iElem)
     ENDDO ! iElem
 #endif
 
@@ -462,14 +467,14 @@ CONTAINS
                   CASE(0) !high order implementation -> is working
                       CALL Plasticity_3D_high(DISC%Galerkin%dgvar(:,1:9,iElem,1), DISC%Galerkin%DOFStress(:,1:6,iElem), DISC%Galerkin%nDegFr, DISC%Galerkin%nDegFr, &
                                               EQN%BulkFriction, EQN%Tv, dt, EQN%mu, EQN%lambda, DISC%Galerkin%plasticParameters(1:3,iElem), &
-                                              EQN%Energy(1:3,iElem), DISC%Galerkin%pstrain(1:7,iElem), intGaussP, intGaussW, &
+                                              EQN%Energy(2:3,iElem), DISC%Galerkin%pstrain(1:7,iElem), intGaussP, intGaussW, &
                                               !IntGPBaseFunc, MassMatrix, &
                                               DISC, EQN%nVar, DISC%Galerkin%nIntGP)
 
                   CASE(2) !average approximated with the first dof -> is working
                      CALL Plasticity_3D_dof(DISC,DISC%Galerkin%dgvar(:,1:9,iElem,1), DISC%Galerkin%DOFStress(:,1:6,iElem), DISC%Galerkin%nDegFr, &
                                             DISC%Galerkin%nDegFr, EQN%BulkFriction, EQN%Tv, dt, EQN%mu, EQN%lambda,DISC%Galerkin%plasticParameters(1:3,iElem), &
-                                            EQN%Energy(1:3,iElem), DISC%Galerkin%pstrain(1:7,iElem) )
+                                            EQN%Energy(2:3,iElem), DISC%Galerkin%pstrain(1:7,iElem) )
                   END SELECT
 
 #endif

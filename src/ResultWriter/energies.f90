@@ -111,8 +111,10 @@ CONTAINS
         dt            = dt_op
         localpicktime = IO%picktime_energy !current picktime
 #endif
-    plast_energy = 0.0
+
     kinetic_energy = 0.0
+    plast_energy = 0.0
+
     !only output at specific timesteps/times
     DO WHILE( (localpicktime.GE.time).AND.(localpicktime.LE.time+dt+1e-10).AND.(localpicktime.LE.DISC%EndTime+1e-10) )
 
@@ -166,23 +168,28 @@ CONTAINS
            logError(*) 'Error status: ', stat                                !
            STOP                                                              !
         ENDIF
-        !
+        IF (EQN%Plasticity .EQ. 0) THEN
+            WRITE(UNIT_ENERGY,*) '#time KineticEnergy '
+        ELSE
+            WRITE(UNIT_ENERGY,*) '#time KineticEnergy PlasticEnergy ElasticStrainEnergy '
+        ENDIF
     ENDIF
     !
     ! Compute output
     ! sum over each element in the mpi domain
-
-
     nElem = MESH%nELEM
     DO iElem = 1,nElem
-           plast_energy = plast_energy + EQN%Energy(1,iElem) !dissiputed plastic energy
-           kinetic_energy = kinetic_energy + EQN%Energy(2,iElem)
+           kinetic_energy = kinetic_energy + EQN%Energy(1,iElem)
+           plast_energy = plast_energy + EQN%Energy(2,iElem)
            estrain_energy = estrain_energy + EQN%Energy(3,iElem)
-           fracture_energy = fracture_energy + EQN%Energy(4,iElem)
     ENDDO
     !
     ! Write output
-    WRITE(UNIT_ENERGY,*) time, plast_energy, kinetic_energy, estrain_energy, fracture_energy
+    IF (EQN%Plasticity .EQ. 0) THEN
+        WRITE(UNIT_ENERGY,*) time, kinetic_energy
+    ELSE
+        WRITE(UNIT_ENERGY,*) time, kinetic_energy, plast_energy, estrain_energy
+    ENDIF
 
     CLOSE( UNIT_ENERGY )
 
