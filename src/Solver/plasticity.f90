@@ -309,7 +309,6 @@ MODULE Plasticity_mod
     REAL        :: angfric, yldfac                                            !Angle of friction, yield factor
     REAL        :: dt, relaxtime                                              !relaxation time for the yield factor  
     REAL        :: mu, lambda                                                         ! Lame parameter mu
-    REAL        :: LocnVar                                          !
     REAL        :: tau,taulim                                                 !tau= potential flow function, taulim= drucker-Prager yield stress.
     REAL        :: secInv                                                     !secInv=second Invariant of deviatoric stress
     REAL        :: BulkFriction, Tv

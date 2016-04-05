@@ -41,7 +41,7 @@
 #
 
 # build options
-compileMode                 = 'release'
+compileMode                 = 'debug'
 parallelization             = 'mpi'
 generatedKernels            = 'no'
 measureNodeLevelPerformance = 'none'

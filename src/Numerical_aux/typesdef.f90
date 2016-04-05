@@ -959,7 +959,6 @@ MODULE TypesDef
      LOGICAL, ALLOCATABLE                   :: magnitude_out(:)                 !< magnitude output: true or false
      REAL, ALLOCATABLE                      :: averaged_Slip(:)                 !< slip averaged per element (length all + elements in this domain)
      !energy output
-     INTEGER                                :: energy_output_on
      ! declarate output types
      LOGICAL                                :: DR_output                        !< Dynamic Rupture output just for domains with "+" elements
      INTEGER                                :: OutputPointType                  !< Type of output (3: at certain pickpoint positions, 4: at every element , 5: option 3 + 4)
@@ -1411,6 +1410,7 @@ MODULE TypesDef
      REAL                                   :: picktime_energy
      REAL, POINTER                          :: localpicktime(:) => null()       !< Time for next pickpointing (local dt)
      REAL                                   :: pickdt                           !< Time increment for pickpointing
+     INTEGER                                :: energy_output_on                 !< global energy output 1=on, 0=off (kinetic energy)
      REAL                                   :: pickdt_energy                    !< Time increment for energy time series
      integer                                :: pickDtType                       !< Meaning of pickdt: 1 = time, 2 = timestep(s)
      INTEGER                                :: PickLarge                        !< 0 = IO at each time level, 1 = IO every some number of levels

@@ -272,7 +272,7 @@ CONTAINS
                dt_op     = OptionalFields%dt(1)  )
 
            ! write energy output (time series)
-        IF (DISC%DynRup%energy_output_on .EQ. 1) THEN
+        IF (IO%energy_output_on .EQ. 1) THEN
            CALL energies_output(                 &
                DISC      = DISC                 ,&
                EQN       = EQN                  ,&
