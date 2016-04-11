@@ -463,7 +463,6 @@ CONTAINS
         IF(EQN%Plasticity.EQ.1) THEN
 
            IF(EQN%PlastMethod .EQ. 0) THEN
-              iPoly  = DISC%Galerkin%nPoly
               intGaussP     => DISC%Galerkin%intGaussP_Tet
               intGaussW     => DISC%Galerkin%intGaussW_Tet
               ! Basis func values

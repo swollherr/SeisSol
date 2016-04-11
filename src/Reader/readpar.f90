@@ -3173,9 +3173,8 @@ ALLOCATE( SpacePositionx(nDirac), &
       character(LEN=64)                :: checkPointBackend
       NAMELIST                         /Output/ OutputFile, Rotation, iOutputMask, iOutputMaskMaterial, &
                                                 Format, Interval, TimeInterval, printIntervalCriterion, Refinement, &
-                                                pickdt, pickdt_energy, pickDtType, RFileName, PGMFlag, &
+                                                pickdt, pickDtType, RFileName, PGMFlag, &
                                                 PGMFile, FaultOutputFlag, nRecordPoints, &
-                                                checkPointInterval, checkPointFile, checkPointBackend, energy_output_on
                                                 checkPointInterval, checkPointFile, checkPointBackend, energy_output_on, pickdt_energy
     !------------------------------------------------------------------------  
     !                                                                       
@@ -3194,8 +3193,6 @@ ALLOCATE( SpacePositionx(nDirac), &
       pickdt_energy= 1.0
       pickDtType = 1
       nRecordPoints = 0
-      energy_output_on = 0
-      pickdt_energy = 1.0
 !      RFileName = 'RecordPoints'
       pickDtType = 1
       PGMFlag = 0

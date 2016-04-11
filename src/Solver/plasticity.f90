@@ -253,10 +253,10 @@ MODULE Plasticity_mod
                  + dudt_pstrain(3)**2)+ dudt_pstrain(4)**2 + dudt_pstrain(5)**2 + dudt_pstrain(6)**2)
 
     !calculate energies
-    PlasticEnergy_tmp = Stress(1,1)*dudt_pstrain(1) + Stress(1,2)*dudt_pstrain(2) + Stress(1,3)*dudt_pstrain(3) + 2.0*Stress(1,4)*dudt_pstrain(4) &
-                      + 2.0*Stress(1,5)*dudt_pstrain(5) + 2.0*Stress(1,6)*dudt_pstrain(6)
+    PlasticEnergy_tmp = Stress_total(1,1)*dudt_pstrain(1) + Stress_total(1,2)*dudt_pstrain(2) + Stress_total(1,3)*dudt_pstrain(3) + 2.0*Stress_total(1,4)*dudt_pstrain(4) &
+                      + 2.0*Stress_total(1,5)*dudt_pstrain(5) + 2.0*Stress_total(1,6)*dudt_pstrain(6)
 
-    estrain(1:6) = Strain_total(1:6) - dudt_pstrain(1:6) !total elastic strain, if no plastic yielding -> elastic strain = total strain
+    estrain(1:6) = Strain_total(1,1:6) - dudt_pstrain(1:6) !total elastic strain, if no plastic yielding -> elastic strain = total strain
     estrain_ini(1:6) = Strain_ini(1:6)
 
     !first and second invariants of the total elastic strain
