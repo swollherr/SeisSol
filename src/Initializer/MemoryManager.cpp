@@ -878,7 +878,7 @@ void seissol::initializers::MemoryManager::allocateInternalState() {
 		  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	 PAGESIZE_HEAP,
 																				 seissol::memory::Standard);
 
-  m_internalState.Energy = (real(*)[4]) m_memoryAllocator.allocateMemory( (m_totalNumberOfCopyCells + m_totalNumberOfInteriorCells)*sizeof(real[4]),
+  m_internalState.Energy = (real(*)[3]) m_memoryAllocator.allocateMemory( (m_totalNumberOfCopyCells + m_totalNumberOfInteriorCells)*sizeof(real[3]),
 	  	  	  	  	  	  	  	                                               PAGESIZE_HEAP,
 			                                                                   seissol::memory::Standard);
 
@@ -1086,7 +1086,7 @@ void seissol::initializers::MemoryManager::touchPstrain(unsigned int   i_numberO
 }
 
 void seissol::initializers::MemoryManager::touchEnergy(unsigned int   i_numberOfCells,
-                                                       real  (*o_Energy)[4] )
+                                                       real  (*o_Energy)[3] )
 {
 #ifdef _OPENMP
   #pragma omp parallel for
@@ -1105,7 +1105,7 @@ void seissol::initializers::MemoryManager::initializeCells() {
    */
   real (*l_dofsPointer)[NUMBER_OF_ALIGNED_DOFS] = m_internalState.dofs;
   real (*pstrainPointer)[7] = m_internalState.pstrain;
-  real (*EnergyPointer)[4] = m_internalState.Energy;
+  real (*EnergyPointer)[3] = m_internalState.Energy;
 
   for( unsigned int l_cluster = 0; l_cluster < m_numberOfClusters; l_cluster++ ) {
 #ifdef USE_MPI

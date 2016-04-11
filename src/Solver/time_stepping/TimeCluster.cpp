@@ -516,8 +516,8 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( unsigne
                                                                          CellData               *i_cellData,
                                                                          real                 *(*i_faceNeighbors)[4],
                                                                          real                  (*io_dofs)[NUMBER_OF_ALIGNED_DOFS],
-																		 real                  (*io_Energy)[4],
-																		 real                  (*io_pstrain)[7] ) {
+									 real                  (*io_Energy)[3],
+									 real                  (*io_pstrain)[7] ) {
   SCOREP_USER_REGION( "computeNeighboringIntegration", SCOREP_USER_REGION_TYPE_FUNCTION )
 
   real *l_timeIntegrated[4];

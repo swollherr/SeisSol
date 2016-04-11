@@ -138,8 +138,7 @@ CONTAINS
     REAL                           :: CpuTime_ini                             ! Eval cpu time
     REAL                           :: CpuTime_end                             ! Eval cpu time
     REAL                           :: KineticEnergy_tmp                       ! kinetic energy
-
-    INTEGER                        :: i, iPoly
+    INTEGER                        :: i
     INTEGER                        :: LocnVar                                 !
     INTEGER                        :: LocnPoly                                !
     INTEGER                        :: LocnDegFr                               !
@@ -438,8 +437,21 @@ CONTAINS
         !
         !Calculate the kinetic energy
         KineticEnergy_tmp = 0.0
-        KineticEnergy_tmp = EQN%Rho0*(DISC%Galerkin%dgvar(1,7, iElem,1)**2 + DISC%Galerkin%dgvar(1,8, iElem, 1)**2 + DISC%Galerkin%dgvar(1,9, iELem, 1)**2)
-        EQN%Energy(1,iElem) = 0.5*KineticEnergy_tmp*MESH%Elem%Volume(iElem)
+        !average approach
+        !KineticEnergy_tmp = EQN%Rho0*(DISC%Galerkin%dgvar(1,7, iElem,1)**2 + DISC%Galerkin%dgvar(1,8, iElem, 1)**2 + DISC%Galerkin%dgvar(1,9, iELem, 1)**2)
+        !EQN%Energy(1,iElem) = 0.5*KineticEnergy_tmp*MESH%Elem%Volume(iElem)
+
+        !using onyl the average of an element to calculate the energy
+        !KineticEnergy_tmp = EQN%Rho0*(DISC%Galerkin%dgvar(1,7, iElem,1)**2 + DISC%Galerkin%dgvar(1,8, iElem, 1)**2 + DISC%Galerkin%dgvar(1,9, iELem, 1)**2)
+        !using a dofs for calculating the energy
+        DO iDegFr=1,LocnDegFr
+           KineticEnergy_tmp = KineticEnergy_tmp + &
+                               EQN%Rho0*MassMatrix_ptr(iDegFr,iDegFr)*(DISC%Galerkin%dgvar(iDegFr,7, iElem,1)**2 + &
+                               DISC%Galerkin%dgvar(iDegFr,8, iElem, 1)**2 + DISC%Galerkin%dgvar(iDegFr,9, iELem, 1)**2)
+        ENDDO
+
+        EQN%Energy(1,iElem) = 0.5*KineticEnergy_tmp*6.0d0*MESH%Elem%Volume(iElem) !|J|=6*V  transformation from reference element
+
     ENDDO ! iElem
 #endif
 
@@ -465,17 +477,18 @@ CONTAINS
 
                 SELECT CASE(EQN%PlastMethod) !two different implementations
                   CASE(0) !high order implementation -> is working
-                      CALL Plasticity_3D_high(DISC%Galerkin%dgvar(:,1:9,iElem,1), DISC%Galerkin%DOFStress(:,1:6,iElem), DISC%Galerkin%nDegFr, DISC%Galerkin%nDegFr, &
+                    CALL Plasticity_3D_high(DISC%Galerkin%dgvar(:,1:6,iElem,1), DISC%Galerkin%DOFStress(:,1:6,iElem), DISC%Galerkin%nDegFr, DISC%Galerkin%nDegFr, &
                                               EQN%BulkFriction, EQN%Tv, dt, EQN%mu, EQN%lambda, DISC%Galerkin%plasticParameters(1:3,iElem), &
                                               EQN%Energy(2:3,iElem), DISC%Galerkin%pstrain(1:7,iElem), intGaussP, intGaussW, &
                                               !IntGPBaseFunc, MassMatrix, &
                                               DISC, EQN%nVar, DISC%Galerkin%nIntGP)
 
                   CASE(2) !average approximated with the first dof -> is working
-                     CALL Plasticity_3D_dof(DISC,DISC%Galerkin%dgvar(:,1:9,iElem,1), DISC%Galerkin%DOFStress(:,1:6,iElem), DISC%Galerkin%nDegFr, &
+                    CALL Plasticity_3D_dof(DISC,DISC%Galerkin%dgvar(:,1:6,iElem,1), DISC%Galerkin%DOFStress(:,1:6,iElem), DISC%Galerkin%nDegFr, &
                                             DISC%Galerkin%nDegFr, EQN%BulkFriction, EQN%Tv, dt, EQN%mu, EQN%lambda,DISC%Galerkin%plasticParameters(1:3,iElem), &
                                             EQN%Energy(2:3,iElem), DISC%Galerkin%pstrain(1:7,iElem) )
                   END SELECT
+
 
 #endif
 !for the GK version the plasticity call is moved to Interoperability.cpp

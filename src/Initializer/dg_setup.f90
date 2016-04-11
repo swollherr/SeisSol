@@ -2628,11 +2628,6 @@ CONTAINS
         DISC%Galerkin%PlasticParameters = 0.
         DISC%Galerkin%Strain_Matrix = 0.
 
-        !Initialize plastic parameters
-        DISC%Galerkin%plasticParameters(1,iElem) = MESH%Elem%Volume(iElem)
-        DISC%Galerkin%plasticParameters(2,iElem) = EQN%PlastCo !currently constant, soon element-dependent
-        DISC%Galerkin%plasticParameters(3,iElem) = EQN%Rho0 !currently not needed inside the plasticity routine
-
         !Initialize the stress-strain relation matrix (mu and lambda should be element dependent)
         Einv = (EQN%lambda+EQN%mu)/(EQN%mu*(3*EQN%lambda+2*EQN%mu))!Inv of the Young's modulus
         v = EQN%lambda/(2*(EQN%lambda+EQN%mu)) !Poisson's ratio
@@ -2640,10 +2635,9 @@ CONTAINS
         DISC%Galerkin%Strain_Matrix(1,1) = Einv
         DISC%Galerkin%Strain_Matrix(2,2) = Einv
         DISC%Galerkin%Strain_Matrix(3,3) = Einv
-        DISC%Galerkin%Strain_Matrix(4,4) = 1/EQN%mu
-        DISC%Galerkin%Strain_Matrix(5,5) = 1/EQN%mu
-        DISC%Galerkin%Strain_Matrix(6,6) = 1/EQN%mu
-
+        DISC%Galerkin%Strain_Matrix(4,4) = 1/(2*EQN%mu)
+        DISC%Galerkin%Strain_Matrix(5,5) = 1/(2*EQN%mu)
+        DISC%Galerkin%Strain_Matrix(6,6) = 1/(2*EQN%mu)
         DISC%Galerkin%Strain_Matrix(1,2) = -v*Einv
         DISC%Galerkin%Strain_Matrix(1,3) = -v*Einv
         DISC%Galerkin%Strain_Matrix(2,1) = -v*Einv
@@ -2744,7 +2738,6 @@ CONTAINS
 
             IF(EQN%Plasticity.EQ.1 .AND. EQN%PlastMethod .EQ. 2) THEN
             ! L2 projection of initial stress loading for the plastic calculations onto the DOFs, only for the low order case
-
               iniGP_Plast(:) = EQN%IniStress(1:6,iElem)
               DO iDegFr = 1, nDegFr
                  phi = IntGPBaseFunc(iDegFr,iIntGP)
@@ -2755,7 +2748,8 @@ CONTAINS
                 DISC%Galerkin%DOFStress(iDegFr,1:6,iElem) + IntGaussW(iIntGP)*iniGP_plast(:)*phi
 #endif
               ENDDO
-            ENDIF
+           ENDIF
+
     ENDDO !iIntGP
 
             DO iDegFr = 1, nDegFr
@@ -2792,7 +2786,6 @@ CONTAINS
         l_plasticParameters(2) = EQN%PlastCo !currently constant, soon element-dependent
         l_plasticParameters(3) = EQN%Rho0    !density
 
-
         ! initialize loading in C
         call c_interoperability_setInitialLoading( i_meshId         = c_loc( iElem), \
                                                    i_initialLoading = c_loc( l_initialLoading ) )
@@ -2802,7 +2795,15 @@ CONTAINS
                                                    i_plasticParameters = c_loc( l_plasticParameters ) )
 #endif
 
+#else
+        IF(EQN%Plasticity.EQ.1) THEN
+          ! initialize plastic parameters in classic version
+          DISC%Galerkin%plasticParameters(1,iElem) = MESH%Elem%Volume(iElem)
+          DISC%Galerkin%plasticParameters(2,iElem) = EQN%PlastCo !currently constant, soon element-dependent
+          DISC%Galerkin%plasticParameters(3,iElem) = EQN%Rho0 !currently not needed inside the plasticity routine
+        ENDIF
 #endif
+
 
         NULLIFY(intGaussP)
         NULLIFY(intGaussW)

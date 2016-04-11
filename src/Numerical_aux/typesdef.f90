@@ -1410,8 +1410,8 @@ MODULE TypesDef
      REAL                                   :: picktime_energy
      REAL, POINTER                          :: localpicktime(:) => null()       !< Time for next pickpointing (local dt)
      REAL                                   :: pickdt                           !< Time increment for pickpointing
-     INTEGER                                :: energy_output_on                 !< global energy output 1=on, 0=off (kinetic energy)
      REAL                                   :: pickdt_energy                    !< Time increment for energy time series
+     INTEGER                                :: energy_output_on
      integer                                :: pickDtType                       !< Meaning of pickdt: 1 = time, 2 = timestep(s)
      INTEGER                                :: PickLarge                        !< 0 = IO at each time level, 1 = IO every some number of levels
      INTEGER                      , POINTER :: CurrentPick(:)                   !< Current storage time level

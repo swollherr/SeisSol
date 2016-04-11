@@ -424,7 +424,7 @@ struct InternalState {
   real (*dofs)[NUMBER_OF_ALIGNED_DOFS];
 
   // energy variable
-  real (*Energy)[4];
+  real (*Energy)[3];
 
   // plastic strain
   real (*pstrain)[7];
@@ -456,7 +456,7 @@ struct Cells {
   real *(*copyFaceNeighbors)[4];
 
   /** Pointer to copy layer energy */
-    real (*copyEnergy)[4];
+  real (*copyEnergy)[3];
 
   /** Pointer to copy layer plastic strain */
   real (*copyPstrain)[7];
@@ -483,7 +483,7 @@ struct Cells {
   real *(*interiorFaceNeighbors)[4];
 
   /** Pointer to energy variable*/
-    real (*interiorEnergy)[4];
+    real (*interiorEnergy)[3];
 
   /** Pointer to interior plastic strain */
   real (*interiorPstrain)[7];

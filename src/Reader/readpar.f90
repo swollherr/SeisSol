@@ -1469,7 +1469,7 @@ CONTAINS
     TYPE (tInitialCondition)               :: IC
     INTENT(INOUT)                          :: IO, EQN, DISC, BND
     INTEGER                                :: FL, BackgroundType, Nucleation, inst_healing, RF_output_on, &
-                                              OutputPointType, magnitude_output_on, energy_rate_output_on, energy_rate_printtimeinterval, read_fault_file
+                                              OutputPointType, magnitude_output_on,  energy_rate_output_on, read_fault_file
     CHARACTER(600)                         :: FileName_BackgroundStress
     REAL                                   :: Bulk_xx_0, Bulk_yy_0, &
                                               Bulk_zz_0, ShearXY_0, ShearYZ_0, ShearXZ_0, &
@@ -1479,7 +1479,7 @@ CONTAINS
                                               RS_iniSlipRate2, v_star, L, XHypo, YHypo, ZHypo, R_crit, t_0, Vs_nucl, Mu_W, RS_srW,  &
                                               NucDirX, NucXmin, NucXmax, NucDirY, NucYmin, NucYmax, &
                                               NucBulk_xx_0, NucBulk_yy_0, NucBulk_zz_0, NucShearXY_0, &
-                                              NucShearYZ_0, NucShearXZ_0, NucRS_sv0, r_s, cohesion_0
+                                              NucShearYZ_0, NucShearXZ_0, NucRS_sv0, r_s, cohesion_0, energy_rate_printtimeinterval
     !------------------------------------------------------------------------
     NAMELIST                              /DynamicRupture/ FL, BackgroundType, Bulk_xx_0, Bulk_yy_0, &
                                                 Bulk_zz_0, ShearXY_0, ShearYZ_0, ShearXZ_0, &
@@ -3168,7 +3168,7 @@ ALLOCATE( SpacePositionx(nDirac), &
       INTEGER                          :: Rotation, Format, printIntervalCriterion, &
                                           pickDtType, nRecordPoint, PGMFlag, FaultOutputFlag, &
                                           iOutputMaskMaterial(1:3), nRecordPoints, Refinement, energy_output_on
-      REAL                             :: TimeInterval, pickdt,pickdt_energy, Interval, checkPointInterval
+      REAL                             :: TimeInterval, pickdt, pickdt_energy, Interval, checkPointInterval
       CHARACTER(LEN=600)               :: OutputFile, RFileName, PGMFile, checkPointFile
       character(LEN=64)                :: checkPointBackend
       NAMELIST                         /Output/ OutputFile, Rotation, iOutputMask, iOutputMaskMaterial, &
@@ -3176,6 +3176,7 @@ ALLOCATE( SpacePositionx(nDirac), &
                                                 pickdt, pickdt_energy, pickDtType, RFileName, PGMFlag, &
                                                 PGMFile, FaultOutputFlag, nRecordPoints, &
                                                 checkPointInterval, checkPointFile, checkPointBackend, energy_output_on
+                                                checkPointInterval, checkPointFile, checkPointBackend, energy_output_on, pickdt_energy
     !------------------------------------------------------------------------  
     !                                                                       
       logInfo(*) '<--------------------------------------------------------->'        
@@ -3193,6 +3194,8 @@ ALLOCATE( SpacePositionx(nDirac), &
       pickdt_energy= 1.0
       pickDtType = 1
       nRecordPoints = 0
+      energy_output_on = 0
+      pickdt_energy = 1.0
 !      RFileName = 'RecordPoints'
       pickDtType = 1
       PGMFlag = 0
@@ -3450,11 +3453,19 @@ ALLOCATE( SpacePositionx(nDirac), &
 
        ! energy output on = 1, off =0
        IO%energy_output_on = energy_output_on
+
+       IF(IO%energy_output_on .EQ. 1) THEN
+#ifdef GENERATEDKERNELS
+            logWarning0(*) 'Energy output currently only working with classic version. Turning it off.'
+            IO%energy_output_on = 0
+#else
        !own timestep for energy output but output-type is the same as for receivers
        !default type is 1 (time interval-wise)
        !default time interval = 0.1
        IO%pickdt_energy = pickdt_energy
        logInfo0(*) 'current energy dt is', IO%pickdt_energy
+#endif
+       ENDIF
 
      IO%nRecordPoint = nRecordPoints  ! number of points to pick temporal signal
      logInfo(*) 'Number of Record Points = ', IO%nRecordPoint
