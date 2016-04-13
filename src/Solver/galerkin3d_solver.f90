@@ -476,16 +476,15 @@ CONTAINS
 
                 SELECT CASE(EQN%PlastMethod) !two different implementations
                   CASE(0) !high order implementation -> is working
-                    CALL Plasticity_3D_high(DISC%Galerkin%dgvar(:,1:6,iElem,1), DISC%Galerkin%DOFStress(:,1:6,iElem), DISC%Galerkin%nDegFr, DISC%Galerkin%nDegFr, &
+                    CALL Plasticity_3D_high(DISC, DISC%Galerkin%dgvar(:,1:6,iElem,1), DISC%Galerkin%DOFStress(:,1:6,iElem), DISC%Galerkin%nDegFr, DISC%Galerkin%nDegFr, &
                                               EQN%BulkFriction, EQN%Tv, dt, EQN%mu, EQN%lambda, DISC%Galerkin%plasticParameters(1:3,iElem), &
-                                              EQN%Energy(2:3,iElem), DISC%Galerkin%pstrain(1:7,iElem), intGaussP, intGaussW, &
-                                              !IntGPBaseFunc, MassMatrix, &
-                                              DISC, EQN%nVar, DISC%Galerkin%nIntGP)
+                                              EQN%Energy(2:3,iElem), DISC%Galerkin%pstrain(:,1:7,iElem), DISC%Galerkin%pstrain_GP(:,1:7,iElem),intGaussP, intGaussW, &
+                                              EQN%nVar, DISC%Galerkin%nIntGP)
 
                   CASE(2) !average approximated with the first dof -> is working
                     CALL Plasticity_3D_dof(DISC,DISC%Galerkin%dgvar(:,1:6,iElem,1), DISC%Galerkin%DOFStress(:,1:6,iElem), DISC%Galerkin%nDegFr, &
                                             DISC%Galerkin%nDegFr, EQN%BulkFriction, EQN%Tv, dt, EQN%mu, EQN%lambda,DISC%Galerkin%plasticParameters(1:3,iElem), &
-                                            EQN%Energy(2:3,iElem), DISC%Galerkin%pstrain(1:7,iElem) )
+                                            EQN%Energy(2:3,iElem), DISC%Galerkin%pstrain(:,1:7,iElem) )
                   END SELECT
 
 

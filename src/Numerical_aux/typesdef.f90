@@ -426,7 +426,8 @@ MODULE TypesDef
 #endif
     REAL, POINTER         :: DOFStress(:,:,:) => NULL()         !< DOF's for the initial stress loading for the plastic calculations
     REAL, POINTER         :: plasticParameters(:,:) => NULL()
-    REAL, POINTER         :: pstrain(:,:) => NULL()             !< plastic strain
+    REAL, POINTER         :: pstrain(:,:,:) => NULL()             !< plastic strain
+    REAL, POINTER         :: pstrain_gp(:,:,:) => NULL()             !< plastic strain gp-wise
     REAL, POINTER         :: Strain_matrix(:,:) => NULL()         !< transformation matrix for converting stresses to strains
 #ifdef GENERATEDKERNELS
 !    integer              :: nSourceTermElems !< number of elemens having a source term

@@ -144,7 +144,7 @@ contains
   domain%IO%UNIT%FileOut_Hex             = 119
   domain%IO%UNIT%receiverStart           = 120                          ! Ab hier koennen Unitnumbers fuer receiver
   !                                                                     ! vergeben werden
-  domain%IO%UNIT%maxThisDom              = 19999                        ! Obere Grenze fuer Unitnumber fuer receiver
+  domain%IO%UNIT%maxThisDom              = 59999                        ! Obere Grenze fuer Unitnumber fuer receiver
 
   if (domain%MPI%myrank .eq. 0) then
     WRITE(*,*) 'INFORMATION: The assumed unit number is', FORTRAN_STDOUT, 'for stdout and', FORTRAN_STDERR, 'for stderr.'

@@ -86,7 +86,7 @@ contains
         type (tMPI)            :: mpi
 
         call wavefield_hdf_init(mpi%myRank, trim(io%OutputFile) // c_null_char, &
-            disc%galerkin%dgvar(:, :, :, 1), disc%galerkin%pstrain(:,:), &
+            disc%galerkin%dgvar(:, :, :, 1), disc%galerkin%pstrain(:,:,:), &
             eqn%nVarTotal, disc%spaceorder, &
             disc%galerkin%nDegFr, &
             io%Refinement, timestep)
