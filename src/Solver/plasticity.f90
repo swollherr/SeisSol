@@ -127,7 +127,7 @@ MODULE Plasticity_mod
     !-------------------------------------------------------------------------!
     dudt_plastic = 0.0D0
     dudt_pstrain = 0.0D0
-    dudt_pstrainGP = 0.0D0
+    dudt_pstrain_gp = 0.0D0
     Stress_total = 0.0D0
     Energy(1:2)  = 0.0D0
 
@@ -169,7 +169,7 @@ MODULE Plasticity_mod
         !Calculate the total strain from the elastic stress-strain relation
         Strain_total(iIntGP, 1:6) = MATMUL(DISC%Galerkin%Strain_matrix, Stress_total(iIntGP,1:6))
         !Calculate initial strain loading from initial stress loading (elementwise) -> move that outside the routine and calculate beforhand
-        Strain_ini(iIntGP,1:6) = MATMUL(DISC%Galerkin%Strain_matrix, DOFStress(iIntGP,1:6))
+        Strain_ini(iIntGP,1:6) = MATMUL(DISC%Galerkin%Strain_matrix, DOFStress(1,1:6))
     ENDDO
 
 
@@ -219,7 +219,8 @@ MODULE Plasticity_mod
        update(iIntGP,1:6) = Stress_total(iIntGP, 1:6)-DOFStress(1,1:6) !subtract the inital loading; new stress state at every GP
 
        !update dudt_pstrain GP-wise
-       dudt_pstrainGP(iIntGP,1:6) = (1-yldfac)*devStress(iIntGP,1:6)
+       dudt_pstrain_gp(iIntGP,1:6) = ((1-yldfac)/(2.0*mu))*devStress(iIntGP,1:6)
+
     ENDDO !adjustment over all GP-points
 
 
@@ -289,12 +290,16 @@ MODULE Plasticity_mod
                                                    + dudt_pstrain(1:nDegFr,3)**2)+ dudt_pstrain(1:nDegFr,4)**2 + dudt_pstrain(1:nDegFr,5)**2 + dudt_pstrain(1:nDegFr,6)**2)
 
     !update plastic strain but GP-wise
-    pstrain_gp(1:nIntGP,1:6) = pstrain_gp(1:nIntGP,1:6) + dudt_pstrain(1:nIntGP,1:6)
+    pstrain_gp(1:nIntGP,1:6) = pstrain_gp(1:nIntGP,1:6) + dudt_pstrain_gp(1:nIntGP,1:6)
+
     !calculate energies here the strains are GP wise
     !estrain(1:nDegFr,1:6) = Strain_total(1:nDegFr,1:6) - dudt_pstrain(1:nDegFr,1:6) !total elastic strain, if no plastic yielding -> elastic strain = total strain
     estrain(1:nIntGP,1:6) = Strain_total(1:nIntGP,1:6) -pstrain_gp(1:nIntGP,1:6) ! !total elastic strain, if no plastic yielding -> elastic strain = total strain
 
     estrain_ini(1:nIntGP,1:6) = Strain_ini(1:nIntGP,1:6)
+
+    EstrainEnergy_tmp = 0.0
+    PlasticEnergy_tmp = 0.0
 
     !Caluclated GP-wise and integrated with gaussian quadrature
     DO iIntGP=1,nIntGP
@@ -313,9 +318,9 @@ MODULE Plasticity_mod
         I2_0 = estrain_ini(iIntGP,1)**2 + estrain_ini(iIntGP,2)**2 + estrain_ini(iIntGP,3)**2 + 2.0D0*estrain_ini(iIntGP,4)**2 &
                + 2.0D0*estrain_ini(iIntGP,5)**2 + 2.0D0*estrain_ini(iIntGP,6)**2
 
-        PValue = Stress_total(iIntGP,1)*dudt_pstrainGP(iIntGP,1) + Stress_total(iIntGP,2)*dudt_pstrainGP(iIntGP,2) &
-                 + Stress_total(iIntGP,3)*dudt_pstrainGP(iIntGP,3) + 2.0D0*Stress_total(iIntGP,4)*dudt_pstrainGP(iIntGP,4) &
-                 + 2.0D0*Stress_total(iIntGP,5)*dudt_pstrainGP(iIntGP,5) + 2.0D0*Stress_total(iIntGP,6)*dudt_pstrainGP(iIntGP,6)
+        PValue = Stress_total(iIntGP,1)*dudt_pstrain_gp(iIntGP,1) + Stress_total(iIntGP,2)*dudt_pstrain_gp(iIntGP,2) &
+                 + Stress_total(iIntGP,3)*dudt_pstrain_gp(iIntGP,3) + 2.0D0*Stress_total(iIntGP,4)*dudt_pstrain_gp(iIntGP,4) &
+                 + 2.0D0*Stress_total(iIntGP,5)*dudt_pstrain_gp(iIntGP,5) + 2.0D0*Stress_total(iIntGP,6)*dudt_pstrain_gp(iIntGP,6)
 
         !Elastic strain energy
         !subtracted the initial elastic strain
@@ -326,7 +331,7 @@ MODULE Plasticity_mod
 
     ENDDO
 
-    Energy(1) = PlasticEnergy_tmp*6.0D0*parameters(1) !multiplied by volume to get integral over element
+    Energy(1) = PlasticEnergy_tmp*6.0D0*parameters(1) !multiplied by |J| for the reference element
     Energy(2) = EstrainEnergy_tmp*6.0D0*parameters(1)
 
 
@@ -491,6 +496,10 @@ MODULE Plasticity_mod
     estrain(1:nDegFr,1:6) = Strain_total(1:nDegFr,1:6) -pstrain(1:nDegFr,1:6) ! !total elastic strain, if no plastic yielding -> elastic strain = total strain
 
     estrain_ini(1:nDegFr,1:6) = Strain_ini(1:nDegFr,1:6)
+
+
+    EstrainEnergy_tmp = 0.0
+    PlasticEnergy_tmp = 0.0
 
     DO iDegFr=1,nDegFr
         I1=0.0

@@ -2621,11 +2621,12 @@ CONTAINS
 
     IF(EQN%Plasticity.EQ.1) THEN
       ALLOCATE(DISC%Galerkin%DOFStress(DISC%Galerkin%nDegFr,6,MESH%nElem), DISC%Galerkin%pstrain(DISC%Galerkin%nDegFr,7, MESH%nElem),&
-               DISC%Galerkin%pstrain(DISC%Galerkin%nIntGP,7, MESH%nElem),&
+               DISC%Galerkin%pstrain_gp(DISC%Galerkin%nIntGP,7, MESH%nElem),&
                DISC%Galerkin%PlasticParameters(3,1:MESH%nElem), DISC%Galerkin%Strain_Matrix(6,6))
         !Initialization
         DISC%Galerkin%DOFStress = 0.
         DISC%Galerkin%pstrain = 0.
+        DISC%Galerkin%pstrain_gp = 0.
         DISC%Galerkin%PlasticParameters = 0.
         DISC%Galerkin%Strain_Matrix = 0.
 
