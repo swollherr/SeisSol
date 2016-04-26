@@ -314,8 +314,13 @@ CONTAINS
         EQN%BulkFriction = BulkFriction
         EQN%Tv = Tv
         EQN%PlastMethod = pmethod
-        logInfo0(*) 'Plastic relaxation Tv is set to: '
-        !read additional values
+        SELECT CASE (EQN%PlastMethod)
+        CASE(0,2)
+        logInfo0(*) 'Plastic relaxation Tv is set to: ', EQN%Tv
+        CASE DEFAULT
+        logError(*) 'ERROR: choose 0 or 2 as plasticity method'
+        stop
+        END SELECT
     CASE DEFAULT
       logError(*) 'Choose 0 or 1 as plasticity assumption. '
       STOP
