@@ -2027,44 +2027,7 @@ MODULE ini_model_DR_mod
      ENDDO !    MESH%Fault%nSide
   END SUBROUTINE
 
-=======
 
-      IF (zGP.GE. -15000.0D0) THEN !depth less than 15000m
-       omega = 1.0D0
-      ELSEIF ((zGP.LT. -15000.0D0) .AND. (zGP .GE. -20000.0D0) ) THEN !depth between 15000 and 20000m
-       omega = (20000.0D0-abs(zGP))/5000.0D0
-      ELSE ! depth more than 20000m
-       omega = 0.0D0
-      ENDIF
-
-
-     EQN%IniBulk_zz(i,:)  = -2670D0*9.8D0 * abs(zGP)
-     EQN%IniBulk_xx(i,:)  = omega*(b11*(EQN%IniBulk_zz(i,:)+Pf)-Pf)+(1-omega)*EQN%IniBulk_zz(i,:)
-     EQN%IniBulk_yy(i,:)  = omega*(b33*(EQN%IniBulk_zz(i,:)+Pf)-Pf)+(1-omega)*EQN%IniBulk_zz(i,:)
-     EQN%IniShearXY(i,:)  = omega*(b13*(EQN%IniBulk_zz(i,:)+Pf))
-     EQN%IniShearXZ(i,:)  = 0.0D0
-     EQN%IniShearYZ(i,:)  = 0.0D0
-     !add fluid pressure
-     EQN%IniBulk_xx(i,:)  = EQN%IniBulk_xx(i,:)+Pf
-     EQN%IniBulk_yy(i,:)  = EQN%IniBulk_yy(i,:)+Pf
-     EQN%IniBulk_zz(i,:)  = EQN%IniBulk_zz(i,:)+Pf
-
-
-     !depth dependent frictional cohesion, negative in seissol, in benchmark positive
-
-    IF (zGP.GE.-5000.0D0) THEN
-       DISC%DynRup%cohesion(i,:) = -0.4D6 - 0.00072D6*(5000D0-abs(zGP))
-    ELSE
-       DISC%DynRup%cohesion(i,:) = -0.4D6
-    ENDIF
-
-
-
-    ENDIF !node or elementwise
-
-    ENDDO !    MESH%Fault%nSide
-  END SUBROUTINE
->>>>>>> upstream/master
    
   !> SCEC TPV33 test case : strike slip rupture in wave guide zone
   !> T. ULRICH 01.2016
