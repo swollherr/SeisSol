@@ -144,11 +144,8 @@ MODULE ini_model_DR_mod
        ! in contrast to type 3, in type 5 the stress is assigned to each Gaussian node       
        CALL background_SMOOTH_GP(DISC,EQN,MESH,BND)
     CASE(10,13)
-       ! SCEC TPV10 test dipping fault subshear
+       ! SCEC TPV10 test dipping fault subshear, SCEC TPV12/TPV13 dipping fault
        CALL background_TPV10(DISC,EQN,MESH,BND)
-   !CASE(13)
-       ! SCEC TPV12/13 with the same geometry but different depth-dependent stresses
-       !CALL background_TPV10(DISC,EQN,MESH,BND)
     CASE(11)
        ! SCEC TPV11 test dipping fault supershear
        CALL background_TPV11(DISC,EQN,MESH,BND)
@@ -1169,7 +1166,7 @@ MODULE ini_model_DR_mod
                          EQN%IniShearYZ(i,iBndGP)  =  (-100000D0)+(6019.435014560794D0) * abs(average)/0.866025404D0
                       ENDIF
 
-                    CASE(13) !TPV12/13
+                    CASE(13) ! S.Wollherr 2014 TPV12/13
                       ! depth dependent smooth initial stresses; fault normal reference point at +y
                       !
                       ! shear stress=0.549847*normal stress and normal stress=7390.01Pa*down-dip distance
@@ -1699,8 +1696,10 @@ MODULE ini_model_DR_mod
  
   CALL extract_backgroundstress_2dplanefault(EQN,MESH,IO,DISC,BND)        
   
-  END SUBROUTINE background_TPV1617 !  SCEC TPV16/17 with heterogeneous initial stress field     
 
+  END SUBROUTINE background_TPV1617 !  SCEC TPV16/17 with heterogeneous initial stress field
+
+  !SCEC benchmark TPV26/TPV27
   SUBROUTINE background_TPV2627(EQN,MESH,DISC,BND)
   !-------------------------------------------------------------------------!
   USE DGBasis_mod
@@ -1725,7 +1724,6 @@ MODULE ini_model_DR_mod
   REAL                           :: xi, eta, zeta, XGp, YGp, ZGp
   REAL                           :: b11, b33, b13, Pf
   REAL                           :: omega !depth dependent
-  !LOGICAL                        :: nodewise
   !-------------------------------------------------------------------------!
   INTENT(IN)    :: MESH, BND
   INTENT(INOUT) :: DISC,EQN
@@ -1788,7 +1786,6 @@ MODULE ini_model_DR_mod
           zV(1:4) = MESH%VRTX%xyNode(3,MESH%ELEM%Vertex(1:4,iElem))
       ENDIF
 
-
           !
           DO iBndGP = 1,DISC%Galerkin%nBndGP
 
@@ -1813,7 +1810,6 @@ MODULE ini_model_DR_mod
                   ELSE ! depth more than 20000m
                    omega = 0.0D0
                   ENDIF
-
 
              EQN%IniBulk_zz(i,iBndGP)  = -2670D0*9.8D0 * abs(zGP)
              EQN%IniBulk_xx(i,iBndGP)  = omega*(b11*(EQN%IniBulk_zz(i,iBndGP)+Pf)-Pf)+(1-omega)*EQN%IniBulk_zz(i,iBndGP)
@@ -1901,6 +1897,7 @@ MODULE ini_model_DR_mod
             END SELECT
 
          ENDDO ! iBndGP
+
 
       ! element wise stress assignment
       ELSE
@@ -2030,6 +2027,44 @@ MODULE ini_model_DR_mod
      ENDDO !    MESH%Fault%nSide
   END SUBROUTINE
 
+=======
+
+      IF (zGP.GE. -15000.0D0) THEN !depth less than 15000m
+       omega = 1.0D0
+      ELSEIF ((zGP.LT. -15000.0D0) .AND. (zGP .GE. -20000.0D0) ) THEN !depth between 15000 and 20000m
+       omega = (20000.0D0-abs(zGP))/5000.0D0
+      ELSE ! depth more than 20000m
+       omega = 0.0D0
+      ENDIF
+
+
+     EQN%IniBulk_zz(i,:)  = -2670D0*9.8D0 * abs(zGP)
+     EQN%IniBulk_xx(i,:)  = omega*(b11*(EQN%IniBulk_zz(i,:)+Pf)-Pf)+(1-omega)*EQN%IniBulk_zz(i,:)
+     EQN%IniBulk_yy(i,:)  = omega*(b33*(EQN%IniBulk_zz(i,:)+Pf)-Pf)+(1-omega)*EQN%IniBulk_zz(i,:)
+     EQN%IniShearXY(i,:)  = omega*(b13*(EQN%IniBulk_zz(i,:)+Pf))
+     EQN%IniShearXZ(i,:)  = 0.0D0
+     EQN%IniShearYZ(i,:)  = 0.0D0
+     !add fluid pressure
+     EQN%IniBulk_xx(i,:)  = EQN%IniBulk_xx(i,:)+Pf
+     EQN%IniBulk_yy(i,:)  = EQN%IniBulk_yy(i,:)+Pf
+     EQN%IniBulk_zz(i,:)  = EQN%IniBulk_zz(i,:)+Pf
+
+
+     !depth dependent frictional cohesion, negative in seissol, in benchmark positive
+
+    IF (zGP.GE.-5000.0D0) THEN
+       DISC%DynRup%cohesion(i,:) = -0.4D6 - 0.00072D6*(5000D0-abs(zGP))
+    ELSE
+       DISC%DynRup%cohesion(i,:) = -0.4D6
+    ENDIF
+
+
+
+    ENDIF !node or elementwise
+
+    ENDDO !    MESH%Fault%nSide
+  END SUBROUTINE
+>>>>>>> upstream/master
    
   !> SCEC TPV33 test case : strike slip rupture in wave guide zone
   !> T. ULRICH 01.2016
@@ -2355,11 +2390,16 @@ MODULE ini_model_DR_mod
           ! N11 , grad2:
           !
           ! highest fault point is appr at z=1390m, offset 2000 is obtained by testing to shift the gradient up
-          !
-          EQN%IniBulk_xx(i,iBndGP)  =  -10.6723e6*(abs(z-2000.0D0))/1000.0D0
-          EQN%IniBulk_yy(i,iBndGP)  =  -29.3277e6*(abs(z-2000.0D0))/1000.0D0
-          EQN%IniBulk_zz(i,iBndGP)  =  -20.0000e6*(abs(z-2000.0D0))/1000.0D0
-          EQN%IniShearXY(i,iBndGP)  =   -3.7687e6*(abs(z-2000.0D0))/1000.0D0
+          ! original setup
+          !EQN%IniBulk_xx(i,iBndGP)  =  -10.6723e6*(abs(z-2000.0D0))/1000.0D0
+          !EQN%IniBulk_yy(i,iBndGP)  =  -29.3277e6*(abs(z-2000.0D0))/1000.0D0
+          !EQN%IniBulk_zz(i,iBndGP)  =  -20.0000e6*(abs(z-2000.0D0))/1000.0D0
+          !EQN%IniShearXY(i,iBndGP)  =   -3.7687e6*(abs(z-2000.0D0))/1000.0D0
+          !can now be changed from the input
+          EQN%IniBulk_xx(i,iBndGP)  =  EQN%Bulk_xx_0*(abs(z-2000.0D0))/1000.0D0
+          EQN%IniBulk_yy(i,iBndGP)  =  EQN%Bulk_yy_0*(abs(z-2000.0D0))/1000.0D0
+          EQN%IniBulk_zz(i,iBndGP)  =  EQN%Bulk_zz_0*(abs(z-2000.0D0))/1000.0D0
+          EQN%IniShearXY(i,iBndGP)  =  EQN%ShearXY_0 *(abs(z-2000.0D0))/1000.0D0
           EQN%IniShearYZ(i,iBndGP)  =  EQN%ShearYZ_0
           EQN%IniShearXZ(i,iBndGP)  =  EQN%ShearXZ_0
           EQN%IniStateVar(i,iBndGP) =  EQN%RS_sv0
@@ -2385,8 +2425,15 @@ MODULE ini_model_DR_mod
 
               DISC%DynRup%D_C(i,iBndGP) =  2.0D0
           ENDIF
+
           ! set cohesion
-          DISC%DynRup%cohesion(i,iBndGP) = -2.0e6
+          ! depth dependent, constant for cohesion_max = 0 (is 0 if not otherwise declared in the parameter file)
+          IF (z.GT.-DISC%DynRup%cohesion_depth) THEN
+              DISC%DynRup%cohesion(i,iBndGP) =  DISC%DynRup%cohesion_0 - DISC%DynRup%cohesion_max*(DISC%DynRup%cohesion_depth+zGP)/(DISC%DynRup%cohesion_depth+1500.0)
+          ELSE
+              DISC%DynRup%cohesion(i,iBndGP) = DISC%DynRup%cohesion_0
+          ENDIF
+
       
       ENDDO ! iBndGP
                 
@@ -3418,12 +3465,30 @@ MODULE ini_model_DR_mod
               .OR.((xGP.LT.-15000.0D0).AND.(xGP.GT.-18000.0D0)) &
               .OR.((zGP.LT.-15000.0D0).AND.(zGP.GT.-18000.0D0))) THEN
               ! TANH(X)=(1-EXP(-2X))/(1+EXP(-2X))
-              tmp = 3000.0D0/(ABS(xGP)-15000.0D0-3000.0D0)+3000.0D0/(ABS(xGP)-15000.0D0)
-              ! x
-              Boxx = 0.5D0*(1.0D0+((1.0D0-EXP(-2.0D0*tmp))/(1.0D0+EXP(-2.0D0*tmp))))
-              ! z
-              tmp = 3000.0D0/(ABS(zGP)-3000.0D0)+3000.0D0/ABS(zGP)
-              Boxz = 0.5D0*(1.0D0+((1.0D0-EXP(-2.0D0*tmp))/(1.0D0+EXP(-2.0D0*tmp))))
+              IF (abs(xGP).GT.15000.0D0) THEN
+                 tmp = 3000.0D0/(ABS(xGP)-18000.0D0)+3000.0D0/(ABS(xGP)-15000.0D0)
+                 tmp = EXP(-2.0D0*tmp)
+                 if ((tmp-1).EQ.tmp) THEN
+                    Boxx = 0d0
+                 ELSE
+                    ! x
+                    Boxx = 0.5D0*(1.0D0+((1.0D0-tmp)/(1.0D0+tmp)))
+                 ENDIF
+              ELSE
+                 Boxx =1d0
+              ENDIF
+              IF (abs(zGP).GT.15000.0D0) THEN
+                 ! z
+                 tmp = 3000.0D0/(ABS(zGP)-18000.0D0)+3000.0D0/(ABS(zGP)-15000d0)
+                 tmp = EXP(-2.0D0*tmp)
+                 if ((tmp-1).EQ.tmp) THEN
+                    Boxz = 0d0
+                 ELSE
+                    Boxz = 0.5D0*(1.0D0+((1.0D0-tmp)/(1.0D0+tmp)))
+                 ENDIF
+              ELSE
+                 Boxz =1d0
+              ENDIF
               ! smooth boxcar
               DISC%DynRup%RS_a_array(i,iBndGP)=DISC%DynRup%RS_a+0.01D0*(1.0D0-(Boxx*Boxz))
               DISC%DynRup%RS_srW_array(i,iBndGP)=DISC%DynRup%RS_srW+0.9D0*(1.0D0-(Boxx*Boxz))
@@ -3440,6 +3505,7 @@ MODULE ini_model_DR_mod
               !
           ENDIF
           ! resulting changes in SV_ini
+          !Done in friction_RSF103
           EQN%IniStateVar(i,iBndGP) = (DISC%DynRup%RS_sl0/DISC%DynRup%RS_sr0) * EXP((-EQN%ShearXY_0/EQN%Bulk_yy_0-DISC%DynRup%RS_f0-DISC%DynRup%RS_a_array(i,iBndGP)*LOG(iniSlipRate/DISC%DynRup%RS_sr0))/DISC%DynRup%RS_b)
       ! Nucleation in Evaluate friction special case  
       ENDDO ! iBndGP

@@ -163,7 +163,7 @@ CONTAINS
          ! DR output at each element
          CALL calc_FaultOutput(DISC%DynRup%DynRup_out_elementwise, DISC, EQN, MESH, MaterialVal, BND, time)
          CALL write_FaultOutput_elementwise(EQN, DISC, MESH, IO, MPI, MaterialVal, BND, time, dt)
-         logInfo(*) 'Faultoutput successfully written to .vtu files at time', time
+         logInfo(*) 'Faultoutput successfully written at time', time
          ! remember that fault output was written here
          isOnElementwise=.TRUE.
        ! combines option 3 and 4: output at individual stations and at complete fault
@@ -401,8 +401,8 @@ CONTAINS
           ! Rotate DoF
           CALL RotationMatrix3D(NormalVect_n,NormalVect_s,NormalVect_t,T(:,:),iT(:,:),EQN)
           DO iDegFr=1,LocDegFr
-            V1(iDegFr,:)=MATMUL(iT(:,:),dofiElem_ptr(iDegFr,:))
-            V2(iDegFr,:)=MATMUL(iT(:,:),DOFiNeigh_ptr(iDegFr,:))
+            V1(iDegFr,:)=MATMUL(iT(:,:),dofiElem_ptr(iDegFr,1:EQN%nVar))
+            V2(iDegFr,:)=MATMUL(iT(:,:),DOFiNeigh_ptr(iDegFr,1:EQN%nVar))
           ENDDO
           !
           ! load nearest boundary GP: iBndGP
@@ -690,6 +690,10 @@ CONTAINS
               IF (DynRup_output%OutputMask(9).EQ.1) THEN
                   OutVars = OutVars + 1
                   DynRup_output%OutVal(iOutPoints,1,OutVars) = DISC%DynRup%PeakSR(iFace,iBndGP)
+              ENDIF
+              IF (DynRup_output%OutputMask(10).EQ.1) THEN
+                  OutVars = OutVars + 1
+                  DynRup_output%OutVal(iOutPoints,1,OutVars) = DISC%DynRup%rupture_time(iFace,iBndGP)
               ENDIF
           ENDIF
 

@@ -514,8 +514,7 @@ CONTAINS
 
     ! propagate the time step width to time manager
     do iElem = 1, mesh%nElem
-      !l_timeStepWidth = optionalFields%dt_convectiv(iElem)
-      l_timeStepWidth = optionalFields%dt(iElem)
+      l_timeStepWidth = optionalFields%dt_convectiv(iElem)
 
 #ifdef PERIODIC_LTS_SCALING
       ! perform the scaling of the time step width
@@ -962,7 +961,7 @@ CONTAINS
     ! Setup faced-based DR update datascrutured needed for OMP Parallelization in fricition.f90
     IF (DISC%DynRup%nDRElems.NE.0) THEN
       ! allocate the memory for the offload datastructures
-      allocate( DISC%DynRup%DRupdates(DISC%Galerkin%nDegFrRec,EQN%nVarTotal, DISC%DynRup%nDRElems) )
+      allocate( DISC%DynRup%DRupdates(DISC%Galerkin%nDegFrRec,EQN%nVar, DISC%DynRup%nDRElems) )
       allocate( DISC%DynRup%indicesOfDRElems( DISC%DynRup%nDRElems ) )
       allocate( DISC%DynRup%DRupdatesPosition( mesh%fault%nSide, 2 ) )
 
@@ -2783,7 +2782,7 @@ CONTAINS
 #ifdef USE_PLASTICITY
         ! initialize the element dependent plastic parameters
         l_plasticParameters(1) = MESH%Elem%Volume(iElem)
-        l_plasticParameters(2) = EQN%PlastCo !currently constant, soon element-dependent
+        l_plasticParameters(2) = EQN%PlastCo(iElem) !element-dependent plastic cohesion
         l_plasticParameters(3) = EQN%Rho0    !density
 
         ! initialize loading in C
@@ -2799,7 +2798,7 @@ CONTAINS
         IF(EQN%Plasticity.EQ.1) THEN
           ! initialize plastic parameters in classic version
           DISC%Galerkin%plasticParameters(1,iElem) = MESH%Elem%Volume(iElem)
-          DISC%Galerkin%plasticParameters(2,iElem) = EQN%PlastCo !currently constant, soon element-dependent
+          DISC%Galerkin%plasticParameters(2,iElem) = EQN%PlastCo(iElem) !element-dependent plastic cohesion
           DISC%Galerkin%plasticParameters(3,iElem) = EQN%Rho0 !currently not needed inside the plasticity routine
         ENDIF
 #endif
