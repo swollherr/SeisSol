@@ -138,6 +138,10 @@ CONTAINS
     REAL                           :: CpuTime_ini                             ! Eval cpu time
     REAL                           :: CpuTime_end                             ! Eval cpu time
     REAL                           :: KineticEnergy_tmp                       ! kinetic energy
+    REAL                           :: estrain(DISC%Galerkin%nDegFr,1:6)       ! total elastic strain
+    REAL                           :: estrain_ini(DISC%Galerkin%nDegFr,1:6)   ! initial elastic strain
+    REAL                           :: EstrainEnergy_tmp, Stress_total(1.6)                       ! elastic strain energy
+    REAL                           :: I1,I2,I1_0,I2_0                         ! variables for the elastic strain energy
     INTEGER                        :: i
     INTEGER                        :: LocnVar                                 !
     INTEGER                        :: LocnPoly                                !
@@ -493,7 +497,37 @@ CONTAINS
 !for the GK version the plasticity call is moved to Interoperability.cpp
 
           ENDDO
-        ENDIF
+        ELSE !elastic
+             !calculate elastic strain energy (here total strains = elastic strains)
+             EstrainEnergy_tmp = 0.0
+
+            DO iDegFr=1,DISC%Galerkin%nDegFr
+                !Calculate the total strain from the elastic stress-strain relation
+                Stress_total(1:6)= DISC%Galerkin%dgvar(iDegFr,1:6,iElem,1) + DISC%Galerkin%DOFStress(iDegFr,1:6, iElem)
+                estrain(iDegFr,1:6) = MATMUL(DISC%Galerkin%Strain_matrix, Stress_total)
+                !Calculate initial strain loading from initial stress loading (elementwise) -> move that outside the routine and calculate beforhand
+                estrain_ini(iDegFr,1:6) = MATMUL(DISC%Galerkin%Strain_matrix, DISC%Galerkin%DOFStress(iDegFr,1:6, iElem))
+                I1=0.0
+                I2=0.0
+                I1_0=0.0
+                I2_0=0.0
+                !massMatrix = DISC%Galerkin%MassMatrix_Tet(iDegFr,iDegFr,LocnPoly)
+                !first and second invariants of the total elastic strain
+                I1 = estrain(iDegFr,1) + estrain(iDegFr,2) + estrain(iDegFr,3)
+                I2 = estrain(iDegFr,1)**2 + estrain(iDegFr,2)**2 + estrain(iDegFr,3)**2 + 2.0D0*estrain(iDegFr,4)**2 &
+                     + 2.0D0*estrain(iDegFr,5)**2 + 2.0D0*estrain(iDegFr,6)**2
+                !first and second invariants of the initial strain loading
+                I1_0 = estrain_ini(iDegFr,1) + estrain_ini(iDegFr,2) + estrain_ini(iDegFr,3)
+                I2_0 = estrain_ini(iDegFr,1)**2 + estrain_ini(iDegFr,2)**2 + estrain_ini(iDegFr,3)**2 + 2.0D0*estrain_ini(iDegFr,4)**2 &
+                       + 2.0D0*estrain_ini(iDegFr,5)**2 + 2.0D0*estrain_ini(iDegFr,6)**2
+                !Elastic strain energy
+                !subtracted the initial elastic strain
+                EstrainEnergy_tmp = EstrainEnergy_tmp + MassMatrix_ptr(iDegFr,iDegFr)*(0.5*EQN%lambda*(I1**2-I1_0**2) + EQN%mu*(I2-I2_0))
+            ENDDO
+
+            EQN%Energy(3,iElem) = EstrainEnergy_tmp*6.0D0*MESH%Elem%Volume(iElem)
+
+       ENDIF
 ! ==============================================================================
     ! end epik/scorep region for source terms
     EPIK_USER_END(r_source)

@@ -66,7 +66,7 @@ CONTAINS
   SUBROUTINE energies_output(DISC,EQN,MESH,MPI,IO, time_op, dt_op)
 #endif
 
-    !< routine outputs the diisipated plastic energy for each MPI domain
+    !< routine outputs the dissipated plastic energy for each MPI domain
     !-------------------------------------------------------------------------!
     IMPLICIT NONE
     !-------------------------------------------------------------------------!
@@ -166,7 +166,7 @@ CONTAINS
            STOP                                                              !
         ENDIF
         IF (EQN%Plasticity .EQ. 0) THEN
-            WRITE(UNIT_ENERGY,*) '#time KineticEnergy '
+            WRITE(UNIT_ENERGY,*) '#time KineticEnergy ElasticStrainEnergy'
         ELSE
             WRITE(UNIT_ENERGY,*) '#time KineticEnergy PlasticEnergy ElasticStrainEnergy '
         ENDIF
@@ -188,7 +188,7 @@ CONTAINS
     !
     ! Write output
     IF (EQN%Plasticity .EQ. 0) THEN
-        WRITE(UNIT_ENERGY,*) time, kinetic_energy
+        WRITE(UNIT_ENERGY,*) time, kinetic_energy, estrain_energy
     ELSE
         WRITE(UNIT_ENERGY,*) time, kinetic_energy, plast_energy, estrain_energy
     ENDIF
