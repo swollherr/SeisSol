@@ -810,23 +810,23 @@ CONTAINS
 
          DO iElem = 1, MESH%nElem
              z = MESH%ELEM%xyBary(3,iElem)
-             IF (z.GT.BedrockVelModel(1,1)) THEN
+             IF (z.GT.BedrockVelModel(1,1)+1500) THEN
                  MaterialVal(iElem,1:3) =   BedrockVelModel(1,2:4)
-             ELSEIF ((z.LT.BedrockVelModel(1,1)).AND.(z.GE.BedrockVelModel(2,1))) THEN
+             ELSEIF ((z.LT.BedrockVelModel(1,1)+1500).AND.(z.GE.BedrockVelModel(2,1)+1500)) THEN
                  MaterialVal(iElem,1:3) =   BedrockVelModel(2,2:4)
-             ELSEIF ((z.LT.BedrockVelModel(2,1)).AND.(z.GE.BedrockVelModel(3,1))) THEN
+             ELSEIF ((z.LT.BedrockVelModel(2,1)+1500).AND.(z.GE.BedrockVelModel(3,1)+1500)) THEN
                  MaterialVal(iElem,1:3) =   BedrockVelModel(3,2:4)
-             ELSEIF ((z.LT.BedrockVelModel(3,1)).AND.(z.GE.BedrockVelModel(4,1))) THEN
+             ELSEIF ((z.LT.BedrockVelModel(3,1)+1500).AND.(z.GE.BedrockVelModel(4,1)+1500)) THEN
                  MaterialVal(iElem,1:3) =   BedrockVelModel(4,2:4)
-             ELSEIF ((z.LT.BedrockVelModel(4,1)).AND.(z.GE.BedrockVelModel(5,1))) THEN
+             ELSEIF ((z.LT.BedrockVelModel(4,1)+1500).AND.(z.GE.BedrockVelModel(5,1)+1500)) THEN
                  MaterialVal(iElem,1:3) =   BedrockVelModel(5,2:4)
-             ELSEIF ((z.LT.BedrockVelModel(5,1)).AND.(z.GE.BedrockVelModel(6,1))) THEN
+             ELSEIF ((z.LT.BedrockVelModel(5,1)+1500).AND.(z.GE.BedrockVelModel(6,1)+1500)) THEN
                  MaterialVal(iElem,1:3) =   BedrockVelModel(6,2:4)
-             ELSEIF ((z.LT.BedrockVelModel(6,1)).AND.(z.GE.BedrockVelModel(7,1))) THEN
+             ELSEIF ((z.LT.BedrockVelModel(6,1)+1500).AND.(z.GE.BedrockVelModel(7,1)+1500)) THEN
                  MaterialVal(iElem,1:3) =   BedrockVelModel(7,2:4)
-             ELSEIF ((z.LT.BedrockVelModel(7,1)).AND.(z.GE.BedrockVelModel(8,1))) THEN
+             ELSEIF ((z.LT.BedrockVelModel(7,1)+1500).AND.(z.GE.BedrockVelModel(8,1)+1500)) THEN
                  MaterialVal(iElem,1:3) =   BedrockVelModel(8,2:4)
-             ELSEIF ((z.LT.BedrockVelModel(8,1)).AND.(z.GE.BedrockVelModel(9,1))) THEN
+             ELSEIF ((z.LT.BedrockVelModel(8,1)+1500).AND.(z.GE.BedrockVelModel(9,1)+1500)) THEN
                  MaterialVal(iElem,1:3) =   BedrockVelModel(9,2:4)
              ELSE
                  MaterialVal(iElem,1:3) =   BedrockVelModel(10,2:4)
@@ -843,7 +843,7 @@ CONTAINS
                     EQN%IniStress(4,iElem)  = EQN%ShearXY_0*(abs(z-2000.0D0))/1000.0D0
                     EQN%IniStress(5,iElem)  =  0.0D0
                     EQN%IniStress(6,iElem)  =  0.0D0
-                ELSE ! constant stress tensor for everything higher than 1500m
+                ELSE ! constant stress tensor for everything higher or equal than 1500m
                     EQN%IniStress(1,iElem)  = EQN%Bulk_xx_0*(abs(-500.0D0))/1000.0D0
                     EQN%IniStress(2,iElem)  = EQN%Bulk_yy_0*(abs(-500.0D0))/1000.0D0
                     EQN%IniStress(3,iElem)  = EQN%Bulk_zz_0*(abs(-500.0D0))/1000.0D0
