@@ -63,7 +63,7 @@ extern "C"
 void fault_create_comm(int dr)
 {
 #ifdef USE_MPI
-	MPI_Comm_split(MPI_COMM_WORLD, (dr ? 0 : MPI_UNDEFINED), 0, &comm);
+	MPI_Comm_split(seissol::MPI::mpi.comm(), (dr ? 0 : MPI_UNDEFINED), 0, &comm);
 #endif // USE_MPI
 }
 
@@ -116,6 +116,7 @@ void fault_hdf_init(const int* cells, const double* vertices,
 		if (outputMask[9])
 			variables.push_back(labels[16]);
 
+		// TODO get the timestep from the checkpoint
 		xdmfWriter = new xdmfwriter::XdmfWriter<xdmfwriter::TRIANGLE>(rank,
 				outputName.c_str(), variables, 0);
 #ifdef USE_MPI

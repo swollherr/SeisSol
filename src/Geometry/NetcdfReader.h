@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2013-2015, SeisSol Group
+ * Copyright (c) 2013-2016, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -45,6 +45,8 @@
 
 #include "Parallel/MPI.h"
 
+#include "MeshReader.h"
+
 #include <cassert>
 #include <cstring>
 
@@ -71,8 +73,10 @@ public:
 	{
 		// Open nc file
 		int ncFile;
+		int masterRank;
+		unsigned int groupSize = 1;
 #ifdef USE_MPI
-		unsigned int groupSize = utils::Env::get<unsigned int>("SEISSOL_NETCDF_GROUP_SIZE", 1);
+		groupSize = utils::Env::get<unsigned int>("SEISSOL_NETCDF_GROUP_SIZE", 1);
 		if (nProcs % groupSize != 0)
 			logError() << "#Processes must be a multiple of the group size" << groupSize;
 
@@ -81,7 +85,7 @@ public:
 		MPI_Comm_split(seissol::MPI::mpi.comm(), rank % groupSize == 0 ? 1 : MPI_UNDEFINED,
 			rank, &commMaster);
 
-		int masterRank = -1;
+		masterRank = -1;
 
 		if (commMaster != MPI_COMM_NULL) {
 #ifdef NETCDF_PASSIVE
@@ -451,7 +455,7 @@ public:
 
 		// Get maximum number of neighbors (required to get collective MPI-IO right)
 		int maxNeighbors = bndSize;
-		//MPI_Allreduce(MPI_IN_PLACE, &maxNeighbors, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+		//MPI_Allreduce(MPI_IN_PLACE, &maxNeighbors, 1, MPI_INT, MPI_MAX, seissol::MPI::mpi.comm());
 		int* bndElemLocalIds = new int[bndElemSize];
 
 		EPIK_USER_REG(r_read_boundaries, "read_boundaries");

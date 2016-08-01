@@ -54,12 +54,6 @@
 
 #include <cstddef>
 
-enum Layer {
-  ghost,
-  copy,
-  interior
-};
-
 enum mpiTag {
   localIntegrationData = 0,
   neighboringIntegrationData = 1,

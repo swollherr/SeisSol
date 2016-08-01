@@ -130,6 +130,10 @@ vars.AddVariables(
 
   BoolVariable( 'memkind', 'use memkind library for hbw memory support', False ),
 
+  EnumVariable( 'asyncio', 'use ASYNC library for I/O operations', 'none',
+                allowed_values=('none', 'thread', 'mpi')
+                ),
+
   EnumVariable( 'unitTests', 'builds additional unit tests',
                 'none',
                 allowed_values=('none', 'fast', 'all') ),
@@ -245,6 +249,14 @@ if not env['generatedKernels'] and ( env['parallelization'] == 'omp' or env['par
 if not env.has_key('memLayout'):
   env['memLayout'] = memlayout.guessMemoryLayout(env)
 
+# check ASYCN
+if env['asyncio'] == 'thread':
+    if not env['parallelization'] in ['openmp', 'hybrid']:
+        ConfigurationError("*** Asynchronous thread I/O requires OpenMP")
+elif env['asyncio'] == 'mpi':
+    if not env['parallelization'] in ['hybrid', 'mpi']:
+        ConfigurationError("*** Asynchronous MPI I/O requires MPI")
+
 #
 # preprocessor, compiler and linker
 #
@@ -278,9 +290,10 @@ if env['parallelization'] in ['mpi', 'hybrid']:
     # Do not include C++ MPI Bindings
     env.Append(CPPDEFINES=['OMPI_SKIP_MPICXX'])
 
-# Remove any special compiler configuration
+# Use dynamic linking on Cray and remove any special compiler configuration
 # Do this after the MPI tool is called, because the MPI Tool checks for special compilers
 if env['compiler'].startswith('cray'):
+    env.Append(LINKFLAGS=['-dynamic'])
     env['compiler'] = env['compiler'].replace('cray_', '')
 
 # Include preprocessor in all Fortran builds
@@ -447,10 +460,10 @@ if( env['plasticity'] ):
 if env['generatedKernels']:
   env.Append(CPPDEFINES=['GENERATEDKERNELS', 'CLUSTERED_LTS'])
 
-# set pre compiler flags and link flags for commuincation thread
+# set pre compiler flags commuincation thread
+# pthread is linked after the other libraries
 if env['commThread']:
   env.Append(CPPDEFINES=['USE_COMM_THREAD'])
-  env.Append(LINKFLAGS=['-lpthread'] )
 
 # Default log level for rank 0 is same as logLevel
 if env['logLevel0'] == 'none':
@@ -528,6 +541,20 @@ if env['asagi']:
     env.Tool('AsagiTool', parallel=(env['parallelization'] in ['hybrid', 'mpi']), required=(not helpMode))
     env.Append(CPPDEFINES=['USE_ASAGI'])
 
+# ASYNC I/O
+env.Append(CPPPATH=['#/submodules/async'])
+if env['asyncio'] in ['thread', 'mpi']:
+    if env['asyncio'] == 'thread':
+        env.Append(CPPDEFINES=['USE_ASYNC_THREAD'])
+        env.Append(LINKFLAGS=['-lpthread'] )
+    elif env['asyncio'] == 'mpi':
+        env.Append(CPPDEFINES=['USE_ASYNC_MPI'])
+
+# pthread has to be appended after other libraries
+# this only appears when compiling with scalasca and hdf5/netcdf
+if env['commThread']:
+  env.Append(LINKFLAGS=['-lpthread'])
+
 # add pathname to the list of directories wich are search for include
 env.Append(F90FLAGS=['-Isrc'])
 env.Append(CPPPATH=['#/src', '#/src/Equations/' + env['equations'], '#/src/Equations/' + env['equations'] + '/generated_code'])
@@ -558,7 +585,7 @@ else:
 env['buildDir'] = '%s/build_%s' %(env['buildDir'], program_suffix)
 
 # set sub directories (important for scons tree)
-buildDirectories = ['Checkpoint', 'Monitoring', 'Reader', 'Physics', 'Geometry', 'Numerical_aux', 'Initializer', 'Solver', 'ResultWriter']
+buildDirectories = ['Checkpoint', 'Monitoring', 'Reader', 'Parallel', 'Physics', 'Geometry', 'Numerical_aux', 'Initializer', 'Solver', 'ResultWriter']
 
 for buildDir in range(len(buildDirectories)):
   buildDirectories[buildDir] = '#/'+env['buildDir'] + '/' + buildDirectories[buildDir]
