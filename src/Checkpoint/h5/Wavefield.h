@@ -93,9 +93,15 @@ public:
 	Wavefield()
 		: m_h5fSpaceData(-1)
 	{
+		m_h5time[0] = m_h5time[1] = -1;
+		m_h5timestepWavefield[0] = m_h5timestepWavefield[1] = -1;
+		m_h5data[0] = m_h5data[1] = -1;
 	}
 
-	bool init(unsigned int numDofs, unsigned int groupSize = 1);
+	~Wavefield()
+	{ }
+
+	bool init(unsigned long numDofs, unsigned int groupSize = 1);
 
 	void load(double &time, int &timestepWavefield, real* dofs);
 
@@ -103,12 +109,15 @@ public:
 
 	void close()
 	{
-		for (unsigned int i = 0; i < 2; i++) {
-			checkH5Err(H5Aclose(m_h5time[i]));
-			checkH5Err(H5Aclose(m_h5timestepWavefield[i]));
-			checkH5Err(H5Dclose(m_h5data[i]));
+		if (m_h5time[0] >= 0) {
+			for (unsigned int i = 0; i < 2; i++) {
+				checkH5Err(H5Aclose(m_h5time[i]));
+				checkH5Err(H5Aclose(m_h5timestepWavefield[i]));
+				checkH5Err(H5Dclose(m_h5data[i]));
+			}
 		}
-		checkH5Err(H5Sclose(m_h5fSpaceData));
+		if (m_h5fSpaceData >= 0)
+			checkH5Err(H5Sclose(m_h5fSpaceData));
 
 		CheckPoint::close();
 	}

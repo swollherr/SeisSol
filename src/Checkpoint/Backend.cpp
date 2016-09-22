@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2015-2016, SeisSol Group
+ * Copyright (c) 2016, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,50 +37,51 @@
  * @section DESCRIPTION
  */
 
-#ifndef CHECKPOINT_POSIX_WAVEFIELD_H
-#define CHECKPOINT_POSIX_WAVEFIELD_H
+#include "utils/logger.h"
 
-#include "CheckPoint.h"
-#include "Checkpoint/Wavefield.h"
+#include "Backend.h"
+#include "posix/Fault.h"
+#include "posix/Wavefield.h"
+#include "h5/Wavefield.h"
+#include "h5/Fault.h"
+#include "mpio/Wavefield.h"
+#include "mpio/WavefieldAsync.h"
+#include "mpio/Fault.h"
+#include "mpio/FaultAsync.h"
+#ifdef USE_SIONLIB
+#include "sionlib/Fault.h"
+#include "sionlib/Wavefield.h"
+#endif // USE_SIONLIB
 
-namespace seissol
+void seissol::checkpoint::createBackend(Backend backend, Wavefield* &waveField, Fault* &fault)
 {
-
-namespace checkpoint
-{
-
-namespace posix
-{
-
-/**
- * Header info (excluding the id) for wave field checkpoints
- */
-struct WavefieldHeader
-{
-	double time;
-	int timestepWaveField;
-};
-
-class Wavefield : public CheckPoint, virtual public seissol::checkpoint::Wavefield
-{
-public:
-	Wavefield()
-		: CheckPoint(0x7A56F, sizeof(WavefieldHeader))
-	{
+	switch (backend) {
+	case POSIX:
+		waveField = new posix::Wavefield();
+		fault = new posix::Fault();
+		break;
+	case HDF5:
+		waveField = new h5::Wavefield();
+		fault = new h5::Fault();
+		break;
+	case MPIO:
+		waveField = new mpio::Wavefield();
+		fault = new mpio::Fault();
+		break;
+	case MPIO_ASYNC:
+		waveField = new mpio::WavefieldAsync();
+		fault = new mpio::FaultAsync();
+		break;
+	case SIONLIB:
+#ifdef USE_SIONLIB
+		waveField = new sionlib::Wavefield();
+		fault = new sionlib::Fault();
+		break;
+#else //USE_SIONLIB
+		logError() << "SIONlib checkpoint backend unsupported";
+		break;
+#endif //USE_SIONLIB
+	default:
+		logError() << "Unsupported checkpoint backend";
 	}
-
-	bool init(unsigned long numDofs, unsigned int groupSize = 1);
-
-	void load(double& time, int& timestepWaveField, real* dofs);
-
-	void write(double time, int timestepWaveField);
-};
-
 }
-
-}
-
-}
-
-#endif // CHECKPOINT_POSIX_WAVEFIELD_H
-

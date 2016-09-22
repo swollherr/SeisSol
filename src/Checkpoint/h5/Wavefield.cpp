@@ -51,7 +51,7 @@
 #include "Checkpoint/MPIInfo.h"
 #endif // USE_MPI
 
-bool seissol::checkpoint::h5::Wavefield::init(unsigned int numDofs, unsigned int groupSize)
+bool seissol::checkpoint::h5::Wavefield::init(unsigned long numDofs, unsigned int groupSize)
 {
 	seissol::checkpoint::Wavefield::init(numDofs, groupSize);
 
@@ -106,6 +106,7 @@ void seissol::checkpoint::h5::Wavefield::load(double &time, int &timestepWavefie
 
 		// We are finished in less iterations, read data twice
 		// so everybody needs the same number of iterations
+		// TODO This does only work if everybody has at least 2 chunks
 		if (i < iterations()-1) {
 			fStart += count;
 			offset += count;
@@ -133,7 +134,7 @@ void seissol::checkpoint::h5::Wavefield::write(double time, int waveFieldTimeSte
 	EPIK_TRACER("CheckPoint_write");
 	SCOREP_USER_REGION("CheckPoint_write", SCOREP_USER_REGION_TYPE_FUNCTION);
 
-	logInfo(rank()) << "Writing check point.";
+	logInfo(rank()) << "Checkpoint backend: Writing.";
 
 	EPIK_USER_REG(r_header, "checkpoint_write_header");
 	SCOREP_USER_REGION_DEFINE(r_header);
@@ -193,7 +194,7 @@ void seissol::checkpoint::h5::Wavefield::write(double time, int waveFieldTimeSte
 	// Finalize the checkpoint
 	finalizeCheckpoint();
 
-	logInfo(rank()) << "Writing check point. Done.";
+	logInfo(rank()) << "Checkpoint backend: Writing. Done.";
 }
 
 bool seissol::checkpoint::h5::Wavefield::validate(hid_t h5file) const

@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2015-2016, SeisSol Group
+ * Copyright (c) 2016, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,11 +37,11 @@
  * @section DESCRIPTION
  */
 
-#ifndef CHECKPOINT_POSIX_WAVEFIELD_H
-#define CHECKPOINT_POSIX_WAVEFIELD_H
+#ifndef CHECKPOINT_BACKEND_H
+#define CHECKPOINT_BACKEND_H
 
-#include "CheckPoint.h"
-#include "Checkpoint/Wavefield.h"
+#include "Wavefield.h"
+#include "Fault.h"
 
 namespace seissol
 {
@@ -49,38 +49,23 @@ namespace seissol
 namespace checkpoint
 {
 
-namespace posix
-{
+/** Checkpoint backend types */
+enum Backend {
+	POSIX,
+	HDF5,
+	MPIO,
+	MPIO_ASYNC,
+	SIONLIB,
+	DISABLED
+};
 
 /**
- * Header info (excluding the id) for wave field checkpoints
+ * Create the backend instances depending on the selected backend
  */
-struct WavefieldHeader
-{
-	double time;
-	int timestepWaveField;
-};
-
-class Wavefield : public CheckPoint, virtual public seissol::checkpoint::Wavefield
-{
-public:
-	Wavefield()
-		: CheckPoint(0x7A56F, sizeof(WavefieldHeader))
-	{
-	}
-
-	bool init(unsigned long numDofs, unsigned int groupSize = 1);
-
-	void load(double& time, int& timestepWaveField, real* dofs);
-
-	void write(double time, int timestepWaveField);
-};
+void createBackend(Backend backend, Wavefield* &waveField, Fault* &fault);
 
 }
 
 }
 
-}
-
-#endif // CHECKPOINT_POSIX_WAVEFIELD_H
-
+#endif // CHECKPOINT_BACKEND_H

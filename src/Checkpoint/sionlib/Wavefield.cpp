@@ -40,7 +40,7 @@
 
 #include "Wavefield.h"
 
-bool seissol::checkpoint::sionlib::Wavefield::init(unsigned int numDofs, unsigned int groupSize)
+bool seissol::checkpoint::sionlib::Wavefield::init(unsigned long numDofs, unsigned int groupSize)
 {
 	if (groupSize != 1)
 		// TODO To read the sionlib file, we must use the same number of processes
@@ -84,7 +84,7 @@ void seissol::checkpoint::sionlib::Wavefield::write(double time, int timestepWav
 {
 	SCOREP_USER_REGION("CheckPoint_write", SCOREP_USER_REGION_TYPE_FUNCTION);
 
-	logInfo(rank()) << "Writing check point.";
+	logInfo(rank()) << "Checkpoint backend: Writing.";
 
 	int file = open(dataFile(odd()), writeMode());
 	checkErr(file);
@@ -111,6 +111,6 @@ void seissol::checkpoint::sionlib::Wavefield::write(double time, int timestepWav
 	// Finalize the checkpoint
 	finalizeCheckpoint(file);
 
-	logInfo(rank()) << "Writing check point. Done.";
+	logInfo(rank()) << "Checkpoint backend: Writing. Done.";
 }
 
