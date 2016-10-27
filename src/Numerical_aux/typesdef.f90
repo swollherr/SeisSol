@@ -866,7 +866,7 @@ MODULE TypesDef
      INTEGER                                :: printtimeinterval                !< Iteration interval at which output will be written
      INTEGER                                :: printIntervalCriterion           !< 1=iteration, 2=time
      REAL                                   :: printtimeinterval_sec            !< Time interval at which output will be written
-     INTEGER                                :: OutputMask(1:10)                  !< Info of desired output 1/ yes, 0/ no - position: 1/ slip rate 2/ stress 3/ normal velocity 4/ in case of rate and state output friction and state variable 5/ initial stress fields 6/ displacement 7/rupture speed 8/accumulated slip 9/Peak SR 10/Rupture arrival
+     INTEGER                                :: OutputMask(1:11)                  !< Info of desired output 1/ yes, 0/ no - position: 1/ slip rate 2/ stress 3/ normal velocity 4/ in case of rate and state output friction and state variable 5/ initial stress fields 6/ displacement 7/rupture speed 8/accumulated slip 9/Peak SR 10/Rupture arrival 11/Dyn.ShearStress arrival
      INTEGER                      , POINTER :: OutputLabel(:)    => NULL()      !< Info of desired output 1/ yes, 0/ no - position: 1/ slip rate 2/ stress 3/ normal velocity 4/ in case of rate and state output friction and state variable 5/ initial stress fields
      LOGICAL                                :: DR_pick_output                   !< DR output at certain receiver stations
      INTEGER                                :: nDR_pick                         !< number of DR output receiver for this domain
@@ -902,6 +902,7 @@ MODULE TypesDef
      REAL                                   :: cohesion_depth                            !< depth at which cohesion is increased
      REAL, POINTER                          :: forced_rupture_time(:,:) => NULL()        !< forced rupture time at given fault node
      REAL, POINTER                          :: rupture_time(:,:) => NULL()               !< rupture time at given fault node> used for VR ouput calculation
+     REAL, POINTER                          :: dynStress_time(:,:) => NULL()             !< time at which the shear stress is equal the dynamic stress
      REAL                                   :: XHypo                            !< x-coordinate of the forced rupture patch
      REAL                                   :: YHypo                            !< y-coordinate of the forced rupture circle
      REAL                                   :: ZHypo                            !< z-coordinate of the forced rupture circle
@@ -953,14 +954,17 @@ MODULE TypesDef
      REAL, POINTER                          :: Strength(:,:) => NULL()                   !< save strength since it is used for bimaterial
      !RF output handled in tDynRup as it has to be computed in the friction solver
      INTEGER                                :: RF_output_on                     !< rupture front output on = 1, off = 0
+     INTEGER                                :: RFtime_on                        !< collect rupture time for Vr or RF output on=1, off=0
      LOGICAL, ALLOCATABLE                   :: RF(:,:)                          !< rupture front output for this GP: true or false
-     ! Magnitude output
+     INTEGER                                :: DS_output_on                     !< dyn.stress output on = 1, off = 0
+     LOGICAL, ALLOCATABLE                   :: DS(:,:)                          !< dynamic stress output for this GP: true or false
+
+     ! Magnitude and energy output
      INTEGER                                :: magnitude_output_on              !< magnitude output on = 1, off = 0
      INTEGER                                :: energy_rate_output_on            !< fault energy rate output on = 1, off = 0 (currently moment rate and frictional energy rate)
      INTEGER                                :: energy_rate_printtimeinterval    !< fault energy rate print time interval
      LOGICAL, ALLOCATABLE                   :: magnitude_out(:)                 !< magnitude output: true or false
      REAL, ALLOCATABLE                      :: averaged_Slip(:)                 !< slip averaged per element (length all + elements in this domain)
-     !energy output
      ! declarate output types
      LOGICAL                                :: DR_output                        !< Dynamic Rupture output just for domains with "+" elements
      INTEGER                                :: OutputPointType                  !< Type of output (3: at certain pickpoint positions, 4: at every element , 5: option 3 + 4)
@@ -1396,6 +1400,8 @@ MODULE TypesDef
      LOGICAL                      ,POINTER  :: OutputMask(:)                    !< Mask for variable output
                                                                                 !< .TRUE.  = do output for this variable
                                                                                 !< .FALSE. = do no output for this variable
+	 REAL                         ,POINTER  :: OutputRegionBounds(:)            !< Region for which the output should be written
+                                                                                !< Format is xMin, xMax, yMin, yMax, zMin, zMax
      LOGICAL                      ,POINTER  :: RotationMask(:)                  !< Mask for rotational output
      INTEGER                      ,POINTER  :: ScalList(:) !<List of Scalar Vars
      INTEGER                      ,POINTER  :: VectList(:) !<List of Vector Vars

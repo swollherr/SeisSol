@@ -182,7 +182,7 @@ module f_ftoc_bind_interoperability
     end subroutine
 
     subroutine c_interoperability_initializeIO( i_mu, i_slipRate1, i_slipRate2, i_slip, i_slip1, i_slip2, i_state, i_strength, &
-        i_numSides, i_numBndGP, i_refinement, i_outputMask ) &
+        i_numSides, i_numBndGP, i_refinement, i_outputMask, i_outputRegionBounds ) &
         bind( C, name='c_interoperability_initializeIO' )
       use iso_c_binding
       implicit none
@@ -195,7 +195,8 @@ module f_ftoc_bind_interoperability
       real(kind=c_double), dimension(*), intent(in) :: i_slip2
       real(kind=c_double), dimension(*), intent(in) :: i_state
       real(kind=c_double), dimension(*), intent(in) :: i_strength
-      logical(kind=c_int), dimension(*), intent(out) :: i_outputMask
+      real(kind=c_double), dimension(*), intent(out) :: i_outputRegionBounds
+      integer(kind=c_int), dimension(*), intent(out) :: i_outputMask
       integer(kind=c_int), value                    :: i_numSides
       integer(kind=c_int), value                    :: i_numBndGP
       integer(kind=c_int), value                    :: i_refinement

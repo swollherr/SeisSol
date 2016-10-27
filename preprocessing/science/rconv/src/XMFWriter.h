@@ -5,7 +5,7 @@
  * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  *
  * @section LICENSE
- * Copyright (c) 2015, SeisSol Group
+ * Copyright (c) 2016, SeisSol Group
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -36,19 +36,12 @@
  *
  * @section DESCRIPTION
  **/
+#ifndef RCONV_XMFWRITER_H_
+#define RCONV_XMFWRITER_H_
 
-#include "GMSH.h"
+#include "SRF.h"
+#include "Map.h"
 
-#include <iostream>
-#include <cstdlib>
+void writeXMF(char const* filename, std::vector<SRFPointSource> const& sources, Map const& map);
 
-void error(std::string const& errMessage)
-{
-  std::cerr << "MSH parse error: " << errMessage << std::endl;
-  exit(-1);
-}
-
-// Uses GAMBIT neu conventions. See GAMBIT NEUTRAL FILE FORMAT Appendix C.2.
-unsigned const Simplex<2>::Face2Nodes[][2] = {{0, 1}, {1, 2}, {2, 0}};
-unsigned const Simplex<3>::Face2Nodes[][3] = {{1, 0, 2}, {0, 1, 3}, {1, 2, 3}, {2, 0, 3}};
-
+#endif
