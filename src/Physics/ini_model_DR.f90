@@ -165,7 +165,7 @@ MODULE ini_model_DR_mod
        CALL background_TPV1617(EQN,MESH,IO,DISC,BND)
    CASE(26,30,77)
        !  26 = SCEC TPV26/27 with heterogeneous initial stress field
-       !  30 = convergence test setup
+       !     = convergence test setup
        !  77 = homogeneous initial stress field
        CALL background_TPV2627(EQN,MESH,DISC,BND)
    CASE(33)
@@ -1789,26 +1789,6 @@ MODULE ini_model_DR_mod
              EQN%IniBulk_yy(i,iBndGP)  = EQN%IniBulk_yy(i,iBndGP)+Pf
              EQN%IniBulk_zz(i,iBndGP)  = EQN%IniBulk_zz(i,iBndGP)+Pf
 
-                CASE(30) !smaller geometry
-                   Pf = 9800.0D0* abs(zGP) !fluid pressure, hydrostatic with water table at the surface
-                  IF (zGP.GE. -12500.0D0) THEN !depth less than 11250m
-                   omega = 1.0D0
-                  ELSEIF ((zGP.LT. -12500.0D0) .AND. (zGP .GE. -15000.0D0) ) THEN !depth between 11250 and 15000
-                   omega = (15000.0D0-abs(zGP))/3750.0D0
-                  ELSE ! depth more than 15000m
-                   omega = 0.0D0
-                  ENDIF
-             EQN%IniBulk_zz(i,iBndGP)  = -2670D0*9.8D0 * abs(zGP)
-             EQN%IniBulk_xx(i,iBndGP)  = omega*(b11*(EQN%IniBulk_zz(i,iBndGP)+Pf)-Pf)+(1-omega)*EQN%IniBulk_zz(i,iBndGP)
-             EQN%IniBulk_yy(i,iBndGP)  = omega*(b33*(EQN%IniBulk_zz(i,iBndGP)+Pf)-Pf)+(1-omega)*EQN%IniBulk_zz(i,iBndGP)
-             EQN%IniShearXY(i,iBndGP)  = omega*(b13*(EQN%IniBulk_zz(i,iBndGP)+Pf))
-             EQN%IniShearXZ(i,iBndGP)  = 0.0D0
-             EQN%IniShearYZ(i,iBndGP)  = 0.0D0
-             !add fluid pressure
-             EQN%IniBulk_xx(i,iBndGP)  = EQN%IniBulk_xx(i,iBndGP)+Pf
-             EQN%IniBulk_yy(i,iBndGP)  = EQN%IniBulk_yy(i,iBndGP)+Pf
-             EQN%IniBulk_zz(i,iBndGP)  = EQN%IniBulk_zz(i,iBndGP)+Pf
-
 
              CASE(77)
 
@@ -1853,13 +1833,6 @@ MODULE ini_model_DR_mod
                 ELSE
                    DISC%DynRup%cohesion(i,iBndGP) = -0.4D6
                 ENDIF
-
-             CASE(30) !convergence test
-               IF (zGP.GE.-3750.0D0) THEN
-                  DISC%DynRup%cohesion(i,iBndGP) = -0.4D6 - 0.00072D6*(3750D0-abs(zGP))
-               ELSE
-                  DISC%DynRup%cohesion(i,iBndGP) = -0.4D6
-               ENDIF
 
             END SELECT
 
@@ -1978,13 +1951,6 @@ MODULE ini_model_DR_mod
                 ELSE
                    DISC%DynRup%cohesion(i,:) = -0.4D6
                 ENDIF
-
-             CASE(30) !convergence test
-               IF (zGP.GE.-3750.0D0) THEN
-                  DISC%DynRup%cohesion(i,:) = -0.4D6 - 0.00072D6*(3750D0-abs(zGP))
-               ELSE
-                  DISC%DynRup%cohesion(i,:) = -0.4D6
-               ENDIF
 
             END SELECT
 

@@ -547,8 +547,8 @@ CONTAINS
         ENDDO
         !
 
-        CASE(26, 28, 77, 78)
-        ! 26 = special case for TPV27; 28 = convergence tests
+        CASE(26, 77, 78)
+        ! 26 = special case for TPV27 and convergence tests
         ! depth dependent initial shear/normal stresses are defined for the whole domain for the plastic calculations
         ! but otherwise constant material properties
 
@@ -560,11 +560,11 @@ CONTAINS
                 iLayer = MESH%ELEM%Reference(0,iElem)        ! Zone number is given by reference 0
                 MaterialVal(iElem,:) = EQN%MODEL(iLayer,:)   ! Set material properties for this zone.
             ENDDO
-        CASE(26,28,77)
+        CASE(26,77)
 
-        MaterialVal(:,1) = EQN%rho0
-        MaterialVal(:,2) = EQN%mu
-        MaterialVal(:,3) = EQN%lambda
+             MaterialVal(:,1) = EQN%rho0
+             MaterialVal(:,2) = EQN%mu
+             MaterialVal(:,3) = EQN%lambda
 
         END SELECT
 
@@ -594,43 +594,18 @@ CONTAINS
 
 
 
-              EQN%IniStress(3,iElem)  = -2670D0*9.8D0 * abs(z) !zz
-              EQN%IniStress(1,iElem)  = omega*(b11*(EQN%IniStress(3,iElem)+Pf)-Pf)+(1-omega)*EQN%IniStress(3,iElem) !xx
-              EQN%IniStress(2,iElem)  = omega*(b33*(EQN%IniStress(3,iElem)+Pf)-Pf)+(1-omega)*EQN%IniStress(3,iElem) !yy
+                  EQN%IniStress(3,iElem)  = -2670D0*9.8D0 * abs(z) !zz
+                  EQN%IniStress(1,iElem)  = omega*(b11*(EQN%IniStress(3,iElem)+Pf)-Pf)+(1-omega)*EQN%IniStress(3,iElem) !xx
+                  EQN%IniStress(2,iElem)  = omega*(b33*(EQN%IniStress(3,iElem)+Pf)-Pf)+(1-omega)*EQN%IniStress(3,iElem) !yy
 
-              EQN%IniStress(4,iElem)  = omega*(b13*(EQN%IniStress(3,iElem)+Pf))  !shear stress xy
-              EQN%IniStress(5,iElem)  = 0.0  !shear stress xz
-              EQN%IniStress(6,iElem)  = 0.0  !shear stress yz
+                  EQN%IniStress(4,iElem)  = omega*(b13*(EQN%IniStress(3,iElem)+Pf))  !shear stress xy
+                  EQN%IniStress(5,iElem)  = 0.0  !shear stress xz
+                  EQN%IniStress(6,iElem)  = 0.0  !shear stress yz
 
-              !add fluid pressure
-              EQN%IniStress(1,iElem)  = EQN%IniStress(1,iElem) + Pf
-              EQN%IniStress(2,iElem)  = EQN%IniStress(2,iElem) + Pf
-              EQN%IniStress(3,iElem)  = EQN%IniStress(3,iElem) + Pf
-
-              CASE(28)!convergence setup
-                   IF (z.GE. -11250.0D0) THEN !depth less than 11250m
-                      omega = 1.0D0
-                   ELSEIF ((z.LT. -112500.0D0) .AND. (z .GE. -15000.0D0) ) THEN !depth between 15000 and 20000m
-                      omega = (15000.0D0-abs(z))/3750.0D0
-                   ELSE ! depth more than 20000m
-                      omega = 0.0D0
-                   ENDIF
-
-
-
-
-              EQN%IniStress(3,iElem)  = -2670D0*9.8D0 * abs(z) !zz
-              EQN%IniStress(1,iElem)  = omega*(b11*(EQN%IniStress(3,iElem)+Pf)-Pf)+(1-omega)*EQN%IniStress(3,iElem) !xx
-              EQN%IniStress(2,iElem)  = omega*(b33*(EQN%IniStress(3,iElem)+Pf)-Pf)+(1-omega)*EQN%IniStress(3,iElem) !yy
-
-              EQN%IniStress(4,iElem)  = omega*(b13*(EQN%IniStress(3,iElem)+Pf))  !shear stress xy
-              EQN%IniStress(5,iElem)  = 0.0  !shear stress xz
-              EQN%IniStress(6,iElem)  = 0.0  !shear stress yz
-
-              !add fluid pressure
-              EQN%IniStress(1,iElem)  = EQN%IniStress(1,iElem) + Pf
-              EQN%IniStress(2,iElem)  = EQN%IniStress(2,iElem) + Pf
-              EQN%IniStress(3,iElem)  = EQN%IniStress(3,iElem) + Pf
+                  !add fluid pressure
+                  EQN%IniStress(1,iElem)  = EQN%IniStress(1,iElem) + Pf
+                  EQN%IniStress(2,iElem)  = EQN%IniStress(2,iElem) + Pf
+                  EQN%IniStress(3,iElem)  = EQN%IniStress(3,iElem) + Pf
 
               CASE(77) !homogen.initital stress
               Pf = 9800.0D0* 10500.D0
