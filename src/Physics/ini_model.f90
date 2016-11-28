@@ -767,7 +767,7 @@ CONTAINS
               ! the thickness of the layer, added more layers in depth
 
          ! Layer                   depth    rho     mu          lambda
-         BedrockVelModel(1,:) = (/ -300.0, 2349.3, 0.5868e10, 1.1728e10/) ! not correctly averaged value to respect the low velocities somehow
+         BedrockVelModel(1,:) = (/ -300.0, 2349.3, 0.5868e10, 1.1728e10/) 
          BedrockVelModel(2,:) = (/ -1000.0, 2592.9, 1.3885e10, 1.8817e10/)
          BedrockVelModel(3,:) = (/ -3000.0, 2700.0, 2.1168e10, 2.7891e10/)
          BedrockVelModel(4,:) = (/ -5000.0, 2750.0, 2.9948e10, 3.9105e10/)
@@ -785,7 +785,7 @@ CONTAINS
 
          DO iElem = 1, MESH%nElem
              z = MESH%ELEM%xyBary(3,iElem)
-             IF (z.GT.BedrockVelModel(1,1)+1500) THEN
+             IF (z.GE.BedrockVelModel(1,1)+1500) THEN
                  MaterialVal(iElem,1:3) =   BedrockVelModel(1,2:4)
              ELSEIF ((z.LT.BedrockVelModel(1,1)+1500).AND.(z.GE.BedrockVelModel(2,1)+1500)) THEN
                  MaterialVal(iElem,1:3) =   BedrockVelModel(2,2:4)
@@ -818,7 +818,7 @@ CONTAINS
                     EQN%IniStress(4,iElem)  = EQN%ShearXY_0*(abs(z-2000.0D0))/1000.0D0
                     EQN%IniStress(5,iElem)  =  0.0D0
                     EQN%IniStress(6,iElem)  =  0.0D0
-                ELSE ! constant stress tensor for everything higher or equal than 1500m
+                ELSE ! constant stress tensor for everything higher or equal than 1500m ~ fault height
                     EQN%IniStress(1,iElem)  = EQN%Bulk_xx_0*(abs(-500.0D0))/1000.0D0
                     EQN%IniStress(2,iElem)  = EQN%Bulk_yy_0*(abs(-500.0D0))/1000.0D0
                     EQN%IniStress(3,iElem)  = EQN%Bulk_zz_0*(abs(-500.0D0))/1000.0D0
@@ -828,9 +828,18 @@ CONTAINS
                 ENDIF   !
 
                 ! depth dependent plastic cohesion
-                EQN%PlastCo(iElem) = MaterialVal(iElem,2)/10000.0D0
+                !EQN%PlastCo(iElem) = MaterialVal(iElem,2)/10000.0D0 !very weak rock, dependent of mu, Roten et al. 2014
+                IF (z.GE. 1200.0) THEN !first layer until -300+1500
+                   EQN%PlastCo(iElem) = 2.0e+06
+                ELSEIF ((z.LT. 1200.0).AND.(z.GE.500.0)) THEN !second layer between -300+1500 and -1000+1500
+                   EQN%PlastCo(iElem) = 6.0e+06
+                ELSEIF ((z.LT. 500.0).AND.(z.GE.-1500.0)) THEN !second layer between -1000+1500 and -3000+1500
+                   EQN%PlastCo(iElem) = 10.0e+06
+                ELSE !below -3000+1500
+                   EQN%PlastCo(iElem) = 12.0e+06
+                ENDIF !cohesion
+                
             ENDIF !Plasticity
-
 
        ENDDO
 
