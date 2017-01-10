@@ -49,6 +49,8 @@ import commands
 # import helpers
 import arch
 import memlayout
+import libs
+import utils.gitversion
 
 # print the welcome message
 print '********************************************'
@@ -154,7 +156,9 @@ vars.AddVariables(
 
   BoolVariable( 'commThread', 'use communication thread for MPI progression (option has no effect when not compiling hybrid target)', False ),
 
-  BoolVariable( 'plasticity', 'enable plasticity (generated kernels only)', False )
+  BoolVariable( 'plasticity', 'enable plasticity (generated kernels only)', False ),
+
+  BoolVariable( 'integrateQuants', 'enable computation and storage of integrated quantities (generated kernels only)', False )
 )
 
 # external variables
@@ -245,6 +249,10 @@ if not env['generatedKernels'] and ( env['parallelization'] == 'omp' or env['par
 if not env.has_key('memLayout'):
   env['memLayout'] = memlayout.guessMemoryLayout(env)
 
+# Detect SeisSol version
+seissol_version = utils.gitversion.get(env)
+print 'Compiling SeisSol version:', seissol_version
+
 #
 # preprocessor, compiler and linker
 #
@@ -290,6 +298,12 @@ env['F90COM'] = env['F90PPCOM']
 # Use Fortran for linking
 env['LINK'] = env['F90']
 
+# Linker-flags for Fortran linking
+if env['compiler'] == 'intel':
+    env.Append(LINKFLAGS=['-nofor-main', '-cxxlib']) #Add -ldmalloc for ddt
+elif env['compiler'] == 'gcc':
+    env.Append(LIBS=['stdc++'])
+
 #
 # Scalasca
 #
@@ -310,6 +324,11 @@ if env['scalasca'] in ['default_2.x', 'kernels_2.x']:
     l_scorepArguments = l_scorepArguments + ' --mpp=none '
   if env['parallelization'] in ['mpi', 'hybrid']:
     l_scorepArguments = l_scorepArguments + ' --mpp=mpi '
+    # The following line is required for tests
+    env['CONF_PREFIX'] = """
+#include <mpi.h>
+void init() { MPI_Init(0, 0L); }
+"""
 
   if env['parallelization'] in ['mpi', 'none']:
     l_scorepCxxArguments = l_scorepArguments + ' --thread=none '
@@ -318,7 +337,10 @@ if env['scalasca'] in ['default_2.x', 'kernels_2.x']:
       # Seems to work with "RF_output_on = 0"
       l_scorepCxxArguments = l_scorepArguments + ' --thread=pthread '
     else:
-      l_scorepCxxArguments = l_scorepArguments + ' --thread=omp '
+      if libs.find(env, 'openmp', required=False, version='3.0'):
+        l_scorepCxxArguments = l_scorepArguments + ' --thread=omp:ancestry '
+      else:
+        l_scorepCxxArguments = l_scorepArguments + ' --thread=omp '
 
   for mode in ['F90']:
     env[mode] = 'scorep' + l_scorepArguments + ' --thread=none ' + env[mode]
@@ -364,12 +386,6 @@ elif env['compiler'] == 'gcc':
 if env['compiler'] == 'intel':
     # TODO Check if Fortran alignment is still necessary in the latest version
     env.Append(F90LFAGS=['-align', '-align', 'array64byte'])
-
-# Add  Linker-flags  for cross-compiling
-if env['compiler'] == 'intel':
-    env.Append(LINKFLAGS=['-nofor-main', '-cxxlib']) #Add -ldmalloc for ddt
-elif env['compiler'] == 'gcc':
-    env.Append(LIBS=['stdc++'])
 
 #
 # Architecture dependent settings
@@ -419,7 +435,6 @@ if env['compileMode'] in ['relWithDebInfo', 'release']:
 #
 # Basic preprocessor defines
 #
-
 # set precompiler mode for the number of quantities and basis functions
 env.Append(CPPDEFINES=['CONVERGENCE_ORDER='+env['order']])
 env.Append(CPPDEFINES=['NUMBER_OF_QUANTITIES=' + str(numberOfQuantities[ env['equations'] ]), 'NUMBER_OF_RELAXATION_MECHANISMS=' + str(env['numberOfMechanisms'])])
@@ -443,6 +458,9 @@ if env['parallelization'] in ['omp', 'hybrid']:
 
 if( env['plasticity'] ):
   env.Append(CPPDEFINES=['USE_PLASTICITY'])
+
+if( env['integrateQuants'] ):
+  env.Append(CPPDEFINES=['INTEGRATE_QUANTITIES'])
 
 # set pre compiler flags for matrix optimizations
 if env['generatedKernels']:
@@ -582,6 +600,9 @@ elif env['compiler'] == 'gcc':
 # get the source files
 env.sourceFiles = []
 env.generatedTestSourceFiles = []
+
+# Generate the version file
+utils.gitversion.generateHeader(env, target='#/src/version.h')
 
 Export('env')
 SConscript('generated_code/SConscript', variant_dir='#/'+env['buildDir'], src_dir='#/', duplicate=0)

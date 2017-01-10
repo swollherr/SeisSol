@@ -75,6 +75,7 @@
 #include <omp.h>
 #endif
 
+#include "SeisSol.h"
 #include "TimeCluster.h"
 #include <Solver/Interoperability.h>
 #include <SourceTerm/PointSource.h>
@@ -542,7 +543,7 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
                                                              +(cellInformation[l_cell].faceRelations[l_face][0]*3)
                                                              +(cellInformation[l_cell].faceRelations[l_face][1])];
     // fourth face's prefetches
-    if (l_cell < (i_numberOfCells-1) ) {
+    if (l_cell < (i_layerData.getNumberOfCells()-1) ) {
       l_face = 0;
       l_faceNeighbors_prefetch[3] = faceNeighbors[l_cell+1][l_face];
       l_fluxMatricies_prefetch[3] = l_globalData->fluxMatrices[4+(l_face*12)
@@ -588,6 +589,12 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
                                          energy[l_cell],
                                          pstrain[l_cell] );
 #endif
+#ifdef INTEGRATE_QUANTITIES
+  seissol::SeisSol::main.postProcessor().integrateQuantities( m_timeStepWidth,
+                                                              i_layerData,
+                                                              l_cell,
+                                      			              dofs[l_cell] );
+#endif // INTEGRATE_QUANTITIES
   }
 }
 

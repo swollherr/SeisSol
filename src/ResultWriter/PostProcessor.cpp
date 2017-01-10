@@ -2,22 +2,22 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ * @author Vishal Sontakke (vishal.sontakke AT tum.de)
  *
  * @section LICENSE
- * Copyright (c) 2015, SeisSol Group
+ * Copyright (c) 2016, SeisSol Group
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
@@ -35,20 +35,53 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  * @section DESCRIPTION
- **/
+ */
 
-#include "GMSH.h"
+#include "PostProcessor.h"
+#include "SeisSol.h"
 
-#include <iostream>
-#include <cstdlib>
+void seissol::writer::PostProcessor::integrateQuantities(const double i_timestep,
+	seissol::initializers::Layer& i_layerData, const unsigned int l_cell,
+	const double * const i_dofs) {
 
-void error(std::string const& errMessage)
-{
-  std::cerr << "MSH parse error: " << errMessage << std::endl;
-  exit(-1);
+	real (*integrals) = i_layerData.var(m_integrals);
+	for (int i = 0; i < m_numberOfVariables; i++) {
+		integrals[l_cell*m_numberOfVariables+i] += i_dofs[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS*m_integerMap[i]]*i_timestep;
+	}
 }
 
-// Uses GAMBIT neu conventions. See GAMBIT NEUTRAL FILE FORMAT Appendix C.2.
-template<> unsigned const Simplex<2>::Face2Nodes[][2] = {{0, 1}, {1, 2}, {2, 0}};
-template<> unsigned const Simplex<3>::Face2Nodes[][3] = {{1, 0, 2}, {0, 1, 3}, {1, 2, 3}, {2, 0, 3}};
+void seissol::writer::PostProcessor::setIntegrationMask(const int * const i_integrationMask) {
+	unsigned int nextId = 0;
+	for (int i = 0; i < 9; i++) {
+		m_integrationMask[i] = (i_integrationMask[i] > 0);
+		if (m_integrationMask[i]) {
+			m_integerMap.push_back(i);
+			m_numberOfVariables++;
+			nextId++;
+		}
+	}
+	m_integrals.count = m_numberOfVariables;
+}
 
+int seissol::writer::PostProcessor::getNumberOfVariables() {
+	return m_numberOfVariables;
+}
+
+void seissol::writer::PostProcessor::getIntegrationMask(bool* transferTo) {
+	for(int i = 0; i < 9; i++) {
+		transferTo[i] = m_integrationMask[i];
+	}
+}
+
+void seissol::writer::PostProcessor::allocateMemory(seissol::initializers::LTSTree* ltsTree) {
+	ltsTree->addVar( m_integrals, seissol::initializers::LayerMask(Ghost), PAGESIZE_HEAP,
+      seissol::memory::Standard );
+}
+
+const double* seissol::writer::PostProcessor::getIntegrals(seissol::initializers::LTSTree* ltsTree) {
+	if (m_numberOfVariables == 0) {
+		return 0L;
+	} else {
+		return reinterpret_cast<const double*>(ltsTree->var(m_integrals));
+	}
+}

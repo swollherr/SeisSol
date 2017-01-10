@@ -51,12 +51,11 @@
 #include "Initializer/time_stepping/LtsLayout.h"
 #include "Checkpoint/Manager.h"
 #include "SourceTerm/Manager.h"
+#include "ResultWriter/PostProcessor.h"
 #endif // GENERATEDKERNELS
 
 #include "ResultWriter/AsyncIO.h"
 #include "ResultWriter/WaveFieldWriter.h"
-
-#define SEISSOL_VERSION_STRING "SVN Mainline"
 
 class MeshReader;
 
@@ -96,6 +95,10 @@ private:
 
 	/** Source term module */
 	sourceterm::Manager m_sourceTermManager;
+
+	/** PostProcessor module **/
+        writer::PostProcessor m_postProcessor;
+
 #endif // GENERATEDKERNELS
 
 	/** Wavefield output module */
@@ -156,6 +159,13 @@ public:
 	{
 		return m_sourceTermManager;
 	}
+
+	/** Get the post processor module
+         */
+         writer::PostProcessor& postProcessor()
+         {
+                 return m_postProcessor;
+         }
 #endif // GENERATEDKERNELS
 
 	io::AsyncIO& asyncIO()

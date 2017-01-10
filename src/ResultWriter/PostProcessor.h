@@ -2,22 +2,22 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ * @author Vishal Sontakke (vishal.sontakke AT tum.de)
  *
  * @section LICENSE
- * Copyright (c) 2015, SeisSol Group
+ * Copyright (c) 2016, SeisSol Group
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
@@ -35,20 +35,48 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  * @section DESCRIPTION
- **/
+ */
 
-#include "GMSH.h"
+#ifndef POST_PROCESSOR_H
+#define POST_PROCESSOR_H
 
-#include <iostream>
-#include <cstdlib>
+#include <vector>
+#include <Initializer/typedefs.hpp>
+#include <Initializer/tree/Layer.hpp>
+#include <Initializer/tree/LTSTree.hpp>
+#include <Initializer/preProcessorMacros.fpp>
 
-void error(std::string const& errMessage)
+namespace seissol
 {
-  std::cerr << "MSH parse error: " << errMessage << std::endl;
-  exit(-1);
+
+namespace writer
+{
+
+class PostProcessor {
+private:
+    bool m_integrationMask[9];
+    int m_numberOfVariables;
+    std::vector<int> m_integerMap;
+    seissol::initializers::Variable<real> m_integrals;
+public:
+    PostProcessor (): m_numberOfVariables(0), m_integerMap(0L) {
+        for (size_t i = 0; i < 9; i++) {
+            m_integrationMask[i] = false;
+        }
+    }
+    virtual ~PostProcessor () {}
+    void integrateQuantities(const double i_timestep,
+    	seissol::initializers::Layer& i_layerData, const unsigned int l_cell,
+    	const double * const i_dofs);
+    void setIntegrationMask(const int * const i_integrationMask);
+    int getNumberOfVariables();
+    void getIntegrationMask(bool* transferTo);
+    void allocateMemory(seissol::initializers::LTSTree* ltsTree);
+    const double* getIntegrals(seissol::initializers::LTSTree* ltsTree);
+};
+
 }
 
-// Uses GAMBIT neu conventions. See GAMBIT NEUTRAL FILE FORMAT Appendix C.2.
-template<> unsigned const Simplex<2>::Face2Nodes[][2] = {{0, 1}, {1, 2}, {2, 0}};
-template<> unsigned const Simplex<3>::Face2Nodes[][3] = {{1, 0, 2}, {0, 1, 3}, {1, 2, 3}, {2, 0, 3}};
+}
 
+#endif // POST_PROCESSOR_H
