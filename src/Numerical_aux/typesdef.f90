@@ -1151,6 +1151,7 @@ MODULE TypesDef
      INTEGER                                :: nVAr_rot                         !< number of rotation variables
      INTEGER                                :: nBackgroundVar                   !< Number of background variables
      INTEGER                                :: LinType                          !< Type of linearization: 0=global,1=local
+     INTEGER                                :: SumatraRegions(7)                !< model dependant region labelling, /big box continental LVZ above L1 L2 L3 L4/
      INTEGER                                :: Dimension                        !< Number of space dimensions (currently 3)
      INTEGER                                :: HexaDimension                    !< Nr. of dimensions can be explicitly reduced on hexahedrons
      REAL                                   :: Pi                               !< Constant Pi
@@ -1201,6 +1202,7 @@ MODULE TypesDef
      INTEGER                                :: AneMatIni                        !< indicates where in MaterialVal begin the anelastic parameters
      INTEGER                                :: nNonZeroEV                       !< number of non-zero eigenvalues
      INTEGER                                :: RandomField_Flag                 !< Flag for number of used random fields
+     INTEGER                                :: refPointMethod                   !< fault orientation: (0) using a reference point (1) using a reference vector
      REAL                                   :: FreqCentral                      !< Central frequency of the absorption band (in Hertz)
      REAL                                   :: FreqRatio                        !< The ratio between the maximum and minimum frequencies of our bandwidth
      !<                                                                          !< .FALSE. = (r,z)
@@ -1376,8 +1378,8 @@ MODULE TypesDef
      CHARACTER(LEN=600)                     :: title                            !< title for Tecplot output
      CHARACTER(LEN=200)                     :: Path                             !< Output path
      CHARACTER(LEN=60)                      :: OutputFile                       !< Output filename
-     CHARACTER(LEN=200)                     :: MetisFile                        !< Metis filename
-     CHARACTER(LEN=35)                      :: MeshFile                         !< Mesh filename
+     CHARACTER(LEN=600)                     :: MetisFile                        !< Metis filename
+     CHARACTER(LEN=600)                     :: MeshFile                         !< Mesh filename
      CHARACTER(LEN=200)                     :: BndFile                          !< CFX boundary conditions
      CHARACTER(LEN=200)                     :: ContourFile                      !< Contour filename
      CHARACTER(LEN=200)                     :: ErrorFile                        !< Error filename

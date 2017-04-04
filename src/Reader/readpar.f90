@@ -225,7 +225,7 @@ CONTAINS
     INTENT(INOUT)              :: EQN, IC, IO, SOURCE
     !------------------------------------------------------------------------
     INTEGER                    :: Anisotropy, Anelasticity, Plasticity, pmethod, Adjoint, &
-                                  MaterialType, RandomField_Flag, nMechanisms
+                                  MaterialType, RandomField_Flag, nMechanisms, SumatraRegions(7)
     REAL                       :: rho, mu, lambda, FreqCentral, FreqRatio, &
                                   PlasticCo, BulkFriction, Tv
     CHARACTER(LEN=600)         :: MaterialFileName, AdjFileName
@@ -234,7 +234,7 @@ CONTAINS
                                            PlasticCo, BulkFriction, Tv, pmethod, &
                                            Adjoint, MaterialType, rho, mu, lambda, &
                                            MaterialFileName, nMechanisms, FreqCentral, &
-                                           FreqRatio, RandomField_Flag, AdjFileName
+                                           FreqRatio, RandomField_Flag, AdjFileName, SumatraRegions
     !------------------------------------------------------------------------
     !
     logInfo(*) '<--------------------------------------------------------->'
@@ -264,14 +264,26 @@ CONTAINS
     Anisotropy          = 0
     Anelasticity        = 0
     Plasticity          = 0
+    pmethod             = 2 !average approach as default for plasticity
     Adjoint             = 0
     MaterialType        = 0
     RandomField_Flag    = 0
     nMechanisms         = 0
+    !big box continental LVZ above L1 L2 L3 L4
+    SumatraRegions = (/0,0,0,0,0,0,0/)
     !
     READ(IO%UNIT%FileIn, nml = Equations) 
     !       
-
+    IF ((MaterialType.GE.1220).AND.(MaterialType.LE.1230)) THEN
+    ! Sumatra setup
+       IF (maxval(SumatraRegions).EQ.0) THEN
+          logError(*) 'SumatraRegions not set, setting to LR topo model'
+          SumatraRegions = (/5,1,2,7,4,3,6/)
+       ELSE
+          logInfo0(*) 'SumatraRegions used:', SumatraRegions(1:7)
+       ENDIF
+    ENDIF
+    EQN%SumatraRegions(1:7) = SumatraRegions(1:7)
     !
     SELECT CASE(Anisotropy)
     CASE(0)
@@ -314,18 +326,31 @@ CONTAINS
         EQN%BulkFriction = BulkFriction
         EQN%Tv = Tv
         EQN%PlastMethod = pmethod
+<<<<<<< HEAD
         SELECT CASE (EQN%PlastMethod)
         CASE(0,2)
         logInfo0(*) 'Plastic relaxation Tv is set to: ', EQN%Tv
         CASE DEFAULT
         logError(*) 'ERROR: choose 0 or 2 as plasticity method'
+=======
+        SELECT CASE (EQN%PlastMethod) !two different methods for plasticity
+        CASE(0)
+                 logInfo0(*) 'Plastic relaxation Tv is set to: ', EQN%Tv
+                 logInfo0(*) 'High-order points are used for plasticity. '
+        CASE(2)
+                 logInfo0(*) 'Plastic relaxation Tv is set to: ', EQN%Tv
+                 logInfo0(*) 'Average of an element is used for plasticity. '
+        CASE DEFAULT
+                 logError(*) 'ERROR: choose 0 or 2 as plasticity method'
+>>>>>>> upstream/master
         stop
         END SELECT
     CASE DEFAULT
       logError(*) 'Choose 0 or 1 as plasticity assumption. '
       STOP
     END SELECT
-    !
+
+
     SELECT CASE(Anelasticity)
     CASE(0)
       logInfo(*) 'No attenuation assumed. '
@@ -540,15 +565,20 @@ CONTAINS
       ENDDO
       CLOSE(IO%UNIT%other01)      
       !
+<<<<<<< HEAD
   CASE(12, 26, 77) ! Plasticity with constant material properties, initial stress (loading) must be assigned to every element in the domain
            ! special case for TPV13, add other cases that use plasticity with different initial stress values here
+=======
+  CASE(12, 26) ! Plasticity with constant material properties, initial stress (loading) must be assigned to every element in the domain
+               ! special case for TPV13 and TPV27, add other cases that use plasticity with different initial stress values here
+>>>>>>> upstream/master
       IF (EQN%Plasticity.EQ.1)THEN
         logInfo0(*) 'Jacobians are globally constant with rho0, mu, lambda:'
         logInfo0(*) ' rho0 = ', EQN%rho0     ! (1)
         logInfo0(*) ' mu = ', EQN%mu       ! (2)
         logInfo0(*) ' lambda = ', EQN%lambda   ! (3)
       ELSE
-        logInfo(*) '| ERROR: These material types are only used for plastic calculations.'
+        logInfo(*) '| ERROR: This material type is only used when plasticity is on.'
       ENDIF
       !
   CASE(60,61,62) ! special case of 1D landers example
@@ -1500,7 +1530,7 @@ CONTAINS
     TYPE (tInitialCondition)               :: IC
     INTENT(INOUT)                          :: IO, EQN, DISC, BND
     INTEGER                                :: FL, BackgroundType, Nucleation, inst_healing, RF_output_on, DS_output_on, &
-                                              OutputPointType, magnitude_output_on,  energy_rate_output_on, read_fault_file
+                                              OutputPointType, magnitude_output_on,  energy_rate_output_on, read_fault_file,refPointMethod
 
     CHARACTER(600)                         :: FileName_BackgroundStress
     REAL                                   :: Bulk_xx_0, Bulk_yy_0, &
@@ -1516,7 +1546,7 @@ CONTAINS
     !------------------------------------------------------------------------
     NAMELIST                              /DynamicRupture/ FL, BackgroundType, Bulk_xx_0, Bulk_yy_0, &
                                                 Bulk_zz_0, ShearXY_0, ShearYZ_0, ShearXZ_0, &
-                                                RS_sv0, XRef, YRef, ZRef,FileName_BackgroundStress, &
+                                                RS_sv0, XRef, YRef, ZRef,refPointMethod, FileName_BackgroundStress, &
                                                 GPwise, inst_healing, Rupspeed, &
                                                 Mu_D_ini, Mu_S_ini,Mu_SNuc_ini, H_Length, D_C_ini, RS_f0, &
                                                 RS_sr0, RS_a, RS_b, RS_sl0, RS_iniSlipRate1, &
@@ -1548,6 +1578,7 @@ CONTAINS
     XRef = 0
     YRef = 0
     ZRef = 0
+    refPointMethod=0
     GPwise = 1 !1=GPwise and 0=elementwise
     inst_healing = 0
     Rupspeed = 0
@@ -1616,6 +1647,7 @@ CONTAINS
              EQN%XRef = XRef
              EQN%YRef = YRef
              EQN%ZRef = ZRef
+             EQN%refPointMethod = refPointMethod
              DISC%DynRup%cohesion_0 = cohesion_0
              DISC%DynRup%cohesion_max = cohesion_max
              DISC%DynRup%cohesion_depth = cohesion_depth
@@ -1633,6 +1665,7 @@ CONTAINS
              EQN%XRef = XRef
              EQN%YRef = YRef
              EQN%ZRef = ZRef
+             EQN%refPointMethod = refPointMethod
            CASE DEFAULT
              logError(*) 'Unknown Stress Background Type: ',DISC%DynRup%BackgroundType
              STOP
@@ -2842,7 +2875,7 @@ ALLOCATE( SpacePositionx(nDirac), &
     REAL                       :: periodic_direction(3)
     INTEGER                    :: j ,k
     INTEGER                    :: i, stat
-    CHARACTER(LEN=45)          :: Name
+    CHARACTER(LEN=600)          :: Name
     LOGICAL                    :: file_exits
     !------------------------------------------------------------------------
     INTENT(INOUT)              :: MESH,BND,SOURCE,IO
@@ -2884,7 +2917,7 @@ ALLOCATE( SpacePositionx(nDirac), &
     IO%MeshFile = MeshFile                               ! mesh input (mesh file name, no_file)
  
     Name = TRIM(IO%MeshFile) // '.met'
-    IO%MetisFile = Name(1:35)
+    IO%MetisFile = Name(1:600)
 
     MESH%iniSquareMesh = .FALSE.
     MESH%iniDiscMesh   = .FALSE.
@@ -2909,7 +2942,7 @@ ALLOCATE( SpacePositionx(nDirac), &
             Name = TRIM(IO%MeshFile)//'.neu'
           endif
 
-          IO%MeshFile=Name(1:35)
+          IO%MeshFile=Name(1:600)
 
           inquire( file=IO%MeshFile , exist=file_exits )
           if ( .NOT.file_exits ) then
@@ -3241,6 +3274,16 @@ ALLOCATE( SpacePositionx(nDirac), &
                                           iOutputMaskMaterial(1:3), nRecordPoints, Refinement, energy_output_on, IntegrationMask(1:9)
       REAL                             :: TimeInterval, pickdt, pickdt_energy, Interval, checkPointInterval, OutputRegionBounds(1:6)
       CHARACTER(LEN=600)               :: OutputFile, RFileName, PGMFile, checkPointFile
+      !> The checkpoint back-end is specified via a string.
+      !!
+      !! If none is specified, checkpoints are disabled. To use the HDF5, MPI-IO or SIONlib
+      !! back-ends you need to compile SeisSol with HDF5, MPI or SIONlib respectively.
+      !!
+      !! @allowed_values 'posix', 'hdf5', 'mpio', 'mpio_async', 'sionlib', 'none'
+      !! @warning When using an asynchronous back-end (mpio_async), you might lose
+      !!  2 * checkPointInterval of your computation.
+      !! @more_info https://github.com/SeisSol/SeisSol/wiki/Parameter-File
+      !! 
       character(LEN=64)                :: checkPointBackend
       NAMELIST                         /Output/ OutputFile, Rotation, iOutputMask, iOutputMaskMaterial, &
                                                 Format, Interval, TimeInterval, printIntervalCriterion, Refinement, &

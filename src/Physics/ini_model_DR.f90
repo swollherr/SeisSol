@@ -61,10 +61,14 @@ MODULE ini_model_DR_mod
   INTERFACE DR_setup
      MODULE PROCEDURE DR_setup
   END INTERFACE
+  INTERFACE STRESS_DIP_SLIP_AM
+    MODULE PROCEDURE STRESS_DIP_SLIP_AM
+  END INTERFACE
   !---------------------------------------------------------------------------!
   PUBLIC  :: DR_setup
   PRIVATE :: DR_basic_ini
   !---------------------------------------------------------------------------!
+  PUBLIC  :: STRESS_DIP_SLIP_AM
   PRIVATE :: background_HOM
   PRIVATE :: background_TPV5
   PRIVATE :: background_STEP
@@ -1961,8 +1965,68 @@ MODULE ini_model_DR_mod
   END SUBROUTINE
 
 
-   
-  !> SUMATRA test case
+  ! COMPUTE NORMALIZED STRESS FOLLOWING THE METHOD  OF Aochi and Madariaga 2004 extended to dip slip fault
+  SUBROUTINE STRESS_DIP_SLIP_AM(DISC,strike, dip, sigmazz, cohesion, R, bii)
+  IMPLICIT NONE
+  TYPE(tDiscretization), target  :: DISC
+  REAL                           :: strike, dip, sigmazz, cohesion, R
+  REAL                           :: strike_rad, dip_rad
+  REAL                           :: c2,s2,Phi,c2bis,mu_dy,mu_st
+  REAL                           :: ds, sm, phi_xyz,c,s
+  REAL                           :: sii(3), Stress(3,3), R1(3,3), R2(3,3), Stress_cartesian_norm(3,3)
+  REAL                           :: bii(6)
+  REAL, PARAMETER                :: pi = 3.141592653589793d0
+  INTENT(IN)    :: strike, dip, sigmazz, cohesion, R
+  INTENT(INOUT) :: bii
+  mu_dy = DISC%DynRup%Mu_D_ini
+  mu_st = DISC%DynRup%Mu_S_ini
+  !most favorable direction (A4, AM2003)
+  Phi = pi/4d0-0.5d0*atan(mu_st)
+  s2=sin(2d0*Phi)
+  c2=cos(2d0*Phi) 
+  strike_rad = strike*pi/180d0
+  dip_rad = dip*pi/180d0
+    
+  c2bis = c2 - cos(2d0*(Phi-dip_rad))
+  
+  !ds (delta_sigma) is deduced from R (A5, Aochi and Madariaga 2003), 
+  !assuming that sig1 and sig3 are in the yz plane
+  !sigzz and sigma_ini are then related by a phi+dip rotation (using A3, AM03)
+  !sigmazz = sm  - ds * cos(2.*(Phi+dip_rad))
+  !Now we have to assume that P = sm (not any more equal to sigmazz) 
+  !and we can obtain the new expression of ds:
+  ds =  (mu_dy * sigmazz + R*(cohesion + (mu_st-mu_dy)*sigmazz)) / (s2 + mu_dy*c2bis + R*(mu_st-mu_dy)*c2bis)
+  sm =  sigmazz + ds * cos(2d0*(Phi-dip_rad))
+  
+  sii(1)= sm + ds
+  !could be any value between sig1 and sig3
+  sii(2)= sm 
+  sii(3)= sm - ds
+
+  Stress = transpose(reshape((/ sii(1), 0.0, 0.0, 0.0, sii(2), 0.0, 0.0, 0.0, sii(3) /), shape(Stress)))
+
+  !first rotation: in xz plane
+  phi_xyz=(Phi-dip_rad)
+  c=cos(phi_xyz)
+  s=-sin(phi_xyz)
+  R1= transpose(reshape((/ c, 0.0, s, 0.0, 1.0, 0.0, -s, 0.0, c /), shape(R1)))
+  
+  !I cant explain the minus sign...
+  c=cos(strike_rad)
+  s=-sin(strike_rad)
+  R2= transpose(reshape((/ c, -s, 0.0, s, c, 0.0, 0.0, 0.0, 1.0 /), shape(R2)))
+
+  Stress_cartesian_norm = MATMUL(R2,MATMUL(R1,MATMUL(Stress,MATMUL(TRANSPOSE(R1),TRANSPOSE(R2)))))/sigmazz
+  bii(1) = Stress_cartesian_norm(1,1)
+  bii(2) = Stress_cartesian_norm(2,2)
+  bii(3) = Stress_cartesian_norm(3,3)
+  bii(4) = Stress_cartesian_norm(1,2)
+  bii(5) = Stress_cartesian_norm(2,3)
+  bii(6) = Stress_cartesian_norm(1,3)
+  END SUBROUTINE
+
+ !> SUMATRA test case
+>>>>>>> upstream/master
   !> T. ULRICH 06.2015
   !> tpv29 used as a model
   !<
@@ -1990,71 +2054,52 @@ MODULE ini_model_DR_mod
   REAL                           :: b11_N, b22_N, b12_N, b13_N, b23_N
   REAL                           :: b11_C, b22_C, b12_C, b13_C, b23_C
   REAL                           :: b11_S, b22_S, b12_S, b13_S, b23_S
-  REAL                           :: yN1, yN2, yS1, yS2, alpha
+  REAL                           :: yN1, yN2, yS1, yS2, xS1, xS2, alpha
   REAL                           :: sigzz, Rz, zLayers(20), rhoLayers(20)
+  REAL                           :: bii(6)
   !-------------------------------------------------------------------------! 
   INTENT(IN)    :: MESH, BND 
   INTENT(INOUT) :: DISC,EQN
-  !-------------------------------------------------------------------------! 
+  !-------------------------------------------------------------------------!
   ! TPV29
   ! stress is assigned to each Gaussian node
   ! depth dependent stress function (gravity)
   ! NOTE: z negative is depth, free surface is at z=0
-  Laterally_homogenous_Stress = 1
+  Laterally_homogenous_Stress = 0
 
   IF (Laterally_homogenous_Stress.EQ.1) THEN
-     !New parameters R=0.6, stress accounting for the 1d layered velocity, sii = sm - ds
-     b11 = 1.1854
-     b22 = 1.3162
-     b12 = 0.3076
-     b13 = 0.1259
-     b23 = 0.1555
+     ! strike, dip, sigmazz,cohesion,R
+     CALL STRESS_DIP_SLIP_AM(DISC,309.0, 19.0, 555562000.0, 0.4e6, 0.6, bii)
+     b11=bii(1);b22=bii(2);b12=bii(4);b23=bii(5);b13=bii(6)
   ELSE
-     !New parameters R=0.6, stress accounting for the 1d layered velocity, sii = sm - ds,  South (strike = 25+90+180)
-     b11_S = 1.0487
-     b22_S = 1.4529
-     b12_S = 0.2409
-     b13_S = 0.0846
-     b23_S = 0.1814
-     !New parameters R=0.6, stress accounting for the 1d layered velocity, sii = sm - ds,  Center (strike = 40+90+180)
-     b11_C = 1.1962
-     b22_C = 1.3054
-     b12_C = 0.3097
-     b13_C = 0.1286
-     b23_C = 0.1533
-     !New parameters R=0.6, stress accounting for the 1d layered velocity, sii = sm - ds,  Center (strike = 75+90+180)
-     b11_N = 1.5231
-     b22_N = 0.9785
-     b12_N = 0.1572
-     b13_N = 0.1933
-     b23_N = 0.0518
-
-     ! 10.5/8.5/5/4
-     yN2 = 1160695.0941260615
-     yN1 = 939574.3060454715
-     yS2 = 552664.2968779367
-     yS1 = 442127.3902531094
+     !93 4
+     xS1 = 5.0000000000e+05 
+     yS1 = 4.4212739025e+05 
+     !92.5 5.5
+     xS2 = 4.4461626476e+05 
+     ys2 = 6.0795713230e+05
+     !4
   ENDIF
 
-  g = 9.8D0    
+  g = 9.8D0
   zIncreasingCohesion = -10000.
   ! Loop over every mesh element
   DO i = 1, MESH%Fault%nSide
 
-      ! element ID    
+      ! element ID
       iElem = MESH%Fault%Face(i,1,1)
-      iSide = MESH%Fault%Face(i,2,1)  
-      
+      iSide = MESH%Fault%Face(i,2,1)
+
       EQN%IniBulk_xx(i,:)  =  EQN%Bulk_xx_0
       EQN%IniBulk_yy(i,:)  =  EQN%Bulk_yy_0
       EQN%IniBulk_zz(i,:)  =  EQN%Bulk_zz_0
       EQN%IniShearXY(i,:)  =  EQN%ShearXY_0
       EQN%IniShearYZ(i,:)  =  EQN%ShearYZ_0
       EQN%IniShearXZ(i,:)  =  EQN%ShearXZ_0
-            
+
       ! ini frictional parameters
       !EQN%IniStateVar(i,:) =  EQN%RS_sv0
-                
+
       ! Gauss node coordinate definition and stress assignment
       ! get vertices of complete tet
       IF (MESH%Fault%Face(i,1,1) == 0) THEN
@@ -2083,7 +2128,7 @@ MODULE ini_model_DR_mod
           tau  = MESH%ELEM%BndGP_Tri(2,iBndGP)
           CALL TrafoChiTau2XiEtaZeta(xi,eta,zeta,chi,tau,iSide,0)
           CALL TetraTrafoXiEtaZeta2XYZ(xGP,yGP,zGP,xi,eta,zeta,xV,yV,zV)
-      
+
           ! for possible variation
           !DISC%DynRup%D_C(i,iBndGP)  = DISC%DynRup%D_C_ini
           !DISC%DynRup%Mu_S(i,iBndGP) = DISC%DynRup%Mu_S_ini
@@ -2132,42 +2177,32 @@ MODULE ini_model_DR_mod
              !**yS1
              ! cst_S
 
-             IF (yGP.GE.yN2) THEN
-                b11 = b11_N
-                b22 = b22_N
-                b12 = b12_N
-                b13 = b13_N
-                b23 = b23_N
-             ELSE IF ((yGP.GE.yN1).AND.(yGP.LT.yN2)) THEN
-                alpha = (yGP-yN1)/(yN2-yN1)
-                b11 = alpha * b11_N + (1d0-alpha)* b11_C
-                b22 = alpha * b22_N + (1d0-alpha)* b22_C
-                b12 = alpha * b12_N + (1d0-alpha)* b12_C
-                b13 = alpha * b13_N + (1d0-alpha)* b13_C
-                b23 = alpha * b23_N + (1d0-alpha)* b23_C
-             ELSE IF ((yGP.GE.yS2).AND.(yGP.LT.yN1)) THEN
-                b11 = b11_C
-                b22 = b22_C
-                b12 = b12_C
-                b13 = b13_C
-                b23 = b23_C
-             ELSE IF ((yGP.GE.yS1).AND.(yGP.LT.yS2)) THEN
-                alpha = (yGP-yS1)/(yS2-yS1)
-                b11 = alpha * b11_C + (1d0-alpha)* b11_S
-                b22 = alpha * b22_C + (1d0-alpha)* b22_S
-                b12 = alpha * b12_C + (1d0-alpha)* b12_S
-                b13 = alpha * b13_C + (1d0-alpha)* b13_S
-                b23 = alpha * b23_C + (1d0-alpha)* b23_S
+             IF ((yGP-yS1).LT.(xGP-XS1)) THEN
+                ! strike, dip, sigmazz,cohesion,R
+                CALL STRESS_DIP_SLIP_AM(DISC,309.0, 8.0, 555562000.0, 0.4e6, 0.7, bii)
+                b11=bii(1);b22=bii(2);b12=bii(4);b23=bii(5);b13=bii(6)
+             ELSE IF ((yGP-yS2).LT.(xGP-XS2)) THEN
+                alpha = ((yGP-xGP)-(yS1-xS1))/((yS2-xS2)-(yS1-xS1))
+                ! strike, dip, sigmazz,cohesion,R
+                CALL STRESS_DIP_SLIP_AM(DISC,(1.0-alpha)*309.0+alpha*330.0, 8.0, 555562000.0, 0.4e6, 0.7, bii)
+                b11=bii(1);b22=bii(2);b12=bii(4);b23=bii(5);b13=bii(6)
              ELSE
-                b11 = b11_S
-                b22 = b22_S
-                b12 = b12_S
-                b13 = b13_s
-                b23 = b23_s
+                ! strike, dip, sigmazz,cohesion,R
+                CALL STRESS_DIP_SLIP_AM(DISC,330.0, 8.0, 555562000.0, 0.4e6, 0.7, bii)
+                b11=bii(1);b22=bii(2);b12=bii(4);b23=bii(5);b13=bii(6)
              ENDIF
           ENDIF
 
-          Pf = -1000D0 * g * zGP
+          !ensure that Pf does not exceed sigmazz
+          IF (zGP.GE.-5e3) THEN
+             Pf = -1000D0 * g * zGP * 1d0
+          ELSEIF (zGP.GE.-10e3) THEN
+             alpha = (-5e3-zGP)/5e3
+             Pf = -1000D0 * g * zGP * (1d0+alpha)
+          ELSE
+             Pf = -1000D0 * g * zGP * 2d0
+          ENDIF
+
           EQN%IniBulk_zz(i,iBndGP)  =  sigzz
           EQN%IniBulk_xx(i,iBndGP)  =  Omega*(b11*(EQN%IniBulk_zz(i,iBndGP)+Pf)-Pf)+(1d0-Omega)*EQN%IniBulk_zz(i,iBndGP)
           EQN%IniBulk_yy(i,iBndGP)  =  Omega*(b22*(EQN%IniBulk_zz(i,iBndGP)+Pf)-Pf)+(1d0-Omega)*EQN%IniBulk_zz(i,iBndGP)
@@ -2177,7 +2212,7 @@ MODULE ini_model_DR_mod
           EQN%IniBulk_xx(i,iBndGP)  =  EQN%IniBulk_xx(i,iBndGP) + Pf
           EQN%IniBulk_yy(i,iBndGP)  =  EQN%IniBulk_yy(i,iBndGP) + Pf
           EQN%IniBulk_zz(i,iBndGP)  =  EQN%IniBulk_zz(i,iBndGP) + Pf
-          
+
 
           ! manage cohesion
           IF (zGP.GE.zIncreasingCohesion) THEN
@@ -2189,11 +2224,11 @@ MODULE ini_model_DR_mod
               DISC%DynRup%cohesion(i,iBndGP) = -0.4d6
           ENDIF
       ENDDO ! iBndGP
-                
-  ENDDO !    MESH%Fault%nSide   
+
+  ENDDO !    MESH%Fault%nSide
 
   END SUBROUTINE background_SUMATRA
-                
+
 !> SUMATRA test case with RS friction
   !> T. ULRICH 07.2016
   !<
@@ -2225,10 +2260,10 @@ MODULE ini_model_DR_mod
   REAL                           :: sigzz, Rz, zLayers(20), rhoLayers(20)
   REAL                           :: zBoStartTapering, zToStartTapering, zBoStopTapering, zToStopTapering
   REAL                           :: zTotaperingWidth, zBotaperingWidth, RS_a_inc, RS_srW_inc, Boxx, Boxz, tmp
-  !-------------------------------------------------------------------------! 
-  INTENT(IN)    :: MESH, BND 
+  !-------------------------------------------------------------------------!
+  INTENT(IN)    :: MESH, BND
   INTENT(INOUT) :: DISC,EQN
-  !-------------------------------------------------------------------------! 
+  !-------------------------------------------------------------------------!
   ! TPV29
   ! stress is assigned to each Gaussian node
   ! depth dependent stress function (gravity)
@@ -2283,14 +2318,14 @@ MODULE ini_model_DR_mod
      yS1 = 442127.3902531094
   ENDIF
 
-  g = 9.8D0    
+  g = 9.8D0
   ! Loop over every mesh element
   DO i = 1, MESH%Fault%nSide
-      
-      ! element ID    
+
+      ! element ID
       iElem = MESH%Fault%Face(i,1,1)
-      iSide = MESH%Fault%Face(i,2,1)  
-      
+      iSide = MESH%Fault%Face(i,2,1)
+
       EQN%IniBulk_xx(i,:)  =  EQN%Bulk_xx_0
       EQN%IniBulk_yy(i,:)  =  EQN%Bulk_yy_0
       EQN%IniBulk_zz(i,:)  =  EQN%Bulk_zz_0
@@ -2301,10 +2336,10 @@ MODULE ini_model_DR_mod
       ! ini frictional parameters
       EQN%IniStateVar(i,:) =  EQN%RS_sv0
       DISC%DynRup%RS_a_array(i,:) = DISC%DynRup%RS_a
-            
+
       ! ini frictional parameters
       !EQN%IniStateVar(i,:) =  EQN%RS_sv0
-                
+
       ! Gauss node coordinate definition and stress assignment
       ! get vertices of complete tet
       IF (MESH%Fault%Face(i,1,1) == 0) THEN
@@ -2333,7 +2368,7 @@ MODULE ini_model_DR_mod
           tau  = MESH%ELEM%BndGP_Tri(2,iBndGP)
           CALL TrafoChiTau2XiEtaZeta(xi,eta,zeta,chi,tau,iSide,0)
           CALL TetraTrafoXiEtaZeta2XYZ(xGP,yGP,zGP,xi,eta,zeta,xV,yV,zV)
-      
+
           ! for possible variation
           !DISC%DynRup%D_C(i,iBndGP)  = DISC%DynRup%D_C_ini
           !DISC%DynRup%Mu_S(i,iBndGP) = DISC%DynRup%Mu_S_ini
@@ -2416,7 +2451,7 @@ MODULE ini_model_DR_mod
           EQN%IniBulk_xx(i,iBndGP)  =  EQN%IniBulk_xx(i,iBndGP) + Pf
           EQN%IniBulk_yy(i,iBndGP)  =  EQN%IniBulk_yy(i,iBndGP) + Pf
           EQN%IniBulk_zz(i,iBndGP)  =  EQN%IniBulk_zz(i,iBndGP) + Pf
-          
+
 
           IF ( ((zGP.GT.zToStartTapering).AND.(zGP.LT.zToStopTapering))      &
               .OR.((zGP.LT.zBoStartTapering).AND.(zGP.GT.zBoStopTapering))) THEN
@@ -2462,9 +2497,9 @@ MODULE ini_model_DR_mod
           ! Nucleation in Evaluate friction special case
 
       ENDDO ! iBndGP
-                
-  ENDDO !    MESH%Fault%nSide   
-                
+
+  ENDDO !    MESH%Fault%nSide
+
   END SUBROUTINE background_SUMATRA_RS
 
   !> SUMATRA test case
@@ -2493,12 +2528,12 @@ MODULE ini_model_DR_mod
   REAL                           :: chi,tau
   REAL                           :: xi, eta, zeta, XGp, YGp, ZGp
   REAL                           :: b11, b22, b12, b13, b23, Omega, g, Pf, zIncreasingCohesion
-  REAL                           :: sigzz, Rz, zLayers(20), rhoLayers(20) 
+  REAL                           :: sigzz, Rz, zLayers(20), rhoLayers(20)
   REAL                           :: zLocal, ux(3),uy(3),uz(3),LocalStress(6),T(eqn%nVar,eqn%nVar), iT(eqn%nVar,eqn%nVar)
-  !-------------------------------------------------------------------------! 
-  INTENT(IN)    :: MESH, BND 
+  !-------------------------------------------------------------------------!
+  INTENT(IN)    :: MESH, BND
   INTENT(INOUT) :: DISC,EQN
-  !-------------------------------------------------------------------------! 
+  !-------------------------------------------------------------------------!
   ! stress is assigned to each Gaussian node
   ! depth dependent stress function (gravity)
 
@@ -2509,25 +2544,25 @@ MODULE ini_model_DR_mod
   b13 = 0.1259
   b23 = 0.1555
 
-  g = 9.8D0    
+  g = 9.8D0
   zIncreasingCohesion = -10000.
   ! Loop over every mesh element
   DO i = 1, MESH%Fault%nSide
-      
-      ! element ID    
+
+      ! element ID
       iElem = MESH%Fault%Face(i,1,1)
-      iSide = MESH%Fault%Face(i,2,1)  
-      
+      iSide = MESH%Fault%Face(i,2,1)
+
       EQN%IniBulk_xx(i,:)  =  EQN%Bulk_xx_0
       EQN%IniBulk_yy(i,:)  =  EQN%Bulk_yy_0
       EQN%IniBulk_zz(i,:)  =  EQN%Bulk_zz_0
       EQN%IniShearXY(i,:)  =  EQN%ShearXY_0
       EQN%IniShearYZ(i,:)  =  EQN%ShearYZ_0
       EQN%IniShearXZ(i,:)  =  EQN%ShearXZ_0
-            
+
       ! ini frictional parameters
       !EQN%IniStateVar(i,:) =  EQN%RS_sv0
-                
+
       ! Gauss node coordinate definition and stress assignment
       ! get vertices of complete tet
       IF (MESH%Fault%Face(i,1,1) == 0) THEN
@@ -2556,7 +2591,7 @@ MODULE ini_model_DR_mod
           tau  = MESH%ELEM%BndGP_Tri(2,iBndGP)
           CALL TrafoChiTau2XiEtaZeta(xi,eta,zeta,chi,tau,iSide,0)
           CALL TetraTrafoXiEtaZeta2XYZ(xGP,yGP,zGP,xi,eta,zeta,xV,yV,zV)
-      
+
           ! for possible variation
           !DISC%DynRup%D_C(i,iBndGP)  = DISC%DynRup%D_C_ini
           !DISC%DynRup%Mu_S(i,iBndGP) = DISC%DynRup%Mu_S_ini
@@ -2588,7 +2623,7 @@ MODULE ini_model_DR_mod
           ENDIF
 
           Omega = max(0D0,min(1d0, 1D0-Rz))
-          
+
           Pf = -1000D0 * g * zLocal
 
           EQN%IniBulk_zz(i,iBndGP)  =  sigzz
@@ -2600,15 +2635,15 @@ MODULE ini_model_DR_mod
           EQN%IniBulk_xx(i,iBndGP)  =  EQN%IniBulk_xx(i,iBndGP) + Pf
           EQN%IniBulk_yy(i,iBndGP)  =  EQN%IniBulk_yy(i,iBndGP) + Pf
           EQN%IniBulk_zz(i,iBndGP)  =  EQN%IniBulk_zz(i,iBndGP) + Pf
-          
+
           uz = (/xGP,yGP,zGP/)
           uz = uz/sqrt(uz(1)**2+uz(2)**2+uz(3)**2)
 
-          ux(1) = - uz(2) 
+          ux(1) = - uz(2)
           ux(2) =   uz(1)
           ux(3) =   0.
           ux = ux/sqrt(ux(1)**2+ux(2)**2+ux(3)**2)
-          
+
           uy(1) = uz(2)*ux(3) - uz(3)*ux(2)
           uy(2) = uz(3)*ux(1) - uz(1)*ux(3)
           uy(3) = uz(1)*ux(2) - uz(2)*ux(1)
@@ -2618,7 +2653,7 @@ MODULE ini_model_DR_mod
 
         ! compute & store rotation matrices:
         !   xyz to face-aligned coordinate system
-        !   face-aligned coordinate system to xyz 
+        !   face-aligned coordinate system to xyz
         call RotationMatrix3D( ux, uy, uz, T(:,:), iT(:,:),EQN )
 
 
@@ -2641,9 +2676,9 @@ MODULE ini_model_DR_mod
               DISC%DynRup%cohesion(i,iBndGP) = -0.4d6
           ENDIF
       ENDDO ! iBndGP
-                
-  ENDDO !    MESH%Fault%nSide   
-                
+
+  ENDDO !    MESH%Fault%nSide
+
   END SUBROUTINE background_SUMATRA_GEO
 
   !> SCEC TPV33 test case : strike slip rupture in wave guide zone
