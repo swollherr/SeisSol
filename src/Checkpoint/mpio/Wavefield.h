@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2015, SeisSol Group
+ * Copyright (c) 2015-2017, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -48,6 +48,7 @@
 
 #include "CheckPoint.h"
 #include "Checkpoint/Wavefield.h"
+#include "Checkpoint/DynStruct.h"
 
 #endif // USE_MPI
 
@@ -67,28 +68,33 @@ typedef WavefieldDummy Wavefield;
 class Wavefield : public CheckPoint, virtual public seissol::checkpoint::Wavefield
 {
 private:
-	/** Struct describing the  header information in the file */
-	struct Header {
-		unsigned long identifier;
-		int partitions;
-		double time;
-		int timestepWavefield;
-	};
+	/** The partition component in the header */
+	DynStruct::Component<int> m_partitionComp;
+
+	/** MPI-IO supports buffer larger > 2 GB */
+	bool m_useLargeBuffer;
 
 public:
 	Wavefield()
-		: CheckPoint(0x7A3B4, sizeof(real))
+		: seissol::checkpoint::CheckPoint(IDENTIFIER),
+		seissol::checkpoint::Wavefield(IDENTIFIER),
+		CheckPoint(IDENTIFIER),
+		m_useLargeBuffer(true)
 	{
 	}
 
-	bool init(unsigned long numDofs, unsigned int groupSize = 1);
+	void setHeader(WavefieldHeader &header);
 
-	void load(double& time, int& timestepWaveField, real* dofs);
+	bool init(size_t headerSize, unsigned long numDofs, unsigned int groupSize = 1);
 
-	void write(double time, int timestepWaveField);
+	void load(real* dofs);
+
+	void initHeader(WavefieldHeader &header);
+
+	void write(const void* header, size_t headerSize);
 
 protected:
-	bool validate(MPI_File file) const;
+	bool validate(MPI_File file);
 
 	/**
 	 * Write the header information to the file
@@ -96,7 +102,10 @@ protected:
 	 * @param time
 	 * @param timestepWaveField
 	 */
-	void writeHeader(double time, int timestepWaveField);
+	void writeHeader(const void* header, size_t headerSize);
+
+protected:
+	static const unsigned long IDENTIFIER = 0x7A3B4;
 };
 
 #endif // USE_MPI

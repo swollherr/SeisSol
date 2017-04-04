@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2014-2016, SeisSol Group
+ * Copyright (c) 2014-2017, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -48,14 +48,17 @@
 #ifdef GENERATEDKERNELS
 #include "Solver/time_stepping/TimeManager.h"
 #include "Solver/Simulator.h"
+#include "Solver/FreeSurfaceIntegrator.h"
 #include "Initializer/time_stepping/LtsLayout.h"
 #include "Checkpoint/Manager.h"
 #include "SourceTerm/Manager.h"
 #include "ResultWriter/PostProcessor.h"
+#include "ResultWriter/FreeSurfaceWriter.h"
 #endif // GENERATEDKERNELS
 
 #include "ResultWriter/AsyncIO.h"
 #include "ResultWriter/WaveFieldWriter.h"
+#include "ResultWriter/FaultWriter.h"
 
 class MeshReader;
 
@@ -98,11 +101,21 @@ private:
 
 	/** PostProcessor module **/
         writer::PostProcessor m_postProcessor;
+        
+        
+  /** Free surface integrator module **/
+  solver::FreeSurfaceIntegrator m_freeSurfaceIntegrator;
+        
+  /** Free surface writer module **/
+  writer::FreeSurfaceWriter m_freeSurfaceWriter;
 
 #endif // GENERATEDKERNELS
 
 	/** Wavefield output module */
 	writer::WaveFieldWriter m_waveFieldWriter;
+
+	/** Fault output module */
+	writer::FaultWriter m_faultWriter;
 
 private:
 	/**
@@ -160,6 +173,16 @@ public:
 		return m_sourceTermManager;
 	}
 
+	solver::FreeSurfaceIntegrator& freeSurfaceIntegrator()
+	{
+		return m_freeSurfaceIntegrator;
+	}
+
+	writer::FreeSurfaceWriter& freeSurfaceWriter()
+	{
+		return m_freeSurfaceWriter;
+	}
+
 	/** Get the post processor module
          */
          writer::PostProcessor& postProcessor()
@@ -179,6 +202,14 @@ public:
 	writer::WaveFieldWriter& waveFieldWriter()
 	{
 		return m_waveFieldWriter;
+	}
+
+	/**
+	 * Get the fault writer module
+	 */
+	writer::FaultWriter& faultWriter()
+	{
+		return m_faultWriter;
 	}
 
 	/**

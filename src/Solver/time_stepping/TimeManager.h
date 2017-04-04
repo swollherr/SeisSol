@@ -51,6 +51,7 @@
 #include <utils/logger.h>
 #include <Initializer/MemoryManager.h>
 #include <Initializer/time_stepping/LtsLayout.h>
+#include <Solver/FreeSurfaceIntegrator.h>
 #include "TimeCluster.h"
 
 // some check for correct functionality
@@ -199,9 +200,9 @@ class seissol::time_stepping::TimeManager {
                       unsigned int i_meshId );
 
     /**
-     * Enables dynamic rupture call-backs.
-     **/
-    void enableDynamicRupture(unsigned dynamicRuptureCluster);
+     * Set Tv constant for plasticity.
+     */
+    void setTv(double tv);
 
     /**
      * Sets the sampling of the receivers.

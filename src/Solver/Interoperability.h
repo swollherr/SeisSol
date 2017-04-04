@@ -6,7 +6,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger @ tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2015, SeisSol Group
+ * Copyright (c) 2015-2017, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -87,6 +87,9 @@ class seissol::Interoperability {
     //! Lookup table relating mesh to cells
     seissol::initializers::Lut        m_ltsLut;
 
+    //! Lookup table relating faces to layers
+    unsigned*                         m_ltsFaceToMeshFace;
+
  public:
    /**
     * Constructor.
@@ -122,8 +125,9 @@ class seissol::Interoperability {
     *   2+: Fixed rate between clusters
     *
     * @param i_clustering clustering strategy
+    * @param enableFreeSurfaceIntegration
     **/
-   void initializeClusteredLts( int i_clustering );
+   void initializeClusteredLts( int i_clustering, bool enableFreeSurfaceIntegration );
 
 #if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
    //! \todo Documentation
@@ -192,6 +196,8 @@ class seissol::Interoperability {
 #ifdef USE_PLASTICITY
    void setPlasticParameters( int    *i_meshId,
                               double *i_plasticParameters );
+
+   void setTv(double tv);
 #endif
 
    /**
@@ -221,6 +227,11 @@ class seissol::Interoperability {
    void enableWaveFieldOutput( double i_waveFieldInterval, const char *i_waveFieldFilename );
 
    /**
+    * Enable free surface output
+    */
+   void enableFreeSurfaceOutput(int maxRefinementDepth);
+
+   /**
     * Enable checkpointing.
     *
     * @param i_checkPointInterval check pointing interval.
@@ -236,16 +247,15 @@ class seissol::Interoperability {
    void getIntegrationMask( int* i_integrationMask );
 
    void initializeIO(double* mu, double* slipRate1, double* slipRate2,
-			  double* slip, double* slip1, double* slip2, double* state, double* strength,
-			  int numSides, int numBndGP, int refinement, int* outputMask,
-              double* outputRegionBounds);
+			double* slip, double* slip1, double* slip2, double* state, double* strength,
+			int numSides, int numBndGP, int refinement, int* outputMask,
+			double* outputRegionBounds,
+			double freeSurfaceInterval, const char* freeSurfaceFilename);
 
    /**
-    * Get the current dynamic rupture time step
-    *
-    * @param o_timeStep The dynamic rupture time step
-    */
-   void getDynamicRuptureTimeStep(int &o_timeStep);
+    * Copy dynamic rupture variables for output.
+    **/
+   void copyDynamicRuptureState();
 
    /**
     * Adds the specified update to dofs.
@@ -330,13 +340,30 @@ class seissol::Interoperability {
                                         double o_dofs[NUMBER_OF_DOFS] );
 
    /**
-    * Computes dynamic rupture on the faces.
+    * Compute fault output.
     *
     * @param i_fullUpdateTime full update time of the respective DOFs.
     * @param i_timeStepWidth time step width of the next full update.
     **/
-   void computeDynamicRupture( double i_fullUpdateTime,
-                               double i_timeStepWidth );
+   void faultOutput( double i_fullUpdateTime, double i_timeStepWidth );
+
+   void evaluateFrictionLaw(  int face,
+                              real   godunov[CONVERGENCE_ORDER][seissol::model::godunovState::reals],
+                              real   imposedStatePlus[seissol::model::godunovState::reals],
+                              real   imposedStateMinus[seissol::model::godunovState::reals],
+                              double i_fullUpdateTime,
+                              double timePoints[CONVERGENCE_ORDER],
+                              double timeWeights[CONVERGENCE_ORDER],
+                              seissol::model::IsotropicWaveSpeeds const& waveSpeedsPlus,
+                              seissol::model::IsotropicWaveSpeeds const& waveSpeedsMinus );
+
+
+   /**
+    * Prepare element wise faultoutput
+    *
+    * @param time The current simulation time
+    */
+   void calcElementwiseFaultoutput( double time );
 
    /**
     * Computes plasticity.

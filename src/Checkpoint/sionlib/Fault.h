@@ -6,7 +6,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2015-2016, SeisSol Group
+ * Copyright (c) 2015-2017, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -58,7 +58,9 @@ class Fault : public CheckPoint, virtual public seissol::checkpoint::Fault
 {
 public:
 	Fault()
-		: CheckPoint(0xA1315)
+		: seissol::checkpoint::CheckPoint(IDENTIFIER),
+		seissol::checkpoint::Fault(IDENTIFIER),
+		CheckPoint(IDENTIFIER)
 	{}
 
 	bool init(unsigned int numSides, unsigned int numBndGP,
@@ -79,6 +81,9 @@ public:
 
 		CheckPoint::close();
 	}
+
+private:
+	static const unsigned long IDENTIFIER = 0xA1315;
 };
 
 }

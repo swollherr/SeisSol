@@ -81,6 +81,7 @@ CONTAINS
 #ifdef GENERATEDKERNELS
     use iso_c_binding
     use f_ftoc_bind_interoperability
+    use ini_faultoutput_mod
 #else
     use WaveFieldWriter
 #endif
@@ -184,6 +185,10 @@ CONTAINS
 
 
 #ifdef GENERATEDKERNELS
+    if (io%surfaceOutput > 0) then
+        call c_interoperability_enableFreeSurfaceOutput( maxRefinementDepth = io%SurfaceOutputRefinement )
+    endif
+
     do i = 1, 9
         if ( io%OutputMask(3+i) ) then
             outputMaskInt(i) = 1
@@ -204,10 +209,17 @@ CONTAINS
         i_numBndGP  = disc%galerkin%nBndGP,  &
         i_refinement= io%Refinement,         &
         i_outputMask= outputMaskInt,         &
-        i_outputRegionBounds = io%OutputRegionBounds)
+        i_outputRegionBounds = io%OutputRegionBounds, &
+        freeSurfaceInterval = io%SurfaceOutputInterval, &
+        freeSurfaceFilename = trim(io%OutputFile) // c_null_char )
+
+    ! Initialize the fault Xdmf Writer
+    IF(DISC%DynRup%OutputPointType.EQ.4.OR.DISC%DynRup%OutputPointType.EQ.5) THEN
+     CALL ini_fault_xdmfwriter(DISC,IO)
+    ENDIF
 #else
     if (IO%Format .eq. 6) then
-        call waveFieldWriterInit(0, disc, eqn, io, mesh, mpi)
+        call waveFieldWriterInit(disc, eqn, io, mesh, mpi)
     endif
 
     if (timestep .eq. 0) then

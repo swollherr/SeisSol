@@ -8,21 +8,21 @@
 !! @section LICENSE
 !! Copyright (c) 2010-2016, SeisSol Group
 !! All rights reserved.
-!! 
+!!
 !! Redistribution and use in source and binary forms, with or without
 !! modification, are permitted provided that the following conditions are met:
-!! 
+!!
 !! 1. Redistributions of source code must retain the above copyright notice,
 !!    this list of conditions and the following disclaimer.
-!! 
+!!
 !! 2. Redistributions in binary form must reproduce the above copyright notice,
 !!    this list of conditions and the following disclaimer in the documentation
 !!    and/or other materials provided with the distribution.
-!! 
+!!
 !! 3. Neither the name of the copyright holder nor the names of its
 !!    contributors may be used to endorse or promote products derived from this
 !!    software without specific prior written permission.
-!! 
+!!
 !! THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 !! AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 !! IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -61,7 +61,7 @@ MODULE COMMON_readpar_mod
   PUBLIC  :: readpar
   !----------------------------------------------------------------------------
 
-  LOGICAL :: CalledFromStructCode ! 
+  LOGICAL :: CalledFromStructCode !
 
 CONTAINS
 
@@ -82,7 +82,7 @@ CONTAINS
   SUBROUTINE readpar(EQN,IC,usMESH,DISC,SOURCE,BND,IO, &
                      ANALYSE,programTitle,MPI)
     !--------------------------------------------------------------------------
-    IMPLICIT NONE 
+    IMPLICIT NONE
     !--------------------------------------------------------------------------
     TYPE (tEquations)               :: EQN
     TYPE (tInitialCondition)        :: IC
@@ -92,7 +92,7 @@ CONTAINS
     TYPE (tBoundary)                :: BND
     TYPE (tInputOutput)             :: IO
     TYPE (tAnalyse)                 :: ANALYSE
-    TYPE (tMPI)          , OPTIONAL :: MPI                                      
+    TYPE (tMPI)          , OPTIONAL :: MPI
     CHARACTER(LEN=100)              :: programTitle
     ! local variables
     INTEGER                         :: actual_version_of_readpar
@@ -106,10 +106,10 @@ CONTAINS
     !--------------------------------------------------------------------------
     PARAMETER(actual_version_of_readpar = 20)
     !--------------------------------------------------------------------------
-    !                                                                        !        
+    !                                                                        !
     IO%Mesh_is_structured       = .FALSE.                                    ! PostProcessing in default position
     SOURCE%Type                 = 0                                          ! switch for source terms in deflt pos.
-    !                                                                        !   
+    !                                                                        !
     IF (PRESENT(usMESH)) THEN                                                !
        CalledFromStructCode = .FALSE.                                        !
        DISC%CalledFromStructCode = .FALSE.                                   !
@@ -130,9 +130,9 @@ CONTAINS
     !
     logInfo0(*) '<  Parameters read from file: ', TRIM(IO%ParameterFile) ,'              >'
     logInfo0(*) '<                                                         >'
-    !                                                                        ! 
+    !                                                                        !
     CALL OpenFile(UnitNr=IO%UNIT%FileIn, name=trim(IO%ParameterFile), create=.FALSE.)
-    !                                                                        ! 
+    !                                                                        !
     CALL readpar_header(IO,IC,actual_version_of_readpar,programTitle) !
     !                                                                        !
     CALL readpar_equations(EQN,DISC,SOURCE,IC,IO)                  !
@@ -143,7 +143,7 @@ CONTAINS
     !                                                                        !                                                                        !
     CALL readpar_sourceterm(EQN,SOURCE,IO)                                   !
     !                                                                        !
-    CALL readpar_spongelayer(DISC,EQN,SOURCE,IO)                                 
+    CALL readpar_spongelayer(DISC,EQN,SOURCE,IO)
     !                                                                        !
     CALL readpar_mesh(EQN,IC,usMESH,DISC,BND,SOURCE,IO)            ! Unstrukturiertes Gitter definieren
     !                                                                        !
@@ -152,15 +152,15 @@ CONTAINS
     CALL readpar_output(EQN,DISC,IO,CalledFromStructCode)          !
     !                                                                        !
     CALL readpar_abort(DISC,IO)                                    !
-    !                                                                        !        
-    CALL readpar_analyse(ANALYSE,EQN,DISC,IC,IO)                             ! 
-    !                                                                        !        
+    !                                                                        !
+    CALL readpar_analyse(ANALYSE,EQN,DISC,IC,IO)                             !
+    !                                                                        !
     CLOSE(IO%UNIT%FileIn,status='keep')                                      !
-    !                                                                        !        
+    !                                                                        !
     CALL analyse_readpar(EQN,DISC,usMESH,IC,SOURCE,IO,MPI)                   ! Check parameterfile...
-    !                                                                        ! and write restart.par       
+    !                                                                        ! and write restart.par
     RETURN                                                                   !
-    !                                                                        !        
+    !                                                                        !
   END SUBROUTINE readpar                                                     !
 
   !============================================================================
@@ -169,9 +169,9 @@ CONTAINS
 
   SUBROUTINE readpar_header(IO, IC, actual_version_of_readpar,programTitle)
     !------------------------------------------------------------------------
-    
+
     !------------------------------------------------------------------------
-    IMPLICIT NONE 
+    IMPLICIT NONE
     !------------------------------------------------------------------------
     TYPE (tInputOutput)        :: IO
     TYPE (tInitialCondition)   :: IC
@@ -192,20 +192,20 @@ CONTAINS
     logInfo(*) '<--------------------------------------------------------->'
     logInfo(*) '<              ',TRIM(programTitle),' - V E R S I O N                    >'
     logInfo(*) '<--------------------------------------------------------->'
-    
-    ! There should be only one version left, which I call here temporarily 19     
+
+    ! There should be only one version left, which I call here temporarily 19
     !logInfo(*) 'Parameter file is for ',TRIM(programTitle),' VERSION: 19'
 
-  END SUBROUTINE readpar_header                                   
+  END SUBROUTINE readpar_header
 
   !============================================================================
-  ! E Q U A T I O N S        
+  ! E Q U A T I O N S
   !============================================================================
 
   SUBROUTINE readpar_equations(EQN,DISC,SOURCE,IC, IO)
     !------------------------------------------------------------------------
     !------------------------------------------------------------------------
-    IMPLICIT NONE 
+    IMPLICIT NONE
     !------------------------------------------------------------------------
     TYPE (tEquations)          :: EQN
     TYPE (tDiscretization)     :: DISC
@@ -229,7 +229,7 @@ CONTAINS
     REAL                       :: rho, mu, lambda, FreqCentral, FreqRatio, &
                                   PlasticCo, BulkFriction, Tv
     CHARACTER(LEN=600)         :: MaterialFileName, AdjFileName
-    CHARACTER(LEN=600), DIMENSION(:), ALLOCATABLE  :: RF_Files   
+    CHARACTER(LEN=600), DIMENSION(:), ALLOCATABLE  :: RF_Files
     NAMELIST                   /Equations/ Anisotropy, Anelasticity, Plasticity, &
                                            PlasticCo, BulkFriction, Tv, pmethod, &
                                            Adjoint, MaterialType, rho, mu, lambda, &
@@ -240,13 +240,13 @@ CONTAINS
     logInfo(*) '<--------------------------------------------------------->'
     logInfo(*) '<  E Q U A T I O N S                                      >'
     logInfo(*) '<--------------------------------------------------------->'
-    ! 
-    EQN%Dimension = 3                                                      
+    !
+    EQN%Dimension = 3
     logInfo(*) 'Solve 3-dimensional equations'
-    EQN%nvar = 9                                           
-    logInfo(*) 'Number of Variables    is ',EQN%nVar                                                    
-    EQN%EqType = 8                                                ! equationtype 
-    !                                                             ! (8=seismic wave equations)               
+    EQN%nvar = 9
+    logInfo(*) 'Number of Variables    is ',EQN%nVar
+    EQN%EqType = 8                                                ! equationtype
+    !                                                             ! (8=seismic wave equations)
     !
     logInfo(*) 'Solving evolution equation for seismic wave propagation. '
     !
@@ -256,7 +256,7 @@ CONTAINS
     EQN%nBackgroundVar = 0
     EQN%Advection = 0
     ! aheineck, @TODO these values are used, but not initialized < End
-    
+
     ! Setting the default values
     rho                 = 1.
     mu                  = 1.
@@ -264,7 +264,10 @@ CONTAINS
     Anisotropy          = 0
     Anelasticity        = 0
     Plasticity          = 0
-    pmethod             = 2 !average approach as default for plasticity
+    BulkFriction        = 0.
+    PlasticCo           = 0.
+    Tv                  = 0.03  !standard value from SCEC benchmarks
+    pmethod             = 0 !high-order approach as default for plasticity
     Adjoint             = 0
     MaterialType        = 0
     RandomField_Flag    = 0
@@ -272,8 +275,8 @@ CONTAINS
     !big box continental LVZ above L1 L2 L3 L4
     SumatraRegions = (/0,0,0,0,0,0,0/)
     !
-    READ(IO%UNIT%FileIn, nml = Equations) 
-    !       
+    READ(IO%UNIT%FileIn, nml = Equations)
+    !
     IF ((MaterialType.GE.1220).AND.(MaterialType.LE.1230)) THEN
     ! Sumatra setup
        IF (maxval(SumatraRegions).EQ.0) THEN
@@ -284,6 +287,7 @@ CONTAINS
        ENDIF
     ENDIF
     EQN%SumatraRegions(1:7) = SumatraRegions(1:7)
+
     !
     SELECT CASE(Anisotropy)
     CASE(0)
@@ -322,8 +326,9 @@ CONTAINS
 
 #endif
         EQN%Plasticity = Plasticity
+        !first constant, can be overwritten in ini_model
         EQN%PlastCo_0 = PlasticCo
-        EQN%BulkFriction = BulkFriction
+        EQN%BulkFriction_0 = BulkFriction
         EQN%Tv = Tv
         EQN%PlastMethod = pmethod
         SELECT CASE (EQN%PlastMethod) !two different methods for plasticity
@@ -368,10 +373,10 @@ CONTAINS
     DISC%Galerkin%CKMethod = 0
     !
       SELECT CASE(Adjoint)
-      CASE(0)  
+      CASE(0)
          logInfo(*) 'No adjoint wavefield generated. '
          EQN%Adjoint = Adjoint
-      CASE(1)  
+      CASE(1)
          logInfo(*) 'Adjoint wavefield simultaneously generated. '
          EQN%Adjoint = Adjoint
       CASE DEFAULT
@@ -389,22 +394,22 @@ CONTAINS
       logError(*) 'For the rheology type chosen, material constants must be read from file. '
       STOP
     ENDIF
-    ! 
+    !
     IF((EQN%Plasticity.EQ.1).AND.(EQN%LinType.EQ.0)) THEN
       logError(*) 'For plasticity an initial stress for the whole domain must be assigned. Please use a special MaterialType for the initial stress '
       STOP
     ENDIF
     !
-    EQN%rho0 = rho   
+    EQN%rho0 = rho
     EQN%mu = mu
     EQN%lambda = lambda
     EQN%MaterialFileName = MaterialFileName
-    EQN%nMechanisms = nMechanisms    
-    EQN%FreqCentral = FreqCentral       
-    EQN%FreqRatio = FreqRatio         
-    !                                                      
-    SELECT CASE(EQN%linType)                                   
-    CASE(0)         ! use constant material properties                                                                                        
+    EQN%nMechanisms = nMechanisms
+    EQN%FreqCentral = FreqCentral
+    EQN%FreqRatio = FreqRatio
+    !
+    SELECT CASE(EQN%linType)
+    CASE(0)         ! use constant material properties
       logInfo0(*) 'Jacobians are globally constant with rho0, mu, lambda:'
       logInfo0(*) ' rho0 = ', EQN%rho0     ! (1)
       logInfo0(*) ' mu = ', EQN%mu       ! (2)
@@ -428,11 +433,11 @@ CONTAINS
       END SELECT
       !
     CASE(3)                !special case for layered medium linear variation of material parameters
-        
+
       logInfo0(*) 'Material property is defined by linear spline. '
       logInfo0(*) 'Linear spline data are read from file : ', TRIM(EQN%MaterialFileName)
-      CALL OpenFile(                                        &                        
-            UnitNr       = IO%UNIT%other01                , &                        
+      CALL OpenFile(                                        &
+            UnitNr       = IO%UNIT%other01                , &
             Name         = EQN%MaterialFileName           , &
             create       = .FALSE.                          )
       logInfo(*) '|   Reading linear spline file ...  '
@@ -448,9 +453,9 @@ CONTAINS
     CASE(4)  !special case for Sismovalp 2D benchmark test (model M2)
       logInfo0(*) 'Material property zones are defined by the mesh generator. '
       logInfo0(*) 'Material properties are read from file : ', TRIM(EQN%MaterialFileName)
-      CALL OpenFile(                                        &                        
-            UnitNr       = IO%UNIT%other01                , &                        
-            Name         = EQN%MaterialFileName           , &                        
+      CALL OpenFile(                                        &
+            UnitNr       = IO%UNIT%other01                , &
+            Name         = EQN%MaterialFileName           , &
             create       = .FALSE.                          )
       logInfo(*) 'Reading material property file ...  '
       READ(IO%UNIT%other01,'(i10,a)') EQN%nLayers, cdummy             ! Number of different material zones
@@ -470,8 +475,8 @@ CONTAINS
     CASE(5)  !special case for Sismovalp 2D benchmark test (model M2 SH-wave)
       logInfo0(*) 'Material property zones are defined by the mesh generator. '
       logInfo0(*) 'Material properties are read from file : ', TRIM(EQN%MaterialFileName)
-      CALL OpenFile(                                        &                        
-            UnitNr       = IO%UNIT%other01                , &                        
+      CALL OpenFile(                                        &
+            UnitNr       = IO%UNIT%other01                , &
             Name         = EQN%MaterialFileName           , &
             create       = .FALSE.                          )
       logInfo(*) '|   Reading material property file ...  '
@@ -488,13 +493,13 @@ CONTAINS
       logInfo(*) '   ', EQN%rho0     ! (1)
       logInfo(*) '   ', EQN%mu       ! (2)
       logInfo(*) '   ', EQN%lambda   ! (3)
-      !   
+      !
     CASE(6,7)  !special case for (6) Grenoble benchmark test
                !                 (7) Euroseistest benchmark (Volvi Lake)
       logInfo0(*) 'Material property zones are defined by the mesh generator. '
       logInfo0(*) 'Material properties are read from file : ', TRIM(EQN%MaterialFileName)
-      CALL OpenFile(                                        &                        
-            UnitNr       = IO%UNIT%other01                , &                        
+      CALL OpenFile(                                        &
+            UnitNr       = IO%UNIT%other01                , &
             Name         = EQN%MaterialFileName           , &
             create       = .FALSE.                          )
       logInfo(*) 'Reading material property file ...  '
@@ -505,11 +510,11 @@ CONTAINS
       logInfo(*) 'with central frequency ',EQN%FreqCentral
       READ(IO%UNIT%other01,*) EQN%FreqRatio                               ! The ratio between the maximum and minimum frequencies of our bandwidth
       logInfo(*) 'and frequency ratio ',EQN%FreqRatio
-         
+
       EQN%nBackgroundVar  = 3 + EQN%nMechanisms * 4
       EQN%nAneMaterialVar = 5        ! rho, mu, lambda, Qp, Qs
       EQN%nVarTotal = EQN%nVar + EQN%nAneFuncperMech*EQN%nMechanisms                                                    !
-      EQN%AneMatIni = 4                                                  ! indicates where in MaterialVal begin the anelastic parameters 
+      EQN%AneMatIni = 4                                                  ! indicates where in MaterialVal begin the anelastic parameters
 
       ALLOCATE(EQN%MODEL(1:EQN%nLayers,EQN%nAneMaterialVar))
       DO i = 1,EQN%nLayers
@@ -521,15 +526,15 @@ CONTAINS
       !
       logInfo0(*) 'Material property zones are defined by the mesh generator. '
       logInfo0(*) 'Material properties are read from file : ', TRIM(EQN%MaterialFileName)
-      CALL OpenFile(                                        &                        
-            UnitNr       = IO%UNIT%other01                , &                        
+      CALL OpenFile(                                        &
+            UnitNr       = IO%UNIT%other01                , &
             Name         = EQN%MaterialFileName           , &
             create       = .FALSE.                          )
       logInfo(*) 'Reading material property file ...  '
       READ(IO%UNIT%other01,'(i10,a)') EQN%nLayers, cdummy             ! Number of different material zones
       !
       EQN%nBackgroundVar  = 3
-      EQN%nVarTotal = EQN%nVar       ! indicates where in MaterialVal begin the anelastic parameters 
+      EQN%nVarTotal = EQN%nVar       ! indicates where in MaterialVal begin the anelastic parameters
 
       ALLOCATE(EQN%MODEL(1:EQN%nLayers,EQN%nBackgroundVar))
       DO i = 1,EQN%nLayers
@@ -541,21 +546,21 @@ CONTAINS
       !
       logInfo0(*) 'Material property zones are defined by SeisSol. '
       logInfo0(*) 'Material properties are read from file : ', TRIM(EQN%MaterialFileName)
-      CALL OpenFile(                                        &                        
-            UnitNr       = IO%UNIT%other01                , &                        
+      CALL OpenFile(                                        &
+            UnitNr       = IO%UNIT%other01                , &
             Name         = EQN%MaterialFileName           , &
             create       = .FALSE.                          )
       logInfo(*) 'Reading material property file ...  '
       READ(IO%UNIT%other01,'(i10,a)') EQN%nLayers, cdummy             ! Number of different material zones
       !
       EQN%nBackgroundVar  = 3
-      EQN%nVarTotal = EQN%nVar       ! indicates where in MaterialVal begin the anelastic parameters 
+      EQN%nVarTotal = EQN%nVar       ! indicates where in MaterialVal begin the anelastic parameters
 
       ALLOCATE(EQN%MODEL(1:EQN%nLayers,EQN%nBackgroundVar))
       DO i = 1,EQN%nLayers
            READ(IO%UNIT%other01,*) intDummy, EQN%MODEL(i,:)
       ENDDO
-      CLOSE(IO%UNIT%other01)      
+      CLOSE(IO%UNIT%other01)
       !
   CASE(12, 26, 77) ! Plasticity with constant material properties, initial stress (loading) must be assigned to every element in the domain
            ! special case for TPV13, add other cases that use plasticity with different initial stress values here
@@ -584,15 +589,27 @@ CONTAINS
       logInfo0(*) 'No material property zones are defined. '
       logInfo0(*) 'Material properties are read from file : ', TRIM(EQN%MaterialFileName)
       !
-  CASE(122,1221,1222,1223,1224) ! SUMATRA T Ulrich 16.02.2016
+  CASE(122,1221,1222,1223, 1225, 1226, 1227) ! SUMATRA T Ulrich 16.02.2016
       !
       logInfo(*) 'Material property zones are defined by SeisSol. '
+
+      IF (EQN%Anelasticity .EQ. 1) THEN
+         logInfo0(*) 'Model has ',EQN%nMechanisms,' attenuation mechanisms.'
+         logInfo0(*) 'with central frequency ',EQN%FreqCentral
+         logInfo0(*) 'and frequency ratio ',EQN%FreqRatio
+         logInfo0(*) 'Anelastic parameters are defined in inimodel.'
+         EQN%nBackgroundVar  = 3 + EQN%nMechanisms * 4
+         EQN%nAneMaterialVar = 5        ! rho, mu, lambda, Qp, Qs
+         EQN%nVarTotal = EQN%nVar + EQN%nAneFuncperMech * EQN%nMechanisms                                                    !
+         EQN%AneMatIni = 4
+      ENDIF
+
   CASE DEFAULT
          logError(*) 'Wrong linearization type.'
       STOP
     END SELECT
-    !                                                             
-    ! 
+    !
+    !
     EQN%RandomField_Flag = RandomField_Flag
         IF (EQN%RandomField_Flag.EQ.0) THEN
             ! No random field parameters are used
@@ -605,7 +622,7 @@ CONTAINS
             ENDIF
             logInfo(*) 'Number of Material Random Fields:'  ,EQN%RandomField_Flag
             ALLOCATE( IO%RF_Files(EQN%RandomField_Flag) )
-            call readrffiles (IO, RandomField_Flag, RF_Files)  
+            call readrffiles (IO, RandomField_Flag, RF_Files)
                IO%RF_Files(:) = RF_Files(:)
         ENDIF
     !
@@ -625,30 +642,30 @@ CONTAINS
         stop
     END IF                                                        !
     !                                                             !
-  END SUBROUTINE readpar_equations      
-                          
+  END SUBROUTINE readpar_equations
+
     !------------------------------------------------------------------------
      !Reading the Random Field Files
     !------------------------------------------------------------------------
   SUBROUTINE readrffiles(IO, number, RF_Files)
-    IMPLICIT NONE 
+    IMPLICIT NONE
     TYPE (tInputOutput)                               :: IO
     INTENT(INOUT)                                     :: IO
     INTEGER                                           :: number
-    CHARACTER(600), DIMENSION(:), ALLOCATABLE         :: RF_Files 
+    CHARACTER(600), DIMENSION(:), ALLOCATABLE         :: RF_Files
     NAMELIST                                         /RFFile/ RF_Files
     !------------------------------------------------------------------------
     ALLOCATE(RF_Files(number))
     READ(IO%UNIT%FileIn, nml = RFFile)      ! Write in namelistfile RF_File(1) = ... and in the next line RF_Files(2) = ...
-                                            ! according to the number of Random Fields  
+                                            ! according to the number of Random Fields
   END SUBROUTINE
     !------------------------------------------------------------------------
      !Adjoint set to yes
     !------------------------------------------------------------------------
   SUBROUTINE readadjoint(IO, DISC, SOURCE, AdjFileName)
-    IMPLICIT NONE 
+    IMPLICIT NONE
     TYPE (tInputOutput)                               :: IO
-    TYPE (tDiscretization)                            :: DISC 
+    TYPE (tDiscretization)                            :: DISC
     TYPE (tSource)                                    :: SOURCE
     INTENT(INOUT)                                     :: IO, SOURCE
     INTEGER                                           :: i
@@ -720,10 +737,10 @@ CONTAINS
      !linType set to 1 or 11; get material from file
     !------------------------------------------------------------------------
   SUBROUTINE readmaterial(IO, EQN, DISC )
-    IMPLICIT NONE 
+    IMPLICIT NONE
     TYPE (tInputOutput)                               :: IO
     TYPE (tEquations)                                 :: EQN
-    TYPE (tDiscretization)                            :: DISC 
+    TYPE (tDiscretization)                            :: DISC
     INTENT(INOUT)                                     :: IO, EQN, DISC
     ! local variables
     INTEGER                                           :: i, cdummy, intDummy
@@ -732,8 +749,8 @@ CONTAINS
       DISC%Galerkin%VarCoefRiemannSolv = 0
       logInfo(*) 'Material property zones are defined by the mesh generator. '
       logInfo(*) 'Material properties are read from file : ', TRIM(EQN%MaterialFileName)
-      CALL OpenFile(                                        &                        
-            UnitNr       = IO%UNIT%other01                , &                        
+      CALL OpenFile(                                        &
+            UnitNr       = IO%UNIT%other01                , &
             Name         = EQN%MaterialFileName           , &
             create       = .FALSE.                          )
       logInfo(*) 'Reading material property file ...  '
@@ -753,13 +770,13 @@ CONTAINS
       CASE(0)
         !
         DO i = 1, EQN%nLayers
-          IF(EQN%Anisotropy.EQ.0.AND.EQN%Poroelasticity.EQ.0) THEN  
+          IF(EQN%Anisotropy.EQ.0.AND.EQN%Poroelasticity.EQ.0) THEN
             READ(IO%UNIT%other01,*) intDummy, EQN%MODEL(i,:)
           ENDIF
-        
-          IF(EQN%Anisotropy.EQ.1.AND.EQN%Poroelasticity.EQ.0) THEN  
 
-            READ(IO%UNIT%other01,*) intDummy, EQN%MODEL(i,:),    &      ! Read zone number dummy, rho, the (upper half) voigt matrix c(:,:) 
+          IF(EQN%Anisotropy.EQ.1.AND.EQN%Poroelasticity.EQ.0) THEN
+
+            READ(IO%UNIT%other01,*) intDummy, EQN%MODEL(i,:),    &      ! Read zone number dummy, rho, the (upper half) voigt matrix c(:,:)
                                     nx,ny,nz,sx,sy,sz,tx,ty,tz          ! and the local coordinate system nx,ny,nz etc.
             CALL iniVoigtMatrix(i, EQN, nx,ny,nz,sx,sy,sz,tx,ty,tz)
             !
@@ -823,7 +840,7 @@ CONTAINS
 
           ENDIF
           !
-          IF(EQN%Anisotropy.NE.0.AND.EQN%Anisotropy.NE.1) THEN  
+          IF(EQN%Anisotropy.NE.0.AND.EQN%Anisotropy.NE.1) THEN
               logError(*) 'Choose 0 or 1 as anisotropy assumption. '
               STOP
           ENDIF
@@ -844,12 +861,12 @@ CONTAINS
   END SUBROUTINE
   !
   !============================================================================
-  ! INITIAL CONDITION              
+  ! INITIAL CONDITION
   !============================================================================
 
   SUBROUTINE readpar_ini_condition(EQN,IC,SOURCE,IO)
     !------------------------------------------------------------------------
-    IMPLICIT NONE 
+    IMPLICIT NONE
     !------------------------------------------------------------------------
     TYPE (tEquations)          :: EQN
     TYPE (tInitialCondition)   :: IC
@@ -878,7 +895,7 @@ CONTAINS
     logInfo(*) '<  INITIAL CONDITION                                      >'
     logInfo(*) '<--------------------------------------------------------->'
 
-    SOURCE%Type = 0         ! set dummy value, sources are specified later in readpar_sourceterm 
+    SOURCE%Type = 0         ! set dummy value, sources are specified later in readpar_sourceterm
                                           ! <------>
     ! Setting the default values = no source acting since amplitude is zero
     cICType = 'Gauss_Puls_Rad'
@@ -888,164 +905,164 @@ CONTAINS
     hwidth(:) = 5.0e3           ! in inputfile you can choose different values for x,y,z
     !
     READ(IO%UNIT%FileIn, nml = IniCondition)
- 
+
     ! Renaming all variables in the beginning
      IC%cICType = cICType
-     IC%GP%variable = variable 
-     IC%GP%xc(:) = xc(:)               
-     IC%GP%amplitude = amplitude                                                 
-     IC%GP%hwidth(:) = hwidth(:) 
+     IC%GP%variable = variable
+     IC%GP%xc(:) = xc(:)
+     IC%GP%amplitude = amplitude
+     IC%GP%hwidth(:) = hwidth(:)
     !
-    logInfo(*) 'Type of INITIAL CONDITION required: ', TRIM(IC%cICType)                                                    
-       !                                                                        
+    logInfo(*) 'Type of INITIAL CONDITION required: ', TRIM(IC%cICType)
+       !
    SELECT CASE(IC%cICType)
    !
    CASE('Gauss_Puls_Rad')                                                           ! Gauss Pulses for arbitrary 3D Systems
        logInfo(*) 'Use the initial condition ',TRIM(IC%cICType), ' with:'
-       !                                                                           
+       !
        ALLOCATE(IC%GP%Um(1:EQN%nVar))
        !
        IC%GP%Um(:) = 0.
-       !                                                                                         
-       !                                                                                        
+       !
+       !
        SELECT CASE(IC%cICType)
        CASE('Gauss_Puls3D')
-          logInfo(*) 'Gausspulse in variable ', IC%GP%variable                  
+          logInfo(*) 'Gausspulse in variable ', IC%GP%variable
        CASE('Char_Gauss_Puls3D')
           logInfo(*) 'Gausspulse in char. variable nr. ', IC%GP%variable      ! Char. Gauss Pulses:
        END SELECT
-       !                                                                                                                                                                     ! Gauss Puls:              
+       !                                                                                                                                                                     ! Gauss Puls:
        logInfo(*) 'Center coordinates: ', IC%GP%xc(:)
-       logInfo(*) 'Amplitude = ',IC%GP%amplitude                    
-       logInfo(*) 'Halfwidth = ',IC%GP%hwidth(:)                    
-       ! 
+       logInfo(*) 'Amplitude = ',IC%GP%amplitude
+       logInfo(*) 'Halfwidth = ',IC%GP%hwidth(:)
+       !
     CASE('Var_Gauss_Puls','Char_Gauss_Puls','Char_Ricker_Puls')                     ! Var_Gauss_Puls, Char_Gauss_Puls
        logInfo(*) 'Use the initial condition ',TRIM(IC%cICType), ' with:'
        logInfo(*) 'Data for initial condition read from : ', TRIM(IniConditionFile)
-       CALL OpenFile(                                       &                        
-            UnitNr       = IO%UNIT%other01                , &                        
+       CALL OpenFile(                                       &
+            UnitNr       = IO%UNIT%other01                , &
             Name         = IniConditionFile  , &
-            create       = .FALSE.                          ) 
+            create       = .FALSE.                          )
        ALLOCATE(IC%GP%Um(1:EQN%nVar))                                               ! Allocate hom. background
-       !                                                                             
-       READ (IO%UNIT%other01,*) IC%GP%Um(:)                                          
-       !                                                                            
-       logInfo(*) 'Homogenous background is Um(:)=', IC%GP%Um(:)   
-       !                                                                           
-       READ (IO%UNIT%other01,*) IC%GP%setvar                                        
-       ALLOCATE(IC%GP%varfield(IC%GP%setvar),IC%GP%ampfield(IC%GP%setvar))         
-       READ (IO%UNIT%other01,*) IC%GP%varfield(:)                                    
-       READ (IO%UNIT%other01,*) IC%GP%ampfield(:)                                    
-       !                                                                            
-       READ (IO%UNIT%other01,*) IC%GP%xc(1), IC%GP%xc(2), IC%GP%xc(3)                
-       READ (IO%UNIT%other01,*) IC%GP%hwidth(1),IC%GP%hwidth(2),IC%GP%hwidth(3)      
-       !                                                                            
+       !
+       READ (IO%UNIT%other01,*) IC%GP%Um(:)
+       !
+       logInfo(*) 'Homogenous background is Um(:)=', IC%GP%Um(:)
+       !
+       READ (IO%UNIT%other01,*) IC%GP%setvar
+       ALLOCATE(IC%GP%varfield(IC%GP%setvar),IC%GP%ampfield(IC%GP%setvar))
+       READ (IO%UNIT%other01,*) IC%GP%varfield(:)
+       READ (IO%UNIT%other01,*) IC%GP%ampfield(:)
+       !
+       READ (IO%UNIT%other01,*) IC%GP%xc(1), IC%GP%xc(2), IC%GP%xc(3)
+       READ (IO%UNIT%other01,*) IC%GP%hwidth(1),IC%GP%hwidth(2),IC%GP%hwidth(3)
+       !
        READ (IO%UNIT%other01,*) IC%GP%n(:)                                           ! Read normal direction of GP coord. system
        READ (IO%UNIT%other01,*) IC%GP%t1(:)                                          ! Read tangent 1 direction of GP coord. system
-       CLOSE(IO%UNIT%other01)                                     
+       CLOSE(IO%UNIT%other01)
        IC%GP%n(:)  = IC%GP%n(:)  / SQRT( SUM(IC%GP%n(:)**2)  )                       ! Normalize vector
        IC%GP%t1(:) = IC%GP%t1(:) / SQRT( SUM(IC%GP%t1(:)**2) )                       ! Normalize vector
        IC%GP%t2(:) = IC%GP%n(:) .x. IC%GP%t1(:)                                      ! Compute tangent 2 direction of GP coord. system
-       !                                                                             ! by using the cross product. 
-       logInfo(*) 'Center coordinates: ', IC%GP%xc(:)               
-       logInfo(*) 'Variables         : ', IC%GP%varfield(:)         
-       logInfo(*) 'Amplitudes        : ', IC%GP%ampfield(:)         
-       logInfo(*) 'Halfwidths        : ', IC%GP%hwidth(:)           
-       !                                                            
-       logInfo(*) 'Local coord sys.  : ', IC%GP%n(:)                
-       logInfo(*) 'Local coord sys.  : ', IC%GP%t1(:)               
-       logInfo(*) 'Local coord sys.  : ', IC%GP%t2(:)               
+       !                                                                             ! by using the cross product.
+       logInfo(*) 'Center coordinates: ', IC%GP%xc(:)
+       logInfo(*) 'Variables         : ', IC%GP%varfield(:)
+       logInfo(*) 'Amplitudes        : ', IC%GP%ampfield(:)
+       logInfo(*) 'Halfwidths        : ', IC%GP%hwidth(:)
+       !
+       logInfo(*) 'Local coord sys.  : ', IC%GP%n(:)
+       logInfo(*) 'Local coord sys.  : ', IC%GP%t1(:)
+       logInfo(*) 'Local coord sys.  : ', IC%GP%t2(:)
        !
     CASE('Planarwave_Gauss_Puls','Planarwave_Ricker_Puls')                          ! Planarwave_Gauss_Puls, Planarwave_Ricker_Puls
        logInfo(*) 'Use the initial condition ',TRIM(IC%cICType), ' with:'
         logInfo(*) 'Data for initial condition read from : ', TRIM(IniConditionFile)
-       CALL OpenFile(                                       &                        
-            UnitNr       = IO%UNIT%other01                , &                        
+       CALL OpenFile(                                       &
+            UnitNr       = IO%UNIT%other01                , &
             Name         = IniConditionFile  , &
-            create       = .FALSE.                          )       
+            create       = .FALSE.                          )
 
-       !                                                                             
+       !
        ALLOCATE(IC%GP%Um(1:EQN%nVar))                                               ! Allocate hom. background
-       !                                                                             
-       READ (IO%UNIT%other01,*) IC%GP%Um(:)                                          
-       !                                                                             
-       logInfo(*) 'Homogenous background is Um(:)=', IC%GP%Um(:)   
-       !                                                           
-       READ (IO%UNIT%other01,*) IC%GP%setvar                                      
-       ALLOCATE(IC%GP%varfield(IC%GP%setvar),IC%GP%ampfield(IC%GP%setvar))         
-       READ (IO%UNIT%other01,*) IC%GP%varfield(:)                                  
-       READ (IO%UNIT%other01,*) IC%GP%ampfield(:)                                  
-       !                                                                            
-       READ (IO%UNIT%other01,*) IC%GP%xc(1), IC%GP%xc(2), IC%GP%xc(3)               
-       READ (IO%UNIT%other01,*) IC%GP%hwidth(1),IC%GP%hwidth(2),IC%GP%hwidth(3)     
-       !                                                                           
+       !
+       READ (IO%UNIT%other01,*) IC%GP%Um(:)
+       !
+       logInfo(*) 'Homogenous background is Um(:)=', IC%GP%Um(:)
+       !
+       READ (IO%UNIT%other01,*) IC%GP%setvar
+       ALLOCATE(IC%GP%varfield(IC%GP%setvar),IC%GP%ampfield(IC%GP%setvar))
+       READ (IO%UNIT%other01,*) IC%GP%varfield(:)
+       READ (IO%UNIT%other01,*) IC%GP%ampfield(:)
+       !
+       READ (IO%UNIT%other01,*) IC%GP%xc(1), IC%GP%xc(2), IC%GP%xc(3)
+       READ (IO%UNIT%other01,*) IC%GP%hwidth(1),IC%GP%hwidth(2),IC%GP%hwidth(3)
+       !
        READ (IO%UNIT%other01,*) IC%GP%n(:)                                           ! Read normal direction of GP coord. system
        READ (IO%UNIT%other01,*) IC%GP%t1(:)                                          ! Read    tangent 1 direction of GP coord. system
        IC%GP%n(:)  = IC%GP%n(:)  / SQRT( SUM(IC%GP%n(:)**2)  )                       ! Normalize vector
        IC%GP%t1(:) = IC%GP%t1(:) / SQRT( SUM(IC%GP%t1(:)**2) )                       ! Normalize vector
        IC%GP%t2(:) = IC%GP%n(:) .x. IC%GP%t1(:)                                      ! Compute tangent 2 direction of GP coord. system
-       !                                                                             ! by using the cross product. 
+       !                                                                             ! by using the cross product.
        ! set imaginary unit IU
        IU = (0.,1.)
        !
        READ(IO%UNIT%other01,'(a37)') IC%PWAN%EigenVecValName
-       CLOSE(IO%UNIT%other01)   
+       CLOSE(IO%UNIT%other01)
 
        logInfo(*) 'Data for eigenvectors and eigenvalues are read from file : ', TRIM(IC%PWAN%EigenVecValName)
-       CALL OpenFile(                                       &                        
-            UnitNr       = IO%UNIT%other01                , &                        
+       CALL OpenFile(                                       &
+            UnitNr       = IO%UNIT%other01                , &
             Name         = IC%PWAN%EigenVecValName   , &
             create       = .FALSE.                          )
        logInfo(*) 'Reading  file ...  '
-       ! Read number of eigenvalues  
-       READ(IO%UNIT%other01,*) cdummy 
+       ! Read number of eigenvalues
+       READ(IO%UNIT%other01,*) cdummy
        READ(IO%UNIT%other01,*) IC%PWAN%NEigenVal
-         
+
        ALLOCATE(IC%PWAN%EigenVal(1:IC%PWAN%NEigenVal),     &
                 IC%PWAN%EigenVec(1:IC%PWAN%NEigenVal,1:IC%PWAN%NEigenVal) )
 
-       ! 
-       READ(IO%UNIT%other01,*) cdummy 
+       !
+       READ(IO%UNIT%other01,*) cdummy
        ! Read Eigenvalues
        DO I = 1,IC%PWAN%NEigenVal
           READ(IO%UNIT%other01,*) Re
           IC%PWAN%EigenVal(I) = Re
        ENDDO
        READ(IO%UNIT%other01,*) cdummy
-       ! Read Eigenvectors 
+       ! Read Eigenvectors
        DO I = 1,IC%PWAN%NEigenVal
          DO J = 1,IC%PWAN%NEigenVal
            READ(IO%UNIT%other01,*) Re
            IC%PWAN%EigenVec(J,I) = Re
          ENDDO
-       ENDDO      
+       ENDDO
 
-       CLOSE(IO%UNIT%other01)   
+       CLOSE(IO%UNIT%other01)
 
-       logInfo(*) 'Center coordinates: ', IC%GP%xc(:)               
-       logInfo(*) 'Variables         : ', IC%GP%varfield(:)         
-       logInfo(*) 'Amplitudes        : ', IC%GP%ampfield(:)         
-       logInfo(*) 'Halfwidths        : ', IC%GP%hwidth(:)           
-       !                                                                            
-       logInfo(*) 'Local coord sys.  : ', IC%GP%n(:)                
-       logInfo(*) 'Local coord sys.  : ', IC%GP%t1(:)               
-       logInfo(*) 'Local coord sys.  : ', IC%GP%t2(:)               
+       logInfo(*) 'Center coordinates: ', IC%GP%xc(:)
+       logInfo(*) 'Variables         : ', IC%GP%varfield(:)
+       logInfo(*) 'Amplitudes        : ', IC%GP%ampfield(:)
+       logInfo(*) 'Halfwidths        : ', IC%GP%hwidth(:)
+       !
+       logInfo(*) 'Local coord sys.  : ', IC%GP%n(:)
+       logInfo(*) 'Local coord sys.  : ', IC%GP%t1(:)
+       logInfo(*) 'Local coord sys.  : ', IC%GP%t2(:)
        !
     CASE('Planarwave')                                                                ! CASE tPlanarwave
-       logInfo(*) 'Use the initial condition ',TRIM(IC%cICType),' with:'              ! format for PLANARWAVE which 
+       logInfo(*) 'Use the initial condition ',TRIM(IC%cICType),' with:'              ! format for PLANARWAVE which
          logInfo(*) 'Data for initial condition read from : ', TRIM(IniConditionFile) ! allows to set several
        CALL OpenFile(                                       &                         ! characteristic waves
-            UnitNr       = IO%UNIT%other01                , &                         
+            UnitNr       = IO%UNIT%other01                , &
             Name         = IniConditionFile  , &
-            create       = .FALSE.                          )                                                                                          
-                                                                                    
-       ALLOCATE(IC%PW%Um(1:EQN%nVar))                                               
-       !                                                                            
-       READ (IO%UNIT%other01,*) IC%PW%Um(:)                                         
-       READ (IO%UNIT%other01,*) IC%PW%setvar                                         
-       ALLOCATE(IC%PW%varfield(IC%PW%setvar),IC%PW%ampfield(IC%PW%setvar))          
-       READ (IO%UNIT%other01,*) IC%PW%varfield(:)                                    
-       READ (IO%UNIT%other01,*) IC%PW%ampfield(:)                                    
+            create       = .FALSE.                          )
+
+       ALLOCATE(IC%PW%Um(1:EQN%nVar))
+       !
+       READ (IO%UNIT%other01,*) IC%PW%Um(:)
+       READ (IO%UNIT%other01,*) IC%PW%setvar
+       ALLOCATE(IC%PW%varfield(IC%PW%setvar),IC%PW%ampfield(IC%PW%setvar))
+       READ (IO%UNIT%other01,*) IC%PW%varfield(:)
+       READ (IO%UNIT%other01,*) IC%PW%ampfield(:)
        READ (IO%UNIT%other01,*) iLambda
        SELECT CASE(iLambda)
            CASE(0)
@@ -1054,16 +1071,16 @@ CONTAINS
                READ (IO%UNIT%other01,*) Lambda(1:3)                                 ! Read 3D wavelength vector
                IC%PW%k_vec(1:3) = 2.*EQN%Pi/Lambda(1:3)                             ! and compute wavenumbers.
        END SELECT
-       CLOSE(IO%UNIT%other01)   
+       CLOSE(IO%UNIT%other01)
 
        IC%PW%k      = SQRT( IC%PW%k_vec(1)**2 + &                                   ! Compute norm
                             IC%PW%k_vec(2)**2 + &                                   ! Compute norm
                             IC%PW%k_vec(3)**2   )                                   ! Compute norm
        IC%PW%n(1:3) = IC%PW%k_vec(:) / IC%PW%k                                      ! Compute unit normal vector
-       !                                                                            
-       logInfo(*) 'Background Um(:)   : ', IC%PW%Um(:)               
-       logInfo(*) 'Char. variables    : ', IC%PW%varfield(:)         
-       logInfo(*) 'Amplitude array    : ', IC%PW%ampfield(:)         
+       !
+       logInfo(*) 'Background Um(:)   : ', IC%PW%Um(:)
+       logInfo(*) 'Char. variables    : ', IC%PW%varfield(:)
+       logInfo(*) 'Amplitude array    : ', IC%PW%ampfield(:)
        logInfo(*) 'Wavenumber vector  : ', IC%PW%k_vec(1:3)          ! Display the wavenumber vector
 
     CASE('PlanarwaveAnel','PlanarwaveAn')                                           ! CASE Planarwave anelastic
@@ -1071,71 +1088,71 @@ CONTAINS
                                                                                     ! format for PLANARWAVE which
                                                                                     ! allows to set several
          logInfo(*) 'Data for initial condition read from : ', TRIM(IniConditionFile)
-       CALL OpenFile(                                       &                        
-            UnitNr       = IO%UNIT%other01                , &                        
+       CALL OpenFile(                                       &
+            UnitNr       = IO%UNIT%other01                , &
             Name         = IniConditionFile  , &
-            create       = .FALSE.                          )  
-       !                                                                            
-       ALLOCATE(IC%PW%Um(1:EQN%nVar))                                              
-       !                                                                            
-       READ (IO%UNIT%other01,*) IC%PW%Um(:)                                          
-       READ (IO%UNIT%other01,*) IC%PW%setvar                                         
-       ALLOCATE(IC%PW%varfield(IC%PW%setvar),IC%PW%ampfield(IC%PW%setvar))          
-       READ (IO%UNIT%other01,*) IC%PW%varfield(:)                                    
-       READ (IO%UNIT%other01,*) IC%PW%ampfield(:)                                    
+            create       = .FALSE.                          )
        !
-       ! set imaginary unit IU                                                                                    
+       ALLOCATE(IC%PW%Um(1:EQN%nVar))
+       !
+       READ (IO%UNIT%other01,*) IC%PW%Um(:)
+       READ (IO%UNIT%other01,*) IC%PW%setvar
+       ALLOCATE(IC%PW%varfield(IC%PW%setvar),IC%PW%ampfield(IC%PW%setvar))
+       READ (IO%UNIT%other01,*) IC%PW%varfield(:)
+       READ (IO%UNIT%other01,*) IC%PW%ampfield(:)
+       !
+       ! set imaginary unit IU
        ! set imaginary unit IU
        IU = (0.,1.)
        READ(IO%UNIT%other01,'(a37)') IC%PWAN%EigenVecValName
-       CLOSE(IO%UNIT%other01)   
+       CLOSE(IO%UNIT%other01)
 
        logInfo(*) 'Data for eigenvectors and eigenvalues are read from file : ', TRIM(IC%PWAN%EigenVecValName)
-       CALL OpenFile(                                       &                        
-            UnitNr       = IO%UNIT%other01                , &                        
+       CALL OpenFile(                                       &
+            UnitNr       = IO%UNIT%other01                , &
             Name         = IC%PWAN%EigenVecValName   , &
             create       = .FALSE.                          )
        logInfo(*) 'Reading  file ...  '
        ! Read number of eigenvalues
-       READ(IO%UNIT%other01,*) cdummy   
+       READ(IO%UNIT%other01,*) cdummy
        READ(IO%UNIT%other01,*) IC%PWAN%NEigenVal
-         
+
        ALLOCATE(IC%PWAN%EigenVal(1:IC%PWAN%NEigenVal),     &
                 IC%PWAN%EigenVec(1:IC%PWAN%NEigenVal,1:IC%PWAN%NEigenVal) )
-       
-       READ(IO%UNIT%other01,*) cdummy 
+
+       READ(IO%UNIT%other01,*) cdummy
        ! Read wavenumbers
-       READ(IO%UNIT%other01,*) IC%PWAN%Wavenumbers(1:EQN%Dimension)           
-       ! 
-       READ(IO%UNIT%other01,*) cdummy 
+       READ(IO%UNIT%other01,*) IC%PWAN%Wavenumbers(1:EQN%Dimension)
+       !
+       READ(IO%UNIT%other01,*) cdummy
        ! Read Eigenvalues
        DO I = 1,IC%PWAN%NEigenVal
            READ(IO%UNIT%other01,*) Re, Im
            IC%PWAN%EigenVal(I) = Re + Im*IU
        ENDDO
        READ(IO%UNIT%other01,*) cdummy
-       ! Read Eigenvectors 
+       ! Read Eigenvectors
        DO I = 1,IC%PWAN%NEigenVal
           DO J = 1,IC%PWAN%NEigenVal
              READ(IO%UNIT%other01,*) Re, Im
              IC%PWAN%EigenVec(J,I) = Re + Im*IU
           ENDDO
-       ENDDO      
-       CLOSE(IO%UNIT%other01)   
+       ENDDO
+       CLOSE(IO%UNIT%other01)
        !
     CASE('PlanarwaveAniso')                                                         ! CASE Planarwave anelastic
-       logInfo(*) 'Use the initial condition ',TRIM(IC%cICType),' with:'                                                                                   
-       ALLOCATE(IC%PW%Um(1:EQN%nVar))                                              
+       logInfo(*) 'Use the initial condition ',TRIM(IC%cICType),' with:'
+       ALLOCATE(IC%PW%Um(1:EQN%nVar))
        ALLOCATE(IC%PWANISO(3))
 
          logInfo(*) 'Data for initial condition read from : ', TRIM(IniConditionFile)
-       CALL OpenFile(                                       &                        
-            UnitNr       = IO%UNIT%other01                , &                        
+       CALL OpenFile(                                       &
+            UnitNr       = IO%UNIT%other01                , &
             Name         = IniConditionFile  , &
-            create       = .FALSE.                          )                                                                        
-          READ (IO%UNIT%other01,*) IC%PW%Um(:)                                          
+            create       = .FALSE.                          )
+          READ (IO%UNIT%other01,*) IC%PW%Um(:)
        DO k = 1,3
-          READ (IO%UNIT%other01,*) IC%PWANISO(k)%setvar                              
+          READ (IO%UNIT%other01,*) IC%PWANISO(k)%setvar
           ALLOCATE(IC%PWANISO(k)%varfield(IC%PWANISO(k)%setvar),IC%PWANISO(k)%ampfield(IC%PWANISO(k)%setvar))          !
           READ (IO%UNIT%other01,*) IC%PWANISO(k)%varfield(:)                                  !
           READ (IO%UNIT%other01,*) IC%PWANISO(k)%ampfield(:)                                  !
@@ -1144,57 +1161,57 @@ CONTAINS
        ! set imaginary unit IU
        IU = (0.,1.)
        !
-       READ(IO%UNIT%other01,'(a37)') IC%PWAN%EigenVecValName                                                         
-       CLOSE(IO%UNIT%other01)   
-        
+       READ(IO%UNIT%other01,'(a37)') IC%PWAN%EigenVecValName
+       CLOSE(IO%UNIT%other01)
+
        logInfo(*) 'Data for eigenvectors and eigenvalues are read from file : ', TRIM(IC%PWAN%EigenVecValName)
-       CALL OpenFile(                                       &                        
-            UnitNr       = IO%UNIT%other01                , &                        
+       CALL OpenFile(                                       &
+            UnitNr       = IO%UNIT%other01                , &
             Name         = IC%PWAN%EigenVecValName   , &
             create       = .FALSE.                          )
        logInfo(*) 'Reading  file ...  '
-       READ(IO%UNIT%other01,*) cdummy    
-       ! Read number of eigenvalues  
+       READ(IO%UNIT%other01,*) cdummy
+       ! Read number of eigenvalues
        READ(IO%UNIT%other01,*) IC%PWAN%NEigenVal
-         
+
        DO K = 1,3
            ALLOCATE(IC%PWANISO(k)%EigenVal(1:IC%PWAN%NEigenVal),     &
                     IC%PWANISO(k)%EigenVec(1:IC%PWAN%NEigenVal,1:IC%PWAN%NEigenVal) )
 
-           READ(IO%UNIT%other01,*) cdummy 
+           READ(IO%UNIT%other01,*) cdummy
            ! Read wavenumbers
-           READ(IO%UNIT%other01,*) IC%PWANISO(k)%Wavenumbers(1:EQN%Dimension)           
-           ! 
-           READ(IO%UNIT%other01,*) cdummy 
+           READ(IO%UNIT%other01,*) IC%PWANISO(k)%Wavenumbers(1:EQN%Dimension)
+           !
+           READ(IO%UNIT%other01,*) cdummy
            ! Read Eigenvalues
            DO I = 1,IC%PWAN%NEigenVal
               READ(IO%UNIT%other01,*) Re, Im
               IC%PWANISO(k)%EigenVal(I) = Re + Im*IU
            ENDDO
            READ(IO%UNIT%other01,*) cdummy
-           ! Read Eigenvectors 
+           ! Read Eigenvectors
            DO I = 1,IC%PWAN%NEigenVal
              DO J = 1,IC%PWAN%NEigenVal
                READ(IO%UNIT%other01,*) Re, Im
                IC%PWANISO(k)%EigenVec(J,I) = Re + Im*IU
              ENDDO
-           ENDDO      
+           ENDDO
        ENDDO
-       CLOSE(IO%UNIT%other01)   
-       !                                       ! 
+       CLOSE(IO%UNIT%other01)
+       !                                       !
     CASE('Debug')
        logInfo(*) 'Use the initial condition ',TRIM(IC%cICType)
-       !    
+       !
     CASE DEFAULT                                                             ! CASE DEFAULT
        logError(*) 'none of the possible'           ,&
-            ' initial conditions was chosen'                                  
-       logError(*) TRIM(IC%cICType),'|'                      
-       STOP                                                                  
-    END SELECT                                                        
+            ' initial conditions was chosen'
+       logError(*) TRIM(IC%cICType),'|'
+       STOP
+    END SELECT
     !
-    logInfo(*) 'to calculate the initial values.'           
-    !  
-  END SUBROUTINE readpar_ini_condition      
+    logInfo(*) 'to calculate the initial values.'
+    !
+  END SUBROUTINE readpar_ini_condition
 
   !------------------------------------------------------------------------
   !------------------------------------------------------------------------
@@ -1220,7 +1237,7 @@ CONTAINS
     INTENT(INOUT)              :: EQN, IO, DISC
     INTENT(INOUT)              :: BND
     !------------------------------------------------------------------------
-    NAMELIST                   /Pickpoint/ printtimeinterval, OutputMask, nOutPoints, PPFileName 
+    NAMELIST                   /Pickpoint/ printtimeinterval, OutputMask, nOutPoints, PPFileName
     !------------------------------------------------------------------------
     !
     !Setting default values
@@ -1229,10 +1246,10 @@ CONTAINS
     OutputMask(4:5) = 0
     !
     READ(IO%UNIT%FileIn, nml = Pickpoint)
-    !                                              
+    !
      DISC%DynRup%DynRup_out_atPickpoint%printtimeinterval = printtimeinterval   ! read time interval at which output will be written
      DISC%DynRup%DynRup_out_atPickpoint%OutputMask(1:5) =  OutputMask(1:5)      ! read info of desired output 1/ yes, 0/ no
-                                                                                ! position: 1/ slip rate 2/ stress 3/ normal velocity 
+                                                                                ! position: 1/ slip rate 2/ stress 3/ normal velocity
      DISC%DynRup%DynRup_out_atPickpoint%nOutPoints = nOutPoints                 ! 4/ in case of rate and state output friction and state variable
      logInfo(*) '| '
      logInfo(*) 'Record points for DR are allocated'
@@ -1243,32 +1260,32 @@ CONTAINS
      ALLOCATE(Z(DISC%DynRup%DynRup_out_atPickpoint%nOutPoints))
 
       logInfo(*) ' Pickpoints read from ', TRIM(PPFileName)
-      CALL OpenFile(                                 &                        
-            UnitNr       = IO%UNIT%other01         , &                        
+      CALL OpenFile(                                 &
+            UnitNr       = IO%UNIT%other01         , &
             Name         = PPFileName            , &
             create       = .FALSE.                          )
         DO i = 1, nOutPoints
           READ(IO%UNIT%other01,*) X(i), Y(i), Z(i)
 
-            logInfo(*) 'Read in point :'                             
-            logInfo(*) 'x = ', X(i)        
+            logInfo(*) 'Read in point :'
+            logInfo(*) 'x = ', X(i)
             logInfo(*) 'y = ', Y(i)
             logInfo(*) 'z = ', Z(i)
-          
+
        END DO
        CLOSE(IO%UNIT%other01)
       ALLOCATE ( DISC%DynRup%DynRup_out_atPickpoint%RecPoint(DISC%DynRup%DynRup_out_atPickpoint%nOutPoints),     &
                 STAT = allocStat                             )
-     
+
       IF (allocStat .NE. 0) THEN
             logError(*) 'could not allocate',&
                  ' all variables! Ie. Unstructured record Points'
             STOP
       END IF
       !
-      DISC%DynRup%DynRup_out_atPickpoint%RecPoint(:)%X = X(:) 
+      DISC%DynRup%DynRup_out_atPickpoint%RecPoint(:)%X = X(:)
       DISC%DynRup%DynRup_out_atPickpoint%RecPoint(:)%Y = Y(:)
-      DISC%DynRup%DynRup_out_atPickpoint%RecPoint(:)%Z = Z(:)  
+      DISC%DynRup%DynRup_out_atPickpoint%RecPoint(:)%Z = Z(:)
 
       logInfo(*) 'In total:',DISC%DynRup%DynRup_out_atPickpoint%nOutPoints,'.'
 
@@ -1312,6 +1329,10 @@ CONTAINS
     DISC%DynRup%DynRup_out_elementwise%printIntervalCriterion = printIntervalCriterion
     if (printIntervalCriterion.EQ.1) THEN
         DISC%DynRup%DynRup_out_elementwise%printtimeinterval = printtimeinterval   ! read time interval at which output will be written
+#ifdef GENERATEDKERNELS
+        logError(*) 'The generated kernels version does no longer support printIntervalCriterion = 1 for elementwise fault output'
+        stop
+#endif
     else
         DISC%DynRup%DynRup_out_elementwise%printtimeinterval_sec = printtimeinterval_sec   ! read time interval at which output will be written
     endif
@@ -1326,7 +1347,7 @@ CONTAINS
 
     DISC%DynRup%DynRup_out_elementwise%refinement_strategy = refinement_strategy
 
-    IF (DISC%DynRup%DynRup_out_elementwise%refinement_strategy.NE.2 .AND. & 
+    IF (DISC%DynRup%DynRup_out_elementwise%refinement_strategy.NE.2 .AND. &
         DISC%DynRup%DynRup_out_elementwise%refinement_strategy.NE.1 .AND. &
         DISC%DynRup%DynRup_out_elementwise%refinement_strategy.NE.0) THEN
         logError(*) 'Undefined refinement strategy for fault output!'
@@ -1363,13 +1384,13 @@ CONTAINS
   end SUBROUTINE readpar_faultElementwise
 
   !============================================================================
-  ! B O U N D A R I E S   
+  ! B O U N D A R I E S
   !============================================================================
 
   SUBROUTINE readpar_boundaries(EQN,BND,IC,DISC,IO,CalledFromStructCode)
     !------------------------------------------------------------------------
     !------------------------------------------------------------------------
-    IMPLICIT NONE 
+    IMPLICIT NONE
     !------------------------------------------------------------------------
     TYPE (tEquations)          :: EQN
     TYPE (tBoundary)           :: BND
@@ -1385,14 +1406,14 @@ CONTAINS
     INTENT(INOUT)              :: EQN, IO, DISC
     INTENT(INOUT)              :: BND
     !------------------------------------------------------------------------
-    NAMELIST                   /Boundaries/ BC_fs, BC_nc, BC_dr, BC_if, BC_of, BC_pe                          
+    NAMELIST                   /Boundaries/ BC_fs, BC_nc, BC_dr, BC_if, BC_of, BC_pe
     !------------------------------------------------------------------------
-    
-                                                                                   
+
+
     logInfo(*) '<--------------------------------------------------------->'          !
     logInfo(*) '<  B O U N D A R I E S                                    >'          !
     logInfo(*) '<--------------------------------------------------------->'          !
-    !                                                                                              
+    !
 
     ! Setting default values
     BC_fs = 0
@@ -1404,17 +1425,17 @@ CONTAINS
     !
     READ (IO%UNIT%FileIn, nml = Boundaries)
     !
-      !    
-      BND%NoBndObjects(:) = 0                                                                                        
+      !
+      BND%NoBndObjects(:) = 0
       !--------------------------------------------------------------------------------------------!
-      ! Free surface boundaries 
+      ! Free surface boundaries
       !--------------------------------------------------------------------------------------------!
-      !                                                                                            ! number of 
+      !                                                                                            ! number of
       BND%NoBndObjects(1) = BC_fs                                                                      !free surface boundaries
       !                                                                                            !
-      logInfo(*) ' '                                                                  
-      logInfo(*) 'The number of free      surfaces is',BC_fs                        
-      logInfo(*) '-----------------------------------  '                         
+      logInfo(*) ' '
+      logInfo(*) 'The number of free      surfaces is',BC_fs
+      logInfo(*) '-----------------------------------  '
       !                                                                                            !
       IF(BC_fs.NE.0)THEN                                                                              !
          ALLOCATE (BND%ObjFreeSurface(BC_fs), STAT = allocStat)                                       !
@@ -1423,34 +1444,34 @@ CONTAINS
              logError(*) 'could not allocate surface wall variables!'                              ! Error Handler
              STOP                                                                                  ! Error Handler
           END IF                                                                                   ! Error Handler
-      ENDIF 
+      ENDIF
       !----------------------------------------------------------------------------------------!
       ! (Internal) boundaries at which non-conforming mesh is allowed
       !----------------------------------------------------------------------------------------!
-                                                                                              
-                                                                                                   ! number of 
+
+                                                                                                   ! number of
                                                                                                    ! free surface boundaries
-       BND%NoBndObjects(2) = BC_nc 
+       BND%NoBndObjects(2) = BC_nc
        !                                                                                        !
        logInfo(*) ' '                                                              !
        logInfo(*) 'The number of non-conforming     is',BC_nc                    !
        logInfo(*) '-----------------------------------  '                     !
-      ! 
+      !
       EQN%DR = 0 !By default no dynamic rupture
       DISC%DynRup%OutputPointType = 0 !By default no Output
       !
       !----------------------------------------------------------------------------------------!
       ! (Internal) boundaries at which dynamic rupture is allowed
       !----------------------------------------------------------------------------------------!
-      !                                                                                        ! number of 
+      !                                                                                        ! number of
       BND%NoBndObjects(3) = BC_dr                                                                 ! rupture inner boundaries
       !                                                                                        !
-       IF(BC_dr.NE.0) EQN%DR = 1 
-          logInfo(*) ' '                                                              
-          logInfo(*) 'The number of   rupture surfaces is',BC_dr                    
-          logInfo(*) '-----------------------------------  '  
+       IF(BC_dr.NE.0) EQN%DR = 1
+          logInfo(*) ' '
+          logInfo(*) 'The number of   rupture surfaces is',BC_dr
+          logInfo(*) '-----------------------------------  '
 
-          IF(EQN%DR.EQ.1) THEN                                                                   
+          IF(EQN%DR.EQ.1) THEN
          call readdr(IO, EQN, DISC, BND, IC)
        ENDIF ! EQN%DR.EQ.1
       !--------------------------------------------------------------------------------------!
@@ -1458,20 +1479,20 @@ CONTAINS
       !--------------------------------------------------------------------------------------!
 
       BND%NoBndObjects(4) = BC_if                                                               ! number of different Inflow boundary
-      !                                                                                      
-      logInfo(*) ' '                                                            
-      logInfo(*) 'The number of inflow surfaces is',BC_if                  
-      logInfo(*) '-----------------------------------  '                   
-      !                                                                                      
-      IF(BC_if.NE.0)THEN                                                                        
-         ALLOCATE (BND%ObjInflow(BC_if), STAT = allocStat)                                 
-         !                                                                                   
+      !
+      logInfo(*) ' '
+      logInfo(*) 'The number of inflow surfaces is',BC_if
+      logInfo(*) '-----------------------------------  '
+      !
+      IF(BC_if.NE.0)THEN
+         ALLOCATE (BND%ObjInflow(BC_if), STAT = allocStat)
+         !
          IF (allocStat .NE. 0) THEN                                                          ! Error Handler
             logError(*) 'could not allocate Inflow variables!'                               ! Error Handler
             STOP                                                                             ! Error Handler
          END IF                                                                              ! Error Handler
-      call readinfl(BND, IC, EQN, IO, DISC, BC_if)     
-      END IF                                                                          
+      call readinfl(BND, IC, EQN, IO, DISC, BC_if)
+      END IF
       !
       !--------------------------------------------------------------------------------------!
       ! Outflow
@@ -1502,14 +1523,14 @@ CONTAINS
       logInfo(*) 'The number of connected surfaces is',BC_pe                  !
       logInfo(*) '-----------------------------------  '                   !
 
-  
+
   END SUBROUTINE readpar_boundaries                                                          !
 
     !------------------------------------------------------------------------
      !Dynamic Rupture
     !------------------------------------------------------------------------
   SUBROUTINE readdr(IO, EQN, DISC, BND, IC)
-    IMPLICIT NONE 
+    IMPLICIT NONE
     TYPE (tInputOutput)                    :: IO
     TYPE (tEquations)                      :: EQN
     TYPE (tDiscretization)                 :: DISC
@@ -1517,7 +1538,7 @@ CONTAINS
     TYPE (tInitialCondition)               :: IC
     INTENT(INOUT)                          :: IO, EQN, DISC, BND
     INTEGER                                :: FL, BackgroundType, Nucleation, inst_healing, RF_output_on, DS_output_on, &
-                                              OutputPointType, magnitude_output_on,  energy_rate_output_on, read_fault_file,refPointMethod
+                                              OutputPointType, magnitude_output_on,  energy_rate_output_on, read_fault_file,refPointMethod, SlipRateOutputType
 
     CHARACTER(600)                         :: FileName_BackgroundStress
     REAL                                   :: Bulk_xx_0, Bulk_yy_0, &
@@ -1542,9 +1563,9 @@ CONTAINS
                                                 NucBulk_xx_0, NucBulk_yy_0, NucBulk_zz_0, NucShearXY_0, &
                                                 NucShearYZ_0, NucShearXZ_0, NucRS_sv0, r_s, RF_output_on, DS_output_on, &
                                                 OutputPointType, magnitude_output_on, energy_rate_output_on, energy_rate_printtimeinterval, cohesion_0, &
-                                                cohesion_max, cohesion_depth, read_fault_file
-    !------------------------------------------------------------------------                                                                                   
-    
+                                                cohesion_max, cohesion_depth, read_fault_file, SlipRateOutputType
+    !------------------------------------------------------------------------
+
     ! Setting default values
     BackgroundType = 0
     Nucleation = 0
@@ -1555,6 +1576,7 @@ CONTAINS
     energy_rate_output_on = 0
     energy_rate_printtimeinterval = 1
     OutputPointType = 3
+    SlipRateOutputType = 0
     Bulk_xx_0 = 0
     Bulk_yy_0 = 0
     Bulk_zz_0 = 0
@@ -1613,7 +1635,7 @@ CONTAINS
            ! Read-in dynamic rupture parameters
            READ(IO%UNIT%FileIn, nml = DynamicRupture)
            logInfo(*) 'Beginning dynamic rupture initialization. '
-           
+
            ! Read fault parameters from Par_file_faults?
            DISC%DynRup%read_fault_file = read_fault_file
 
@@ -1646,7 +1668,7 @@ CONTAINS
                  logInfo0(*) 'elementwise initialization. '
              ENDIF
 
-           CASE(16,17)
+           CASE(16,17,1500) ! 1500 = ASAGI
              IO%FileName_BackgroundStress = FileName_BackgroundStress
              EQN%GPwise = GPwise
              EQN%XRef = XRef
@@ -1656,7 +1678,7 @@ CONTAINS
            CASE DEFAULT
              logError(*) 'Unknown Stress Background Type: ',DISC%DynRup%BackgroundType
              STOP
-           END SELECT           
+           END SELECT
 
            !FRICTION SETTINGS
            SELECT CASE(EQN%FL)
@@ -1730,7 +1752,7 @@ CONTAINS
            CASE DEFAULT
              logError(*) 'Unknown friction law ',EQN%FL
              STOP
-           END SELECT          
+           END SELECT
 
            !NUCLEATION
            DISC%DynRup%Nucleation = Nucleation
@@ -1742,7 +1764,7 @@ CONTAINS
              DISC%DynRup%NucXmin = NucXmin
              DISC%DynRup%NucXmax = NucXmax
              DISC%DynRup%NucDirY = NucDirY
-             DISC%DynRup%NucYmin = NucYmin 
+             DISC%DynRup%NucYmin = NucYmin
              DISC%DynRup%NucYmax = NucYmax
              DISC%DynRup%NucBulk_xx_0 = NucBulk_xx_0
              DISC%DynRup%NucBulk_yy_0 = NucBulk_yy_0
@@ -1750,7 +1772,7 @@ CONTAINS
              DISC%DynRup%NucShearXY_0 = NucShearXY_0
              DISC%DynRup%NucShearYZ_0 = NucShearYZ_0
              DISC%DynRup%NucShearXZ_0 = NucShearXZ_0
-             DISC%DynRup%NucRS_sv0 = NucRS_sv0 
+             DISC%DynRup%NucRS_sv0 = NucRS_sv0
 
            CASE(2,3) ! smooth (2) and discontinuous (3) elliptic nucleation zone
              DISC%DynRup%NucDirX = NucDirX
@@ -1766,12 +1788,12 @@ CONTAINS
              DISC%DynRup%NucShearXY_0 = NucShearXY_0
              DISC%DynRup%NucShearYZ_0 = NucShearYZ_0
              DISC%DynRup%NucShearXZ_0 = NucShearXZ_0
-             DISC%DynRup%NucRS_sv0 = NucRS_sv0 
+             DISC%DynRup%NucRS_sv0 = NucRS_sv0
            CASE(28,29) ! nucleation patch initialized in ini_model.f90
-             CONTINUE          
+             CONTINUE
            CASE DEFAULT
              logError(*) 'Unknown nucleation type ',DISC%DynRup%Nucleation
-             STOP           
+             STOP
            END SELECT
 
            !OUTPUT
@@ -1806,6 +1828,7 @@ CONTAINS
 
            !
            DISC%DynRup%OutputPointType = OutputPointType
+           DISC%DynRup%SlipRateOutputType = SlipRateOutputType
 
            !
            if (DISC%DynRup%OutputPointType .eq. 0) then
@@ -1832,7 +1855,7 @@ CONTAINS
      !Inflow Boundaries
     !------------------------------------------------------------------------
   SUBROUTINE readinfl(BND, IC, EQN, IO, DISC, n4)
-    IMPLICIT NONE 
+    IMPLICIT NONE
     TYPE (tInputOutput)                    :: IO
     TYPE (tEquations)                      :: EQN
     TYPE (tDiscretization)                 :: DISC
@@ -1844,7 +1867,7 @@ CONTAINS
     REAL                                   :: nx,ny,nz,length
     CHARACTER(LEN=600)                     :: char_option, PWFileName
     INTEGER                                :: setvar
-    REAL,DIMENSION(:),ALLOCATABLE          :: varfield, u0_in  
+    REAL,DIMENSION(:),ALLOCATABLE          :: varfield, u0_in
     NAMELIST                               /InflowBound/ setvar, char_option, &
                                                          PWFileName
     !------------------------------------------------------------------------
@@ -1867,7 +1890,7 @@ CONTAINS
               BND%ObjInflow(i)%u0_in(:) = u0_in(:)
 
          READ(char_option,*,IOSTAT=readStat) BND%ObjInflow(i)%u0_in(:)
-   
+
          IF (readStat.EQ. 0) THEN
             logInfo(*) 'Inflow conditions specified are constant Data'
             BND%ObjInflow(i)%InflowType   = 0
@@ -1878,7 +1901,7 @@ CONTAINS
             logInfo(*) ' '
          ELSE
             logInfo(*) 'Inflow conditions specified are not constant Data'
-   
+
             SELECT CASE(TRIM(char_option(1:startComment-1)))
             CASE('Char_Gauss_Puls')
                 logInfo(*) 'Planarwave Gausspulse inflow conditions '
@@ -1902,7 +1925,7 @@ CONTAINS
                 logInfo(*) '(only for homogeneous elastic isotropic materials!) '
                 BND%ObjInflow(i)%InflowType   = 10
                 iObject=1 ! So far limited to a single PlaneWave!
-                ALLOCATE(BND%ObjInflow(iObject)%PW)                                            
+                ALLOCATE(BND%ObjInflow(iObject)%PW)
                 ALLOCATE(BND%ObjInflow(iObject)%u0_in(EQN%nVar) )
                 ALLOCATE(BND%ObjInflow(iObject)%PW%n_vec(3))
                 ALLOCATE(BND%ObjInflow(iObject)%PW%p_vec(3))
@@ -1914,11 +1937,11 @@ CONTAINS
                 call readvarfield(IO, SetVar, varfield)
 
                 BND%ObjInflow(iObject)%PW%varfield(:) = varfield (:)
-                BND%ObjInflow(iObject)%u0_in(:) = u0_in(:) 
-                
+                BND%ObjInflow(iObject)%u0_in(:) = u0_in(:)
+
                 logInfo(*) 'Wave time histories read from file: ', TRIM(PWFileName)
-                CALL OpenFile(                                        &                         
-                      UnitNr       = IO%UNIT%other01                , &                        
+                CALL OpenFile(                                        &
+                      UnitNr       = IO%UNIT%other01                , &
                       Name         = PWFileName                     , &
                       create       = .FALSE.                          )
                 logInfo(*) 'Reading inflow wave time-history file ...  '
@@ -1967,7 +1990,7 @@ CONTAINS
                logError(*) 'Inflow conditions specified are unknown!'
                logError(*) TRIM(char_option(1:startComment-1)),'|'
                STOP
-            END SELECT 
+            END SELECT
          END IF
       ENDDO
 
@@ -1976,7 +1999,7 @@ CONTAINS
      !Reading the varfield
     !------------------------------------------------------------------------
  SUBROUTINE readvarfield(IO, number, varfield)
-    IMPLICIT NONE 
+    IMPLICIT NONE
     TYPE (tInputOutput)                    :: IO
     INTENT(INOUT)                          :: IO
     INTEGER                                :: number
@@ -1991,7 +2014,7 @@ CONTAINS
      !Reading u0_in
     !------------------------------------------------------------------------
  SUBROUTINE readuin(IO, EQN, u0_in)
-    IMPLICIT NONE 
+    IMPLICIT NONE
     TYPE (tInputOutput)                    :: IO
     TYPE (tEquations)                      :: EQN
     INTENT(INOUT)                          :: IO, EQN
@@ -1999,47 +2022,47 @@ CONTAINS
     NAMELIST                               /InflowBounduin/u0_in
     !-----------------------------------------------------------------------
     ALLOCATE(u0_in(EQN%nVar))
-    
+
     READ(IO%UNIT%FileIn, nml = InflowBounduin) ! Write in namelistfile u0_in(1) = ... and in the next line u0_in(2) = ...
-                                               
+
   END SUBROUTINE
 
 
-   ! 
+   !
    !============================================================================
-   ! S O U R C E   T E R M    
+   ! S O U R C E   T E R M
    !============================================================================
 
   SUBROUTINE readpar_sourceterm(EQN,SOURCE,IO)
    !------------------------------------------------------------------------
-   IMPLICIT NONE 
+   IMPLICIT NONE
    !------------------------------------------------------------------------
-   ! argument list declaration                                                                        
-   TYPE (tEquations)                :: EQN                                                         
-   TYPE (tSource)                   :: SOURCE                                                      
-   TYPE (tInputOutput)              :: IO                                                          
-   ! local variable declaration                                                                    
-   INTEGER                          :: i,j,k,iVar,iDummy1                                          
-   INTEGER                          :: startComment                                                
-   REAL                             :: pi                                                          
-   REAL, POINTER                    :: dummy(:)                                                    
-   CHARACTER(LEN=15)                :: char_dummy                                                  
+   ! argument list declaration
+   TYPE (tEquations)                :: EQN
+   TYPE (tSource)                   :: SOURCE
+   TYPE (tInputOutput)              :: IO
+   ! local variable declaration
+   INTEGER                          :: i,j,k,iVar,iDummy1
+   INTEGER                          :: startComment
+   REAL                             :: pi
+   REAL, POINTER                    :: dummy(:)
+   CHARACTER(LEN=15)                :: char_dummy
    REAL, POINTER                    :: Dist(:,:), loc_src(:,:)
    INTEGER,POINTER                  :: Sorted(:),Group(:),Members(:,:)
    INTEGER                          :: count, count2,nsrc
    !-------------------------------------------------------------------------
-   INTENT(INOUT)                    :: SOURCE, EQN                                                 
-   INTENT(IN)                       :: IO                                                          
-   !-------------------------------------------------------------------------  
+   INTENT(INOUT)                    :: SOURCE, EQN
+   INTENT(IN)                       :: IO
+   !-------------------------------------------------------------------------
    INTEGER                          :: Type, RType, nDirac, nRicker, nPulseSource
    REAL,DIMENSION(:),ALLOCATABLE    :: U0, l1, TimePosition, &
                                        Intensity, EqnNr, Element, Delay, a1, f, &
-                                       l2, T, t0, Width, A0  
+                                       l2, T, t0, Width, A0
    REAL,DIMENSION(:),ALLOCATABLE    :: SpacePositionx, SpacePositiony, SpacePositionz
    CHARACTER(Len=600)               :: FileName
-   NAMELIST                        /SourceType/ Type, Rtype, nDirac, nPulseSource, FileName, nRicker 
-                                   
-   !------------------------------------------------------------------------ 
+   NAMELIST                        /SourceType/ Type, Rtype, nDirac, nPulseSource, FileName, nRicker
+
+   !------------------------------------------------------------------------
    !
     logInfo(*) '<--------------------------------------------------------->'          !
     logInfo(*) '<  S O U R C E    T E R M S                               >'          !
@@ -2048,46 +2071,46 @@ CONTAINS
     SOURCE%CauchyKovalewski = .FALSE.
     !
     ! Setting default values
-    Type = 0  
+    Type = 0
     !
     READ(IO%UNIT%FileIn, nml = SourceType)
-    SOURCE%Type = Type  
+    SOURCE%Type = Type
    SELECT CASE(SOURCE%Type)                                                 !
-    
-    CASE(0)  
+
+    CASE(0)
                                                                     ! No Source Term
        logInfo(*) 'No source specified.'                    !
        !
     CASE(1)
        logInfo(*) 'Source for convergence study of varying coefficient PDE specified.'
-       ALLOCATE(SOURCE%CS%U0(3)) 
-       ALLOCATE(SOURCE%CS%k1(3)) 
+       ALLOCATE(SOURCE%CS%U0(3))
+       ALLOCATE(SOURCE%CS%k1(3))
        ALLOCATE(SOURCE%CS%l1(3))
        call readsource110(IO, U0, l1)
        SOURCE%CS%U0(:) = U0(:)   ! perturbation amplitudes for A, B, and C
-       SOURCE%CS%l1(:) = l1(:)   ! wavelengths 
-       SOURCE%CS%k1 = 2*EQN%Pi/SOURCE%CS%l1(:) 
-       !       
+       SOURCE%CS%l1(:) = l1(:)   ! wavelengths
+       SOURCE%CS%k1 = 2*EQN%Pi/SOURCE%CS%l1(:)
+       !
     CASE(10)
        logInfo(*) 'Source for convergence study of varying coefficient PDE specified.'
-       ALLOCATE(SOURCE%CS%k1(3) ) 
+       ALLOCATE(SOURCE%CS%k1(3) )
        ALLOCATE(SOURCE%CS%l1(3))
        call readsource110(IO, U0, l1)
-       SOURCE%CS%l1(:) = l1(:)   ! wavelengths 
-       SOURCE%CS%k1 = 2*EQN%Pi/SOURCE%CS%l1(:) 
+       SOURCE%CS%l1(:) = l1(:)   ! wavelengths
+       SOURCE%CS%k1 = 2*EQN%Pi/SOURCE%CS%l1(:)
        !
     CASE(15)
        logInfo(*) 'Dirac sources in space and time chosen. '
        SOURCE%Dirac%nDirac = nDirac
        logInfo(*) 'Number of Dirac sources: ', SOURCE%Dirac%nDirac
-       
+
        ALLOCATE( SOURCE%Dirac%SpacePosition(3,SOURCE%Dirac%nDirac), &
-                 SOURCE%Dirac%TimePosition(SOURCE%Dirac%nDirac), & 
+                 SOURCE%Dirac%TimePosition(SOURCE%Dirac%nDirac), &
                  SOURCE%Dirac%Intensity(SOURCE%Dirac%nDirac), &
                  SOURCE%Dirac%EqnNr(SOURCE%Dirac%nDirac), &
                  SOURCE%Dirac%Element(SOURCE%Dirac%nDirac) )
-       
-       call readsource15(IO, nDirac, SpacePositionx, SpacePositiony, SpacePositionz, TimePosition, Intensity, EqnNr) 
+
+       call readsource15(IO, nDirac, SpacePositionx, SpacePositiony, SpacePositionz, TimePosition, Intensity, EqnNr)
           ! copy on data structure:
           SOURCE%Dirac%SpacePosition(1,:) = SpacePositionx(:)
           SOURCE%Dirac%SpacePosition(2,:) = SpacePositiony(:)
@@ -2108,16 +2131,16 @@ CONTAINS
          logInfo(*) 'Dirac sources in space and Gaussian wavelet in time chosen. '
          logInfo(*) 'Number of Gaussian sources: ', SOURCE%Ricker%nRicker
        ENDIF
-       
+
        ALLOCATE( SOURCE%Ricker%SpacePosition(3,SOURCE%Ricker%nRicker), &
                  SOURCE%Ricker%Delay(SOURCE%Ricker%nRicker), &
                  SOURCE%Ricker%a1(SOURCE%Ricker%nRicker), &
                  SOURCE%Ricker%f(SOURCE%Ricker%nRicker), &
                  SOURCE%Ricker%EqnNr(SOURCE%Ricker%nRicker), &
                  SOURCE%Ricker%Element(SOURCE%Ricker%nRicker))
-        
+
       call readsource1618(IO, nRicker, SpacePositionx, SpacePositiony, SpacePositionz, Delay, a1, f, EqnNr)
-       
+
          ! copy on data structure:
          SOURCE%Ricker%SpacePosition(1,:) = SpacePositionx(:)
          SOURCE%Ricker%SpacePosition(2,:) = SpacePositiony(:)
@@ -2144,11 +2167,11 @@ CONTAINS
          SOURCE%CauchyKovalewski = .TRUE.
        call readsource17(EQN, IO, U0, l1, l2, T)
           ! copy on data structure:
-          SOURCE%CS%U0(:) = U0(:)         
+          SOURCE%CS%U0(:) = U0(:)
           SOURCE%CS%l1(:) = l1(:)         ! Read wavelengths (periods), compute wave numbers / frequencies
-          SOURCE%CS%l2(:) = l2(:)         
-          !SOURCE%CS%k3(iVar)          
-          SOURCE%CS%T(:)  = T(:)        
+          SOURCE%CS%l2(:) = l2(:)
+          !SOURCE%CS%k3(iVar)
+          SOURCE%CS%T(:)  = T(:)
           SOURCE%CS%k1(:)    = 2.*EQN%Pi/SOURCE%CS%l1(:)
           SOURCE%CS%k2(:)    = 2.*EQN%Pi/SOURCE%CS%l2(:)
           SOURCE%CS%omega(:) = 2.*EQN%Pi/SOURCE%CS%T(:)
@@ -2175,7 +2198,7 @@ CONTAINS
             SOURCE%TimeGP%Width(:) = Width(:)
             SOURCE%TimeGP%A0(:) = A0(:)
             SOURCE%TimeGP%EqnNr(:) = EqnNr(:)
-        
+
         DO i = 1, SOURCE%TimeGP%nPulseSource
             logInfo('("Source ",I4 )') i
             logInfo('("   x0  = ",E12.5,"   y0 = ",E12.5,"  z0 = ",E12.5)') SOURCE%TimeGP%SpacePosition(:,i)
@@ -2187,20 +2210,20 @@ CONTAINS
         ENDDO
 
     CASE(20) !Single Force with individual slip rate history for each subfault
-   
+
        logInfo(*) 'Single Force chosen. '
        SOURCE%FSRMFileName = FileName
        logInfo(*) 'Source term read from ', TRIM(SOURCE%FSRMFileName)
-       CALL OpenFile(                                       &                        
-            UnitNr       = IO%UNIT%other01                , &                        
+       CALL OpenFile(                                       &
+            UnitNr       = IO%UNIT%other01                , &
             Name         = SOURCE%FSRMFileName            , &
             create       = .FALSE.                          )
        logInfo(*) 'Reading single force file ...  '
        !
-       ! LEGEND 
+       ! LEGEND
        !
        ! Number of Sources
-       ! 3       
+       ! 3
        ! Single Force on Variable Nr.
        ! 7
        ! 8
@@ -2214,13 +2237,13 @@ CONTAINS
        ! Samples
        ! 0.                         ! example of 3 delta functions acting on components 7,8,9
        ! 1.3
-       ! 0.       
+       ! 0.
        ! 0.
        ! 1.3
-       ! 0.        
+       ! 0.
        ! 0.
        ! 1.3
-       ! 0.        
+       ! 0.
        ! END LEGEND
        !
        ! Single Force information is read now
@@ -2242,36 +2265,36 @@ CONTAINS
            READ(IO%UNIT%other01,*) dummy                                 ! Read coordinate data
            SOURCE%RP%SpacePosition(1:3,i) = dummy(1:3)
        ENDDO
-    
+
        DEALLOCATE ( dummy )
-    
+
        READ(IO%UNIT%other01,*)                                           ! Read comment
        READ(IO%UNIT%other01,*) SOURCE%RP%t_samp, SOURCE%RP%nsteps        ! Read time sampling of rupture functions
-       
+
        SOURCE%RP%T_max = SOURCE%RP%t_samp * (SOURCE%RP%nsteps-1)         ! Equispaced time sampling for all subfaults assumed
 
        ALLOCATE ( SOURCE%RP%TimeHist(SOURCE%RP%nsteps, SOURCE%Ricker%nRicker)  )
-       
+
        READ(IO%UNIT%other01,*)                                           ! Read comment
        DO i = 1,SOURCE%Ricker%nRicker
            DO j = 1,SOURCE%RP%nsteps
                READ(IO%UNIT%other01,*) SOURCE%RP%TimeHist(j,i)           !
            ENDDO
        ENDDO
-       ! 
+       !
        CLOSE(IO%UNIT%other01)
 
-    CASE(30)        ! Read in Finite Source Rupture Model 
-                    ! for input formats see: Martin Mai (http://www.seismo.ethz.ch/srcmod/Events.html) 
-       
+    CASE(30)        ! Read in Finite Source Rupture Model
+                    ! for input formats see: Martin Mai (http://www.seismo.ethz.ch/srcmod/Events.html)
+
        pi        = ACOS(-1.0)
 
        logInfo(*) 'Finite Source Rupture Model chosen. '
        SOURCE%FSRMFileName = FileName
        SOURCE%RP%Type = RType
        logInfo(*) 'Sourceterm read from ', TRIM(SOURCE%FSRMFileName)
-       CALL OpenFile(                                       &                        
-            UnitNr       = IO%UNIT%other01                , &                        
+       CALL OpenFile(                                       &
+            UnitNr       = IO%UNIT%other01                , &
             Name         = SOURCE%FSRMFileName            , &
             create       = .FALSE.                          )
        logInfo(*) 'Reading rupture model file of Type  ',SOURCE%RP%Type
@@ -2291,26 +2314,26 @@ CONTAINS
                                                                char_dummy, SOURCE%RP%dip,                &
                                                                char_dummy, SOURCE%RP%rake_ave,           &
                                                                char_dummy, SOURCE%RP%Htop,               &
-                                                               char_dummy 
+                                                               char_dummy
        READ(IO%UNIT%other01,'(a15,f8.3,a12,f7.3,a12,f5.1,a20)')char_dummy, SOURCE%RP%HypX,               &
                                                                char_dummy, SOURCE%RP%HypZ,               &
                                                                char_dummy, SOURCE%RP%RiseTime_ave,       &
-                                                               char_dummy           
+                                                               char_dummy
        DO i = 1,3
           READ(IO%UNIT%other01,*)               ! Read unimportant comments
        ENDDO
        READ(IO%UNIT%other01,'(a16,i16,a5,i13,a32)')            char_dummy, SOURCE%RP%nxRP,               &
                                                                char_dummy, SOURCE%RP%nzRP,               &
-                                                               char_dummy   
+                                                               char_dummy
        READ(IO%UNIT%other01,'(a16,f8.3,a13,f7.3,a42)')         char_dummy, SOURCE%RP%dxRP,               &
                                                                char_dummy, SOURCE%RP%dzRP,               &
-                                                               char_dummy          
+                                                               char_dummy
        READ(IO%UNIT%other01,'(a16,i16,a5,i13,a39)')            char_dummy, SOURCE%RP%nTWindow,           &
                                                                char_dummy, SOURCE%RP%nSegments,          &
-                                                               char_dummy           
+                                                               char_dummy
        READ(IO%UNIT%other01,'(a16,f7.3,a14,f7.3,a39)')         char_dummy, SOURCE%RP%TWindowLen,         &
                                                                char_dummy, SOURCE%RP%WindowShift,        &
-                                                               char_dummy           
+                                                               char_dummy
        DO i = 1,9
           READ(IO%UNIT%other01,*)            ! Read unimportant comments
        ENDDO
@@ -2326,10 +2349,10 @@ CONTAINS
 
        CLOSE(IO%UNIT%other01)
 
-       ALLOCATE( SOURCE%RP%SegStrk(SOURCE%RP%nSegments),           & 
-                 SOURCE%RP%SegDip(SOURCE%RP%nSegments),            & 
-                 SOURCE%RP%SegLen(SOURCE%RP%nSegments),            & 
-                 SOURCE%RP%SegWid(SOURCE%RP%nSegments),            & 
+       ALLOCATE( SOURCE%RP%SegStrk(SOURCE%RP%nSegments),           &
+                 SOURCE%RP%SegDip(SOURCE%RP%nSegments),            &
+                 SOURCE%RP%SegLen(SOURCE%RP%nSegments),            &
+                 SOURCE%RP%SegWid(SOURCE%RP%nSegments),            &
                  SOURCE%RP%nSbfs(SOURCE%RP%nSegments),             &
                  SOURCE%RP%Element(SOURCE%RP%nxRP*SOURCE%RP%nzRP), &
                  SOURCE%RP%SpacePosition(3,SOURCE%RP%nxRP*SOURCE%RP%nzRP) )
@@ -2342,20 +2365,20 @@ CONTAINS
        !
        ! Different Rupture Model Formats have to be distinguished
        !
-       SELECT CASE(SOURCE%RP%Type)      
+       SELECT CASE(SOURCE%RP%Type)
 
        !CASE(1) !############################DOES NOT WORK YET #####################
-       
+
        CASE(2)
           !
           ! Total slip and rake available for each subfault and each time window
-          ! Only one Rupture Plane Segment 
+          ! Only one Rupture Plane Segment
           ! (example: s1994NORTHRhart)
           !
-          READ(IO%UNIT%other01,'(a11,i7)')    char_dummy, SOURCE%RP%nSbfs(1)    
+          READ(IO%UNIT%other01,'(a11,i7)')    char_dummy, SOURCE%RP%nSbfs(1)
           DO i = 1,5
                READ(IO%UNIT%other01,*)            ! Read unimportant comments
-          ENDDO    
+          ENDDO
 
           logInfo(*) 'Reading        ',SOURCE%RP%nSbfs(1),' subfaults.'
 
@@ -2366,18 +2389,18 @@ CONTAINS
 
           DO j = 1,SOURCE%RP%nSbfs(1)
                READ(IO%UNIT%other01,*) dummy
-               SOURCE%RP%Slip(j,:) = dummy(6:5+SOURCE%RP%nTWindow)  
-               SOURCE%RP%Rake(j,:) = dummy(5)                           
+               SOURCE%RP%Slip(j,:) = dummy(6:5+SOURCE%RP%nTWindow)
+               SOURCE%RP%Rake(j,:) = dummy(5)
           ENDDO
 
        !CASE(3) !############################ DOES NOT WORK YET #####################
           !
           ! Strike-slip and Dip-slip available for each subfault
-          ! Rupture Plane Segments with Subfault coordinates and slip values 
+          ! Rupture Plane Segments with Subfault coordinates and slip values
           ! of all time windows are read now
           ! (example: s1995KOBEJAseki)
           !
-           
+
           !ALLOCATE ( dummy(4+2*SOURCE%RP%nTWindow) )
           !ALLOCATE ( SOURCE%RP%Slip(SOURCE%RP%nxRP*SOURCE%RP%nzRP,SOURCE%RP%nTWindow) )
           !ALLOCATE ( SOURCE%RP%Sliprate(SOURCE%RP%nxRP*SOURCE%RP%nzRP,SOURCE%RP%nTWindow) )
@@ -2389,22 +2412,22 @@ CONTAINS
           !    READ(IO%UNIT%other01,*)           ! Read unimportant comment
           !    READ(IO%UNIT%other01,'(a26,f7.0,a15,f7.1,a3)')      char_dummy, SOURCE%RP%SegStrk(i),     &
           !                                                        char_dummy, SOURCE%RP%SegDip(i),      &
-          !                                                        char_dummy  
+          !                                                        char_dummy
           !    READ(IO%UNIT%other01,'(a26,f8.3,a14,f8.3,a3)')      char_dummy, SOURCE%RP%SegLen(i),      &
           !                                                        char_dummy, SOURCE%RP%SegWid(i),      &
-          !                                                        char_dummy        
-          !    READ(IO%UNIT%other01,'(a11,i7)')                    char_dummy, SOURCE%RP%nSbfs(i)        
+          !                                                        char_dummy
+          !    READ(IO%UNIT%other01,'(a11,i7)')                    char_dummy, SOURCE%RP%nSbfs(i)
           !    READ(IO%UNIT%other01,*)           ! Read unimportant comment
           !    READ(IO%UNIT%other01,*)           ! Read unimportant comment
-          !    READ(IO%UNIT%other01,*)           ! Read unimportant comment               
-          !    
+          !    READ(IO%UNIT%other01,*)           ! Read unimportant comment
+          !
           !    DO j = 1,SOURCE%RP%nSbfs(i)
           !         k = k+1
-          !         READ(IO%UNIT%other01,*) SOURCE%RP%Slip(k,:)                             
+          !         READ(IO%UNIT%other01,*) SOURCE%RP%Slip(k,:)
           !    ENDDO
-          ! 
+          !
           !ENDDO
-            
+
        CASE(3,4)
           !
           ! Rise time and onset times available for each subfault
@@ -2413,10 +2436,10 @@ CONTAINS
           ! Only works for one time window
           ! (example: s2005BLINDTkaes)
           !
-          READ(IO%UNIT%other01,'(a11,i7)')    char_dummy, SOURCE%RP%nSbfs(1)    
+          READ(IO%UNIT%other01,'(a11,i7)')    char_dummy, SOURCE%RP%nSbfs(1)
           DO i = 1,5
                READ(IO%UNIT%other01,*)          ! Read unimportant comments
-          ENDDO    
+          ENDDO
 
           logInfo(*) 'Reading        ',SOURCE%RP%nSbfs(1),' subfaults.'
 
@@ -2432,31 +2455,31 @@ CONTAINS
                READ(IO%UNIT%other01,*) dummy
                SOURCE%RP%Tonset(j)  = dummy(3)
                SOURCE%RP%TRise(j)   = dummy(4)
-               SOURCE%RP%SSlip(j,1) = dummy(5)  
-               SOURCE%RP%DSlip(j,1) = dummy(6)  
+               SOURCE%RP%SSlip(j,1) = dummy(5)
+               SOURCE%RP%DSlip(j,1) = dummy(6)
                SOURCE%RP%Rake(j,1)  = ATAN2(-dummy(6),dummy(5))
                IF(SOURCE%RP%Rake(j,1).LT.0.)THEN
                     SOURCE%RP%Rake(j,1) = (2*pi+SOURCE%RP%Rake(j,1))/pi*180.
                ELSE
                     SOURCE%RP%Rake(j,1) = SOURCE%RP%Rake(j,1)/pi*180.
-               ENDIF                                          
+               ENDIF
           ENDDO
 
        CASE DEFAULT
           logError(*)  'The format type of the Finite Source Rupture Model is unknown! '
           STOP                                                                                     ! STOP
- 
-       END SELECT                                                                                                
+
+       END SELECT
 
     CASE(31,32,40,41)
-   
-       ALLOCATE ( SOURCE%RP%nSbfs(1) )  
+
+       ALLOCATE ( SOURCE%RP%nSbfs(1) )
 
        logInfo(*) 'Finite Source Rupture Model (FREE-FORMAT) chosen. '
        SOURCE%FSRMFileName = FileName
        logInfo(*) 'Source term read from ', TRIM(SOURCE%FSRMFileName)
-       CALL OpenFile(                                       &                        
-            UnitNr       = IO%UNIT%other01                , &                        
+       CALL OpenFile(                                       &
+            UnitNr       = IO%UNIT%other01                , &
             Name         = SOURCE%FSRMFileName            , &
             create       = .FALSE.                          )
        logInfo(*) 'Reading rupture model file ...  '
@@ -2466,16 +2489,16 @@ CONTAINS
        READ(IO%UNIT%other01,*)                                           ! Read comment
        SOURCE%RP%MomentTensor(:,:) = 0.                                  !
        READ(IO%UNIT%other01,*) SOURCE%RP%MomentTensor(1,:)               ! Read Moment Tensor
-       READ(IO%UNIT%other01,*) SOURCE%RP%MomentTensor(2,:)               ! Read Moment Tensor               
+       READ(IO%UNIT%other01,*) SOURCE%RP%MomentTensor(2,:)               ! Read Moment Tensor
        READ(IO%UNIT%other01,*) SOURCE%RP%MomentTensor(3,:)               ! Read Moment Tensor
        READ(IO%UNIT%other01,*)                                           ! Read comment
        READ(IO%UNIT%other01,*) SOURCE%RP%nSbfs(1)                        ! Read number of subfaults
        READ(IO%UNIT%other01,*)                                           ! Read comment
-       ALLOCATE ( dummy(8) )                                             
+       ALLOCATE ( dummy(8) )
        ALLOCATE ( SOURCE%RP%SpacePosition(3,SOURCE%RP%nSbfs(1)), &
                   SOURCE%RP%Strks(1,SOURCE%RP%nSbfs(1)),         &
                   SOURCE%RP%Dips(1,SOURCE%RP%nSbfs(1)),          &
-                  SOURCE%RP%Rake(1,SOURCE%RP%nSbfs(1)),          & 
+                  SOURCE%RP%Rake(1,SOURCE%RP%nSbfs(1)),          &
                   SOURCE%RP%Tonset(SOURCE%RP%nSbfs(1)),          &
                   SOURCE%RP%Area(SOURCE%RP%nSbfs(1)),          &
                   SOURCE%RP%Element(SOURCE%RP%nSbfs(1))  )
@@ -2483,7 +2506,7 @@ CONTAINS
        DO i = 1,SOURCE%RP%nSbfs(1)
            READ(IO%UNIT%other01,*) dummy                                 ! Read subfault data
            SOURCE%RP%SpacePosition(1:3,i) = dummy(1:3)
-           SOURCE%RP%Strks(1,i)           = dummy(4)  
+           SOURCE%RP%Strks(1,i)           = dummy(4)
            SOURCE%RP%Dips(1,i)            = dummy(5)
            SOURCE%RP%Rake(1,i)            = dummy(6)
            SOURCE%RP%Area(i)              = dummy(7)
@@ -2491,11 +2514,11 @@ CONTAINS
        ENDDO
 
        CLOSE(IO%UNIT%other01)
-       
+
        DEALLOCATE ( dummy )
        !
        !
-       
+
     case(42) ! Netcdf rupture format
       logInfo(*) 'Netcdf rupture format chosen.'
       SOURCE%NRFFileName = FileName
@@ -2507,16 +2530,16 @@ CONTAINS
       logError(*) 'NRF sources require netcdf support.'
       stop
 #endif
-      
+
     CASE(50) !Finite sources with individual slip rate history for each subfault
-   
-       ALLOCATE ( SOURCE%RP%nSbfs(1) )  
+
+       ALLOCATE ( SOURCE%RP%nSbfs(1) )
 
        logInfo(*) 'Finite Source Rupture Model (FREE-FORMAT) chosen. '
        SOURCE%FSRMFileName = FileName
        logInfo(*) 'Source term read from ', TRIM(SOURCE%FSRMFileName)
-       CALL OpenFile(                                       &                        
-            UnitNr       = IO%UNIT%other01                , &                        
+       CALL OpenFile(                                       &
+            UnitNr       = IO%UNIT%other01                , &
             Name         = SOURCE%FSRMFileName            , &
             create       = .FALSE.                          )
        logInfo(*) 'Reading rupture model file ...  '
@@ -2526,16 +2549,16 @@ CONTAINS
        READ(IO%UNIT%other01,*)                                           ! Read comment
        SOURCE%RP%MomentTensor(:,:) = 0.                                  !
        READ(IO%UNIT%other01,*) SOURCE%RP%MomentTensor(1,:)               ! Read Moment Tensor
-       READ(IO%UNIT%other01,*) SOURCE%RP%MomentTensor(2,:)               ! Read Moment Tensor               
+       READ(IO%UNIT%other01,*) SOURCE%RP%MomentTensor(2,:)               ! Read Moment Tensor
        READ(IO%UNIT%other01,*) SOURCE%RP%MomentTensor(3,:)               ! Read Moment Tensor
        READ(IO%UNIT%other01,*)                                           ! Read comment
        READ(IO%UNIT%other01,*) SOURCE%RP%nSbfs(1)                        ! Read number of subfaults
        READ(IO%UNIT%other01,*)                                           ! Read comment
-       ALLOCATE ( dummy(8) )                                             
+       ALLOCATE ( dummy(8) )
        ALLOCATE ( SOURCE%RP%SpacePosition(3,SOURCE%RP%nSbfs(1)), &
                   SOURCE%RP%Strks(1,SOURCE%RP%nSbfs(1)),         &
                   SOURCE%RP%Dips(1,SOURCE%RP%nSbfs(1)),          &
-                  SOURCE%RP%Rake(1,SOURCE%RP%nSbfs(1)),          & 
+                  SOURCE%RP%Rake(1,SOURCE%RP%nSbfs(1)),          &
                   SOURCE%RP%Tonset(SOURCE%RP%nSbfs(1)),          &
                   SOURCE%RP%Area(SOURCE%RP%nSbfs(1)),            &
                   SOURCE%RP%Element(SOURCE%RP%nSbfs(1))  )
@@ -2543,22 +2566,22 @@ CONTAINS
        DO i = 1,SOURCE%RP%nSbfs(1)
            READ(IO%UNIT%other01,*) dummy                                 ! Read subfault data
            SOURCE%RP%SpacePosition(1:3,i) = dummy(1:3)
-           SOURCE%RP%Strks(1,i)           = dummy(4)  
+           SOURCE%RP%Strks(1,i)           = dummy(4)
            SOURCE%RP%Dips(1,i)            = dummy(5)
            SOURCE%RP%Rake(1,i)            = dummy(6)
            SOURCE%RP%Area(i)              = dummy(7)
            SOURCE%RP%Tonset(i)            = dummy(8)
        ENDDO
-    
+
        DEALLOCATE ( dummy )
-    
+
        READ(IO%UNIT%other01,*)                                           ! Read comment
        READ(IO%UNIT%other01,*) SOURCE%RP%t_samp, SOURCE%RP%nsteps        ! Read time sampling of rupture functions
-       
+
        SOURCE%RP%T_max = SOURCE%RP%t_samp * (SOURCE%RP%nsteps-1)         ! Equispaced time sampling for all subfaults assumed
 
        ALLOCATE ( SOURCE%RP%TimeHist(SOURCE%RP%nsteps,SOURCE%RP%nSbfs(1))  )
-       
+
        READ(IO%UNIT%other01,*)                                           ! Read comment
        DO i = 1,SOURCE%RP%nSbfs(1)
            DO j = 1,SOURCE%RP%nsteps
@@ -2572,15 +2595,15 @@ CONTAINS
        logError(*)  'The sourctype specified (', SOURCE%Type, ') is unknown! '                  !
        STOP                                                                                        ! STOP
     END SELECT                                                                                     !
-                                                                                                      
+
                                                                                                    !
     IF(EQN%Adjoint.EQ.1) THEN  !verify compliance of sources to adjoint simulations and sort them by location
-      ! 
+      !
       SOURCE%Ricker%nRicker = nRicker
       SOURCE%TimeGP%nPulseSource = nPulseSource
       IF(SOURCE%Ricker%nRicker.EQ.0.AND.SOURCE%TimeGP%nPulseSource.EQ.0) THEN
         logError(*)  'Adjoint simulations require point sources of type 16, 18 or 19! '                  !
-        STOP           
+        STOP
       ENDIF
       !
       count=0
@@ -2595,7 +2618,7 @@ CONTAINS
         loc_src(:,1:nsrc) = SOURCE%TimeGP%SpacePosition(:,1:nsrc)
       ENDIF
       !
-      !Group sources at the same location 
+      !Group sources at the same location
       IF(nsrc.GE.1) THEN
         ALLOCATE(Dist(nsrc,nsrc),Sorted(nsrc),Group(nsrc),Members(nsrc,nsrc))
         DO i=1,nsrc-1
@@ -2624,15 +2647,15 @@ CONTAINS
             ENDDO
           ENDIF
         ENDDO
-        IF(Sorted(nsrc).EQ.0) THEN  
+        IF(Sorted(nsrc).EQ.0) THEN
           Sorted(i)= 1
-          count=count+1           
+          count=count+1
           Group(nsrc)=1
           Members(count,1)=nsrc
         ENDIF
         !
-        SOURCE%Adjsource%nFwdSourceLoc   = count    
-        SOURCE%Adjsource%MaxFwdSrcPerLoc = MAXVAL(Group(:))    
+        SOURCE%Adjsource%nFwdSourceLoc   = count
+        SOURCE%Adjsource%MaxFwdSrcPerLoc = MAXVAL(Group(:))
         ALLOCATE(SOURCE%Adjsource%FwdSourceLoc(count,SOURCE%Adjsource%MaxFwdSrcPerLoc))
         !
         SOURCE%Adjsource%FwdSourceLoc = 0
@@ -2644,26 +2667,26 @@ CONTAINS
             !ENDIF
           ENDDO
         ENDDO
-       
+
       ENDIF
     ENDIF
 
   END SUBROUTINE readpar_sourceterm
 
  SUBROUTINE readsource110(IO, U0, l1)
-    IMPLICIT NONE 
+    IMPLICIT NONE
     TYPE (tInputOutput)                    :: IO
     INTENT(IN)                             :: IO
     REAL                                   :: U0(3), l1(3)
     NAMELIST                               /Source110/ U0, l1
     !-----------------------------------------------------------------------
-        
+
     READ(IO%UNIT%FileIn, nml = Source110) ! Write in namelistfile U0(1) = ... and in the next line U0(2) = ...
-                                                  ! and the same for l1 
+                                                  ! and the same for l1
   END SUBROUTINE
 
  SUBROUTINE readsource15(IO, nDirac, SpacePositionx, SpacePositiony, SpacePositionz, TimePosition, Intensity, EqnNr)
-    IMPLICIT NONE 
+    IMPLICIT NONE
     TYPE (tInputOutput)                    :: IO
     INTENT(IN)                             :: IO
     INTEGER                                :: nDirac
@@ -2672,10 +2695,10 @@ CONTAINS
     NAMELIST                               /Source15/SpacePositionx, SpacePositiony, SpacePositionz, &
                                                      TimePosition, Intensity, EqnNr
     !-----------------------------------------------------------------------
-ALLOCATE( SpacePositionx(nDirac), & 
-          SpacePositiony(nDirac), & 
-          SpacePositionz(nDirac), & 
-          TimePosition(nDirac),    &  
+ALLOCATE( SpacePositionx(nDirac), &
+          SpacePositiony(nDirac), &
+          SpacePositionz(nDirac), &
+          TimePosition(nDirac),    &
           Intensity(nDirac),       &
           EqnNr(nDirac))
 
@@ -2684,7 +2707,7 @@ ALLOCATE( SpacePositionx(nDirac), &
   END SUBROUTINE
 
  SUBROUTINE readsource1618(IO, nRicker, SpacePositionx, SpacePositiony, SpacePositionz, Delay, a1, f, EqnNr)
-    IMPLICIT NONE 
+    IMPLICIT NONE
     TYPE (tInputOutput)                    :: IO
     INTENT(IN)                             :: IO
     INTEGER                                :: nRicker
@@ -2693,43 +2716,43 @@ ALLOCATE( SpacePositionx(nDirac), &
     NAMELIST                               /Source1618/ SpacePositionx, SpacePositiony, SpacePositionz, Delay, &
                                                         a1, f, EqnNr
     !-----------------------------------------------------------------------
-     ALLOCATE( SpacePositionx(nRicker), & 
-               SpacePositiony(nRicker), & 
-               SpacePositionz(nRicker), & 
-               Delay(nRicker),           &  
-               a1(nRicker),              &  
-               f(nRicker),               &  
-               EqnNr(nRicker))   
- 
+     ALLOCATE( SpacePositionx(nRicker), &
+               SpacePositiony(nRicker), &
+               SpacePositionz(nRicker), &
+               Delay(nRicker),           &
+               a1(nRicker),              &
+               f(nRicker),               &
+               EqnNr(nRicker))
+
     READ(IO%UNIT%FileIn, nml = Source1618) ! Write in namelistfile SpacePositionx(1) = ... and in the next line SpacePositionx(2) = ...
-                                                  ! and the same for SpacePositiony, ... 
+                                                  ! and the same for SpacePositiony, ...
   END SUBROUTINE
 
  SUBROUTINE readsource17(EQN, IO, U0, l1, l2, T)
-    IMPLICIT NONE 
-    TYPE (tEquations)                      :: EQN  
+    IMPLICIT NONE
+    TYPE (tEquations)                      :: EQN
     TYPE (tInputOutput)                    :: IO
-    INTENT(INOUT)                          :: EQN 
+    INTENT(INOUT)                          :: EQN
     INTENT(IN)                             :: IO
     REAL, DIMENSION(:), ALLOCATABLE        :: U0, l1, l2, T
-    NAMELIST                               /Source17/ U0, l1, l2, T 
-    !-----------------------------------------------------------------------  
+    NAMELIST                               /Source17/ U0, l1, l2, T
+    !-----------------------------------------------------------------------
     ALLOCATE(U0(EQN%nVar), &
              l1(EQN%nVar), &
              l2(EQN%nVar), &
              T(EQN%nVar))
-      
+
     READ(IO%UNIT%FileIn, nml = Source17) ! Write in namelistfile U0(1) = ... and in the next line U0(2) = ...
                                                   ! and the same for l1, l2, ...
   END SUBROUTINE
 
  SUBROUTINE readsource19(IO, nPulseSource, EqnNr, SpacePositionx, SpacePositiony, SpacePositionz, t0, Width, A0)
-    IMPLICIT NONE 
+    IMPLICIT NONE
     TYPE (tInputOutput)                    :: IO
     INTENT(IN)                          :: IO
     INTEGER                                :: nPulseSource
     REAL, DIMENSION(:), ALLOCATABLE        :: EqnNr, SpacePositionx, SpacePositiony, SpacePositionz, t0, Width, A0
-    NAMELIST                               /Source19/ SpacePositionx, SpacePositiony, SpacePositionz, t0, Width, A0 
+    NAMELIST                               /Source19/ SpacePositionx, SpacePositiony, SpacePositionz, t0, Width, A0
     !----------------------------------------------------------------------
     ALLOCATE(EqnNr(nPulseSource), &
              SpacePositionx(nPulseSource), &
@@ -2737,21 +2760,21 @@ ALLOCATE( SpacePositionx(nDirac), &
              SpacePositionz(nPulseSource), &
              t0(nPulseSource), &
              Width(nPulseSource), &
-             A0(nPulseSource))  
+             A0(nPulseSource))
 
     READ(IO%UNIT%FileIn, nml = Source19) ! Write in namelistfile EqnNr(1) = ... and in the next line EqnNr(2) = ...
                                                   ! and the same for Spacepositionx, ...
   END SUBROUTINE
-  ! 
+  !
   !============================================================================
-  ! S P O N G E   L A Y E R  
+  ! S P O N G E   L A Y E R
   !============================================================================
 
   SUBROUTINE readpar_spongelayer(DISC,EQN,SOURCE,IO)
     !--------------------------------------------------------------------------
-    
+
     !--------------------------------------------------------------------------
-    IMPLICIT NONE 
+    IMPLICIT NONE
     !--------------------------------------------------------------------------
     TYPE (tEquations)          :: EQN
     TYPE (tSource)             :: Source
@@ -2770,24 +2793,24 @@ ALLOCATE( SpacePositionx(nDirac), &
     NAMELIST                        /SpongeLayer/ enabled, DGSpongeTol, nDGSponge, &
                                                   intDummy, PMLDelta, Refl_Coeff, &
                                                   PMLPrefactor, PMLFrequency
-    !------------------------------------------------------------------------    
+    !------------------------------------------------------------------------
     !
     logInfo(*) '<--------------------------------------------------------->'
     logInfo(*) '<  S P O N G E    L A Y E R                               >'
     logInfo(*) '<--------------------------------------------------------->'
-    !  
+    !
     !Setting default values
     enabled = 0
     !
-    READ (IO%UNIT%FileIn, nml = SpongeLayer) 
-    SOURCE%Sponge%enabled = enabled                                               
-    
-    SELECT CASE(SOURCE%Sponge%enabled)                                       
+    READ (IO%UNIT%FileIn, nml = SpongeLayer)
+    SOURCE%Sponge%enabled = enabled
+
+    SELECT CASE(SOURCE%Sponge%enabled)
     !
-    CASE(0)                                                                  
-       logInfo(*)  'No sponge layer used '                  
+    CASE(0)
+       logInfo(*)  'No sponge layer used '
        !
-    CASE(1)                                                                  
+    CASE(1)
        logInfo(*)  'A sponge layer for general domains is used '
        DISC%Galerkin%DGSpongeTol = DGSpongeTol
        DISC%Galerkin%nDGSponge = nDGSponge
@@ -2817,40 +2840,40 @@ ALLOCATE( SpacePositionx(nDirac), &
         EQN%nVar = 13
         EQN%nVarTotal = 13
         !
-    CASE default                                                             
-       !WRITE(IO%UNIT%errOut,*)  '|   The option is not valid! 0 '        , & 
-       !     'disables, 1 enables the sponge layer, 2 takes PML and 3 CPML '                          
-       !STOP                                                                  
-       !  
-    END SELECT                                                               
+    CASE default
+       !WRITE(IO%UNIT%errOut,*)  '|   The option is not valid! 0 '        , &
+       !     'disables, 1 enables the sponge layer, 2 takes PML and 3 CPML '
+       !STOP
+       !
+    END SELECT
     !
   END SUBROUTINE readpar_spongelayer
 
   SUBROUTINE readSponges(IO, nDGSponge, SpongeDelta, SpongePower, SigmaMax)
-    IMPLICIT NONE 
+    IMPLICIT NONE
     TYPE (tInputOutput)                    :: IO
     INTENT(IN)                             :: IO
-    INTEGER                                :: nDGSponge 
+    INTEGER                                :: nDGSponge
     REAL, DIMENSION(:), ALLOCATABLE        :: SpongeDelta, SpongePower, SigmaMax
-    NAMELIST                               /Sponges/ SpongeDelta, SpongePower, SigmaMax 
-    !---------------------------------------------------------------------- 
+    NAMELIST                               /Sponges/ SpongeDelta, SpongePower, SigmaMax
+    !----------------------------------------------------------------------
        ALLOCATE(SpongeDelta(nDGSponge), &
                 SpongePower(nDGSponge), &
                 SigmaMax(nDGSponge))
 
     READ(IO%UNIT%FileIn, nml = Sponges) ! Write in namelistfile SpongeDelta(1) = ... and in the next line SpongeDelta(2) = ...
                                                   ! and the same for SpongePower, ...
-   END SUBROUTINE  
+   END SUBROUTINE
   !
   !============================================================================
-  ! M E S H                  
+  ! M E S H
   !============================================================================
-  
+
   SUBROUTINE readpar_mesh(EQN,IC,MESH,DISC,BND,SOURCE,IO)
     !--------------------------------------------------------------------------
-    
+
     !--------------------------------------------------------------------------
-    IMPLICIT NONE 
+    IMPLICIT NONE
     !--------------------------------------------------------------------------
     TYPE (tEquations)          :: EQN
     TYPE (tInitialCondition)   :: IC
@@ -2870,39 +2893,39 @@ ALLOCATE( SpacePositionx(nDirac), &
     !------------------------------------------------------------------------
     INTEGER                          :: periodic
     REAL                             :: ScalingMatrixX(3), ScalingMatrixY(3), ScalingMatrixZ(3), &
-                                        displacement(3) 
+                                        displacement(3)
     CHARACTER(LEN=600)               :: MeshFile, meshgenerator
     NAMELIST                         /MeshNml/ MeshFile, meshgenerator, periodic, &
                                             periodic_direction, displacement, ScalingMatrixX, &
                                             ScalingMatrixY, ScalingMatrixZ
-    !------------------------------------------------------------------------                              
+    !------------------------------------------------------------------------
     !
     logInfo(*) '<--------------------------------------------------------->'
     logInfo(*) '<  M E S H                                                >'
-    logInfo(*) '<--------------------------------------------------------->'                                             
+    logInfo(*) '<--------------------------------------------------------->'
     ! Put a redundant dimension information also into the MESH data structure
     !
     MESH%Dimension = EQN%Dimension
     !
     MESH%MESHversionID = 0.0
-    
+
     ! Setting default values
     MeshFile = 'LOH1'
     meshgenerator = 'Gambit3D'
-    displacement(:) = 0.  
+    displacement(:) = 0.
     ScalingMatrixX(:) = 0.0
     ScalingMatrixX(1) = 1.0
     ScalingMatrixY(:) = 0.0
     ScalingMatrixY(2) = 1.0
     ScalingMatrixZ(:) = 0.0
-    ScalingMatrixZ(3) = 1.0    
+    ScalingMatrixZ(3) = 1.0
     periodic = 0
     periodic_direction(:) = 0
     !
     READ(IO%UNIT%FileIn, nml = MeshNml)
 
     IO%MeshFile = MeshFile                               ! mesh input (mesh file name, no_file)
- 
+
     Name = TRIM(IO%MeshFile) // '.met'
     IO%MetisFile = Name(1:600)
 
@@ -2917,7 +2940,7 @@ ALLOCATE( SpacePositionx(nDirac), &
             IO%meshgenerator = TRIM('Gambit3D-Tetra')
        CASE('Gambit3D-Mixed')
             IO%meshgenerator = TRIM('Gambit3D-Mixed')
-       END SELECT 
+       END SELECT
 
        SELECT CASE(IO%meshgenerator)
        CASE('Gambit3D-Tetra','Gambit3D-Mixed','Gambit3D-fast','Netcdf')
@@ -2946,7 +2969,7 @@ ALLOCATE( SpacePositionx(nDirac), &
              BND%DirPeriodic(:) = .FALSE.
              logInfo(*) 'No periodic boundary conditions specified.    '
           ELSE
-             WHERE(periodic_direction(:).EQ.1) 
+             WHERE(periodic_direction(:).EQ.1)
                 BND%DirPeriodic(:) = .TRUE.
              ELSEWHERE
                 BND%DirPeriodic(:) = .FALSE.
@@ -2979,7 +3002,7 @@ ALLOCATE( SpacePositionx(nDirac), &
              BND%DirPeriodic(:) = .FALSE.
              logInfo(*) 'No periodic boundary conditions specified.    '
           ELSE
-             WHERE(periodic_direction(:).EQ.1) 
+             WHERE(periodic_direction(:).EQ.1)
                 BND%DirPeriodic(:) = .TRUE.
              ELSEWHERE
                 BND%DirPeriodic(:) = .FALSE.
@@ -3006,15 +3029,15 @@ ALLOCATE( SpacePositionx(nDirac), &
 
       IF(IO%meshgenerator.EQ.'Gambit3D-Tetra' .or. IO%meshgenerator.eq.'Gambit3D-fast' .or. IO%meshgenerator.eq.'Netcdf')THEN
           MESH%GlobalElemType = 4
-          MESH%GlobalSideType = 3  
+          MESH%GlobalSideType = 3
           MESH%GlobalVrtxType = 4
-          MESH%nVertexMax = 4 
+          MESH%nVertexMax = 4
           MESH%nSideMax = 4
        ELSEIF(IO%meshgenerator.EQ.'ICEMCFD3D-Tetra')THEN
           MESH%GlobalElemType = 4
-          MESH%GlobalSideType = 3  
+          MESH%GlobalSideType = 3
           MESH%GlobalVrtxType = 4
-          MESH%nVertexMax = 4 
+          MESH%nVertexMax = 4
           MESH%nSideMax = 4
        ELSEIF(IO%meshgenerator.EQ.'Gambit3D-Mixed')THEN
           MESH%GlobalElemType = 7
@@ -3022,7 +3045,7 @@ ALLOCATE( SpacePositionx(nDirac), &
           MESH%nSideMax = 6
           MESH%GlobalVrtxType = 8 ! should be removed later
           MESH%GlobalSideType = 4 ! should be removed later
-       ELSE  
+       ELSE
           logError(*) 'Wrong definition of meshgenerator.'
           STOP
        ENDIF
@@ -3037,8 +3060,8 @@ ALLOCATE( SpacePositionx(nDirac), &
        CASE DEFAULT
           logError(*) 'MESH%GlobalElemType must be {4}, {6} or {7} '
           STOP
-       END SELECT        
-          !logInfo(*) 'Mesh consits of TETRAHEDRAL elements.' ! Is obvious as only this is possible 
+       END SELECT
+          !logInfo(*) 'Mesh consits of TETRAHEDRAL elements.' ! Is obvious as only this is possible
           !logInfo(*) 'Mesh type is', MESH%GlobalElemType
     !
     IF(MESH%MESHversionID.eq.0.0)THEN
@@ -3046,17 +3069,17 @@ ALLOCATE( SpacePositionx(nDirac), &
          MESH%Displacement(:) = displacement(:)
          logInfo(*) 'Displacement of original mesh'
          logInfo(*) '   ', MESH%Displacement(:)
-         ! 
-         MESH%ScalingMatrix(1,:) = ScalingMatrixX(:)       
+         !
+         MESH%ScalingMatrix(1,:) = ScalingMatrixX(:)
          MESH%ScalingMatrix(2,:) = ScalingMatrixY(:)
-         MESH%ScalingMatrix(3,:) = ScalingMatrixZ(:)      
-       
+         MESH%ScalingMatrix(3,:) = ScalingMatrixZ(:)
+
          !
          logInfo(*) 'Scaling and Rotation of original mesh'
          logInfo(*) ScalingMatrixX
          logInfo(*) ScalingMatrixY
          logInfo(*) ScalingMatrixZ
-    ENDIF       
+    ENDIF
     !
   END SUBROUTINE readpar_mesh
 
@@ -3066,7 +3089,7 @@ ALLOCATE( SpacePositionx(nDirac), &
 
   SUBROUTINE readpar_discretisation(EQN,MESH,DISC,SOURCE,IO)
     !------------------------------------------------------------------------
-    IMPLICIT NONE 
+    IMPLICIT NONE
     !------------------------------------------------------------------------
     TYPE (tEquations)          :: EQN
     TYPE (tUnstructMesh)       :: MESH
@@ -3092,14 +3115,14 @@ ALLOCATE( SpacePositionx(nDirac), &
                                                       nPoly, nPolyRec, &
                                                       LimiterSecurityFactor, Order, Material, &
                                                       nPolyMap, CFL, FixTimeStep
-    !------------------------------------------------------------------------  
-    !                                                                   
+    !------------------------------------------------------------------------
+    !
     logInfo(*) '<--------------------------------------------------------->'
     logInfo(*) '<  D I S C R E T I S A T I O N                            >'
     logInfo(*) '<-------------------------------------------------------- >'
     !                                                                 !                                                                 !
     DISC%DiscretizationMethod = 2                                     !
-    logInfo(*) 'Discontinuous Galerkin technique is used. ' 
+    logInfo(*) 'Discontinuous Galerkin technique is used. '
     DISC%Galerkin%ZoneOrderFlag = 0 ! aheineck, this is used but never set, but we need to init it
 
     ! Setting default values
@@ -3145,7 +3168,7 @@ ALLOCATE( SpacePositionx(nDirac), &
      logInfo(*) 'Using the space-time DG approach. '
     END SELECT
     !
-    DISC%Galerkin%FluxMethod = FluxMethod 
+    DISC%Galerkin%FluxMethod = FluxMethod
     !
     SELECT CASE(DISC%Galerkin%FluxMethod)
      CASE(0)
@@ -3184,7 +3207,7 @@ ALLOCATE( SpacePositionx(nDirac), &
            DISC%SpaceOrder = CONVERGENCE_ORDER
 #endif
            DISC%Galerkin%nMinPoly = DISC%SpaceOrder - 1
-         
+
 #if GENERATEDKERNELS
            if (DISC%SpaceOrder .ne. CONVERGENCE_ORDER) then
                 logWarning0(*) 'Ignoring space order from parameter file, using', CONVERGENCE_ORDER
@@ -3193,7 +3216,7 @@ ALLOCATE( SpacePositionx(nDirac), &
 #endif
            DISC%Galerkin%nPoly    = DISC%SpaceOrder - 1
 
-             ! The choice for p-adaptivity is not possible anymore   
+             ! The choice for p-adaptivity is not possible anymore
              DISC%Galerkin%pAdaptivity = 0
              logInfo(*) 'No p-Adaptivity used. '
              logInfo(*) 'Basis functions degree:',DISC%Galerkin%nPoly
@@ -3211,9 +3234,9 @@ ALLOCATE( SpacePositionx(nDirac), &
              logError(*) 'nPolyMat larger than nPoly. '
              STOP
            ENDIF
-           
+
            IF(MESH%GlobalElemType.EQ.6) THEN
-                  READ(IO%UNIT%FileIn,*) DISC%Galerkin%nPolyMatOrig 
+                  READ(IO%UNIT%FileIn,*) DISC%Galerkin%nPolyMatOrig
                   READ(IO%UNIT%FileIn,*) DISC%Galerkin%nPolyMap
                   DISC%Galerkin%nPolyMat  = DISC%Galerkin%nPolyMatOrig + DISC%Galerkin%nPolyMap
                   DISC%Galerkin%nDegFrMat = (DISC%Galerkin%nPolyMat+1)*(DISC%Galerkin%nPolyMat+2)*(DISC%Galerkin%nPolyMat+3)/6
@@ -3222,7 +3245,7 @@ ALLOCATE( SpacePositionx(nDirac), &
                          STOP
                     ENDIF
            ENDIF
-                                              
+
     END SELECT
     !
     DISC%CFL = CFL                               ! minimum Courant number
@@ -3230,17 +3253,17 @@ ALLOCATE( SpacePositionx(nDirac), &
     !
         DISC%FixTimeStep = FixTimeStep
         logInfo(*) 'Specified dt_fix            : ', DISC%FixTimeStep
-        logInfo(*) 'Actual timestep is min of dt_CFL and dt_fix. '                                                     
-    !                                                                         
-  END SUBROUTINE readpar_discretisation                         
-                                                                                                   
+        logInfo(*) 'Actual timestep is min of dt_CFL and dt_fix. '
+    !
+  END SUBROUTINE readpar_discretisation
+
   !===========================================================================
-  ! O U T P U T               
+  ! O U T P U T
   !============================================================================
-  
+
     SUBROUTINE readpar_output(EQN,DISC,IO,CalledFromStructCode)
       !------------------------------------------------------------------------
-      IMPLICIT NONE 
+      IMPLICIT NONE
       !------------------------------------------------------------------------
       TYPE (tEquations)             :: EQN
       TYPE (tDiscretization)        :: DISC
@@ -3258,8 +3281,8 @@ ALLOCATE( SpacePositionx(nDirac), &
       !------------------------------------------------------------------------
       INTEGER                          :: Rotation, Format, printIntervalCriterion, &
                                           pickDtType, nRecordPoint, PGMFlag, FaultOutputFlag, &
-                                          iOutputMaskMaterial(1:3), nRecordPoints, Refinement, energy_output_on, IntegrationMask(1:9)
-      REAL                             :: TimeInterval, pickdt, pickdt_energy, Interval, checkPointInterval, OutputRegionBounds(1:6)
+                                          iOutputMaskMaterial(1:3), nRecordPoints, Refinement, energy_output_on, IntegrationMask(1:9), SurfaceOutput, SurfaceOutputRefinement
+      REAL                             :: TimeInterval, pickdt, pickdt_energy, Interval, checkPointInterval, OutputRegionBounds(1:6), SurfaceOutputInterval
       CHARACTER(LEN=600)               :: OutputFile, RFileName, PGMFile, checkPointFile
       !> The checkpoint back-end is specified via a string.
       !!
@@ -3276,13 +3299,14 @@ ALLOCATE( SpacePositionx(nDirac), &
                                                 Format, Interval, TimeInterval, printIntervalCriterion, Refinement, &
                                                 pickdt, pickDtType, RFileName, PGMFlag, &
                                                 PGMFile, FaultOutputFlag, nRecordPoints, &
-                                                checkPointInterval, checkPointFile, checkPointBackend, energy_output_on, pickdt_energy, OutputRegionBounds, IntegrationMask
-    !------------------------------------------------------------------------  
-    !                                                                       
-      logInfo(*) '<--------------------------------------------------------->'        
-      logInfo(*) '<  O U T P U T                                            >'        
-      logInfo(*) '<--------------------------------------------------------->'        
-      
+                                                checkPointInterval, checkPointFile, checkPointBackend, energy_output_on, pickdt_energy, OutputRegionBounds, IntegrationMask, &
+                                                SurfaceOutput, SurfaceOutputRefinement, SurfaceOutputInterval
+    !------------------------------------------------------------------------
+    !
+      logInfo(*) '<--------------------------------------------------------->'
+      logInfo(*) '<  O U T P U T                                            >'
+      logInfo(*) '<--------------------------------------------------------->'
+
       ! Setting default values
       OutputFile = 'data'
       iOutputMaskMaterial(:) =  0
@@ -3304,40 +3328,47 @@ ALLOCATE( SpacePositionx(nDirac), &
       FaultOutputFlag = 0
       checkPointInterval = 0
       checkPointBackend = 'none'
+      SurfaceOutput = 0
+      SurfaceOutputRefinement = 0
+      SurfaceOutputInterval = 1.0e99
       !
-      READ(IO%UNIT%FileIn, nml = Output)                                                            
+      READ(IO%UNIT%FileIn, nml = Output)
       IO%OutputFile = OutputFile                                                   ! read output field file
-                                                                                             
+
       IO%OutputFile  = TRIM(IO%OutputFile)
-                                                                                   
-      logInfo(*) 'Data OUTPUT is written to files '                               
+      
+      IO%SurfaceOutput = SurfaceOutput
+      IO%SurfaceOutputRefinement = SurfaceOutputRefinement
+      IO%SurfaceOutputInterval = SurfaceOutputInterval
+
+      logInfo(*) 'Data OUTPUT is written to files '
       logInfo(*) '  ' ,IO%OutputFile
 
-      IO%nOutputMask = 60                                                                          
-      ALLOCATE(IO%OutputMask(1:IO%nOutputMask), IO%TitleMask(1:IO%nOutputMask),  &                 
-               STAT=allocStat                                            )                         
-      IF (allocStat .NE. 0) THEN                                                                  
-         logError(*) 'could not allocate IO%OutputMask in readpar!'             
-         STOP                                                                                      
-      END IF                                                                                       
+      IO%nOutputMask = 60
+      ALLOCATE(IO%OutputMask(1:IO%nOutputMask), IO%TitleMask(1:IO%nOutputMask),  &
+               STAT=allocStat                                            )
+      IF (allocStat .NE. 0) THEN
+         logError(*) 'could not allocate IO%OutputMask in readpar!'
+         STOP
+      END IF
       !
         IO%Rotation = Rotation
         IF(IO%Rotation.GT.0.AND.DISC%SpaceOrder.EQ.1) THEN
-          logError(*) 'Space derivatives of polynomials of degree 0 cannot be computed!'    
-          logError(*) '   Rotations or Seismic Moment Tensor Contributions cannot be outputted!'                                  
-          logError(*) '   Increase the polynomial order or choose not to output rotational rates.' 
-          STOP                                                                                      
+          logError(*) 'Space derivatives of polynomials of degree 0 cannot be computed!'
+          logError(*) '   Rotations or Seismic Moment Tensor Contributions cannot be outputted!'
+          logError(*) '   Increase the polynomial order or choose not to output rotational rates.'
+          STOP
         ENDIF
-        IF(IO%Rotation.EQ.1) THEN      
+        IF(IO%Rotation.EQ.1) THEN
           logInfo(*) 'Outputting rotational seismograms in addition to translational '                               !
-        ElSEIF(IO%Rotation.EQ.2) THEN      
+        ElSEIF(IO%Rotation.EQ.2) THEN
           logInfo(*) 'Outputting moment tensor seismograms in addition to translational '                               !
         ElSEIF(IO%Rotation.EQ.3) THEN
           logInfo(*) 'Outputting curl and divergence seismograms in addition to translational '                               !
         ENDIF
       !
       IO%OutputMask = .FALSE.                                                                      !
-         IO%OutputMask(:)      = .FALSE.                                                    ! 
+         IO%OutputMask(:)      = .FALSE.                                                    !
          IO%OutputMask(1:3)    = .TRUE.                                                     ! x-y-z Coordinates
          IO%OutputMask(4:12)   = iOutputMask(1:9)                                           ! State vector
 
@@ -3350,7 +3381,7 @@ ALLOCATE( SpacePositionx(nDirac), &
             IO%OutputMask(24:34)  = iOutputMask(1:11)                                       ! Constants for Jacobians
          ENDIF
 
-         IF(EQN%Plasticity.EQ.1) THEN                                                       ! Plastic material properties                              
+         IF(EQN%Plasticity.EQ.1) THEN                                                       ! Plastic material properties
             IO%OutputMask(13:19)  = iOutputMask(10:16)                                      ! plastic strain output
          ENDIF
 
@@ -3359,7 +3390,7 @@ ALLOCATE( SpacePositionx(nDirac), &
            IF (allocStat .NE. 0) THEN                                                       !
              logError(*) 'could not allocate IO%RotationMask in readpar!'!
              STOP                                                                           !
-           END IF     
+           END IF
            IO%RotationMask = .FALSE.
            IF(IO%OutputMask(10)) IO%RotationMask(1) = .TRUE.
            IF(IO%OutputMask(11)) IO%RotationMask(2) = .TRUE.
@@ -3371,7 +3402,7 @@ ALLOCATE( SpacePositionx(nDirac), &
            IF (allocStat .NE. 0) THEN                                                       !
              logError(*) 'could not allocate IO%RotationMask in readpar!'!
              STOP                                                                           !
-           END IF     
+           END IF
            IO%RotationMask(1:9) = .TRUE.
          ENDIF
          !Curl/Divergence
@@ -3488,17 +3519,17 @@ ALLOCATE( SpacePositionx(nDirac), &
                     IO%TitleMask(32) = TRIM(' "c55"')
                     IO%TitleMask(33) = TRIM(' "c56"')
                     IO%TitleMask(34) = TRIM(' "c66"')
-                ENDIF  
+                ENDIF
                 IF(EQN%Plasticity.EQ.1) THEN !plastic strain output
                     IO%TitleMask(13) = TRIM(' "eps_p_xx"')
                     IO%TitleMask(14) = TRIM(' "eps_p_yy"')
                     IO%TitleMask(15) = TRIM(' "eps_p_zz"')
                     IO%TitleMask(16) = TRIM(' "eps_p_xy"')
                     IO%TitleMask(17) = TRIM(' "eps_p_yz"')
-                    IO%TitleMask(18) = TRIM(' "eps_p_xz"') 
+                    IO%TitleMask(18) = TRIM(' "eps_p_xz"')
                     IO%TitleMask(19) = TRIM(' "eta_p"')
 
-                ENDIF       
+                ENDIF
       ENDIF
       !
       !
@@ -3510,7 +3541,7 @@ ALLOCATE( SpacePositionx(nDirac), &
         IO%TitleMask(60) = TRIM(' "t"')
       ENDIF
       !
-      IO%Title='VARIABLES = '  
+      IO%Title='VARIABLES = '
       IO%nrPlotVar = 0
       logInfo(*) 'Variables plotted: '
       logInfo(*) ' '
@@ -3518,7 +3549,7 @@ ALLOCATE( SpacePositionx(nDirac), &
          IF(IO%OutputMask(i)) THEN
             Name = TRIM(IO%Title) // TRIM(IO%TitleMask(i))
             IO%Title     = Name(1:600)
-            IO%nrPlotVar = IO%nrPlotVar + 1             
+            IO%nrPlotVar = IO%nrPlotVar + 1
             logInfo(*) '  - ', TRIM(IO%TitleMask(i))
          ENDIF
       ENDDO
@@ -3526,16 +3557,16 @@ ALLOCATE( SpacePositionx(nDirac), &
       logInfo(*) ' '
       !
 
-      IO%outInterval%printIntervalCriterion = printIntervalCriterion           
-      !                                                                        
+      IO%outInterval%printIntervalCriterion = printIntervalCriterion
+      !
       IF (IO%outInterval%printIntervalCriterion.EQ.1.AND.DISC%Galerkin%DGMethod.EQ.3) THEN
         logError(*) 'specifying IO%outInterval%printIntervalCriterion: '
         logError(*) 'When local time stepping is used, only Criterion 2 can be used! '
         STOP
       END IF
       IF (      IO%outInterval%printIntervalCriterion .EQ. 1 &                 !
-           .OR. IO%outInterval%printIntervalCriterion .EQ. 3 ) THEN   
-          IO%outInterval%Interval = Interval  
+           .OR. IO%outInterval%printIntervalCriterion .EQ. 3 ) THEN
+          IO%outInterval%Interval = Interval
          logInfo0(*) 'Output data are generated '          , & !
               'every ', IO%outInterval%Interval, '. timestep'                  !
 #ifdef GENERATEDKERNELS
@@ -3546,21 +3577,21 @@ ALLOCATE( SpacePositionx(nDirac), &
 #endif
       END IF                                                                   !
       IF (      IO%outInterval%printIntervalCriterion .EQ. 2 &                 !
-           .OR. IO%outInterval%printIntervalCriterion .EQ. 3 ) THEN  
+           .OR. IO%outInterval%printIntervalCriterion .EQ. 3 ) THEN
          IF( IO%Format .eq. 10) THEN
-           ! we don't want output, so avoid confusing time stepping by setting 
+           ! we don't want output, so avoid confusing time stepping by setting
            ! plot interval to "infinity"
            IO%outInterval%TimeInterval = 1E99
            logInfo0(*) 'No output (FORMAT=10) specified, delta T set to: ', IO%OutInterval%TimeInterval
-         ELSE 
+         ELSE
            IO%outInterval%TimeInterval = TimeInterval          !
            logInfo0(*) 'Output data are generated at delta T= ', IO%OutInterval%TimeInterval
          ENDIF
       END IF                                                                   !
-      !                                                                        ! 
+      !                                                                        !
       !
       ! Initiate the total number of point to record with zero
-      IO%ntotalRecordPoint = 0 
+      IO%ntotalRecordPoint = 0
       IO%nRecordPoint      = 0         ! points, where whole time series       is recorded
       IO%nPGMRecordPoint   = 0         ! points, where only Peak Ground Motion is recorded
       !
@@ -3607,72 +3638,72 @@ ALLOCATE( SpacePositionx(nDirac), &
       ! Read the single record points
       IF (nRecordPoints .GT. 0) THEN
          logInfo(*) 'Record Points read from ', TRIM(RFileName)
-         CALL OpenFile(                                 &                        
-               UnitNr       = IO%UNIT%other01         , &                        
+         CALL OpenFile(                                 &
+               UnitNr       = IO%UNIT%other01         , &
                Name         = RFileName            , &
                create       = .FALSE.                          )
 
          DO i = 1,nRecordPoints
-            READ(IO%UNIT%other01,*) X(i), Y(i), Z(i)                     
+            READ(IO%UNIT%other01,*) X(i), Y(i), Z(i)
 
                logInfo0(*) 'in point :'                             !
                logInfo0(*) 'x = ', X(i)         !
                logInfo0(*) 'y = ', Y(i)         !
                logInfo0(*) 'z = ', Z(i)         !
-          
-         ENDDO 
+
+         ENDDO
          !
          CLOSE(IO%UNIT%other01)
       ELSE
          logInfo(*) 'No single record points required. '
       END IF
         ! Allocate the record points for the Unstructured Mesh
-       
+
       logInfo(*) ' '
       logInfo(*) 'Unstructured record points are allocated'
       logInfo(*) 'Local monitoring time stepping '
       logInfo(*) 'is required in ', IO%nRecordPoint,'points:'
-      ! Update total number of record points                          
-      IO%ntotalRecordPoint = IO%nRecordPoint        
+      ! Update total number of record points
+      IO%ntotalRecordPoint = IO%nRecordPoint
       logInfo(*) 'Allocating ',IO%ntotalRecordPoint, ' unstructured record points'
 
       ALLOCATE (                                             &
               IO%UnstructRecPoint(IO%ntotalRecordPoint),     &
               STAT = allocStat                             )
-     
+
       IF (allocStat .NE. 0) THEN
             logError(*) 'could not allocate',&
                  ' all variables! Ie. Unstructured record Points'
             STOP
       END IF
       !
-      IO%UnstructRecPoint(:)%X = X(:) 
+      IO%UnstructRecPoint(:)%X = X(:)
       IO%UnstructRecPoint(:)%Y = Y(:)
-      IO%UnstructRecPoint(:)%Z = Z(:)        
-                                      
+      IO%UnstructRecPoint(:)%Z = Z(:)
 
-      ! Points, where Peak Ground Motion is measured                                                                            
-          IO%PGMLocationsFlag = PGMFlag                            
+
+      ! Points, where Peak Ground Motion is measured
+          IO%PGMLocationsFlag = PGMFlag
           SELECT CASE(IO%PGMLocationsFlag)
-            
+
             CASE(0)
 
               logInfo(*) 'No Peak Ground Motion output required ! '
-            
-            CASE(1)  
-            
+
+            CASE(1)
+
               IO%PGMLocationsFile = PGMFile                       !
               logInfo(*) ' '
               logInfo(*) 'Peak Ground Motion (PGM) locations read from file : ', TRIM(IO%PGMLocationsFile)
-              CALL OpenFile(                                       &                        
-                   UnitNr       = IO%UNIT%other01                , &                        
-                   Name         = IO%PGMLocationsFile            , &                        
+              CALL OpenFile(                                       &
+                   UnitNr       = IO%UNIT%other01                , &
+                   Name         = IO%PGMLocationsFile            , &
                    create       = .FALSE.                          )
               READ(IO%UNIT%other01,'(i10)') IO%nPGMRecordPoint                         ! Number of Peak Ground Motion Locations
               logInfo(*) 'Reading ',IO%nPGMRecordPoint,' PGM locations ... '
               logInfo(*) ' '
-              ! Update total number of record points                          
-              IO%ntotalRecordPoint = IO%ntotalRecordPoint + IO%nPGMRecordPoint    
+              ! Update total number of record points
+              IO%ntotalRecordPoint = IO%ntotalRecordPoint + IO%nPGMRecordPoint
 
               ! Enlarge IO%UnstructRecPoint to add PGM record points
               ALLOCATE(IO%tmpRecPoint(IO%nRecordPoint))
@@ -3690,43 +3721,43 @@ ALLOCATE( SpacePositionx(nDirac), &
               END IF
               DO i = 1, IO%nRecordPoint
                    IO%UnstructRecPoint(i)%X = IO%tmpRecPoint(i)%X
-                   IO%UnstructRecPoint(i)%Y = IO%tmpRecPoint(i)%Y 
-                   IO%UnstructRecPoint(i)%Z = IO%tmpRecPoint(i)%Z 
+                   IO%UnstructRecPoint(i)%Y = IO%tmpRecPoint(i)%Y
+                   IO%UnstructRecPoint(i)%Z = IO%tmpRecPoint(i)%Z
               ENDDO
               DEALLOCATE(IO%tmpRecPoint)
-              DO i = IO%nRecordPoint+1, IO%ntotalRecordPoint                              
-                  READ(IO%UNIT%other01,*)                          &                 
-                       IO%UnstructRecPoint(i)%X,                   &                 
-                       IO%UnstructRecPoint(i)%Y,                   &                
-                       IO%UnstructRecPoint(i)%Z                                           
+              DO i = IO%nRecordPoint+1, IO%ntotalRecordPoint
+                  READ(IO%UNIT%other01,*)                          &
+                       IO%UnstructRecPoint(i)%X,                   &
+                       IO%UnstructRecPoint(i)%Y,                   &
+                       IO%UnstructRecPoint(i)%Z
               ENDDO
-              
-              IO%PGMstartindex = IO%nRecordPoint+1 
-              
+
+              IO%PGMstartindex = IO%nRecordPoint+1
+
               CLOSE(IO%UNIT%other01)
-                        
+
             CASE DEFAULT
-            
+
               logError(*) 'Peak Ground Motion Flag in  O U T P U T  must be set to 0 or 1 ! '
               STOP
 
-          END SELECT                                              
+          END SELECT
       !
-      IF(EQN%DR.NE.0) THEN                                              
-          IO%FaultOutputFlag = FaultOutputFlag                             
-      
+      IF(EQN%DR.NE.0) THEN
+          IO%FaultOutputFlag = FaultOutputFlag
+
         SELECT CASE(IO%FaultOutputFlag)
-            
+
           CASE(0)
 
              logInfo(*) 'No Fault Output required ! '
-            
-          CASE(1)  
+
+          CASE(1)
 
              logInfo(*) 'Fault variables will be outputted ! '
 
           CASE DEFAULT
-            
+
              logError(*) 'Fault Output Flag in  O U T P U T  must be set to 0 or 1 ! '
              STOP
 
@@ -3749,7 +3780,7 @@ ALLOCATE( SpacePositionx(nDirac), &
         stop
       endif
 #endif
-      
+
       IO%Refinement = Refinement
       SELECT CASE(Refinement)
          CASE(0)
@@ -3813,14 +3844,14 @@ ALLOCATE( SpacePositionx(nDirac), &
   END SUBROUTINE readpar_output
 
   !============================================================================
-  ! A B O R T                  
+  ! A B O R T
   !============================================================================
 
   SUBROUTINE readpar_abort(DISC,IO)
     !------------------------------------------------------------------------
-    
+
     !------------------------------------------------------------------------
-    IMPLICIT NONE 
+    IMPLICIT NONE
     !------------------------------------------------------------------------
     TYPE (tDiscretization)     :: DISC
     TYPE (tInputOutput)        :: IO
@@ -3831,8 +3862,8 @@ ALLOCATE( SpacePositionx(nDirac), &
     REAL                             :: EndTime, MaxTolerance, MaxTolCriterion, WallTime_h, Delay_h
     NAMELIST                         /AbortCriteria/ EndTime, MaxIteration, MaxTolerance, &
                                                       MaxTolCriterion, WallTime_h, Delay_h
-    !------------------------------------------------------------------------    
-    !                                                                      
+    !------------------------------------------------------------------------
+    !
     logInfo(*) '<--------------------------------------------------------->'
     logInfo(*) '<  A B O R T - C R I T E R I A                            >'
     logInfo(*) '<--------------------------------------------------------->'
@@ -3840,19 +3871,19 @@ ALLOCATE( SpacePositionx(nDirac), &
     ! Setting default values
     EndTime = 15.0
     MaxIteration = 10000000
-    MaxTolerance = 1.0E-07 
+    MaxTolerance = 1.0E-07
     MaxTolCriterion = 0
     WallTime_h = 1e20
     Delay_h = 0.
-                                                
-   READ(IO%UNIT%FileIn, nml = AbortCriteria)  
+
+   READ(IO%UNIT%FileIn, nml = AbortCriteria)
 
     DISC%EndTime =  EndTime                                         ! time required
-                                                                     
-    logInfo(*) 'Maximum computed TIME allowed:',    DISC%EndTime                                                     
-    !                                                                        
+
+    logInfo(*) 'Maximum computed TIME allowed:',    DISC%EndTime
+    !
     DISC%MaxIteration =  MaxIteration                               ! nr of the end iteration
-    !                                                                         
+    !
 #ifdef GENERATEDKERNELS
     if (DISC%MaxIteration .lt. 10000000) then
       logError(*) 'GK version does not support MaxIteration!'
@@ -3863,26 +3894,26 @@ ALLOCATE( SpacePositionx(nDirac), &
       logWarning(*) 'MaxIteration is deprecated! Your parameter file is not compatible with GK version!'
     endif
 #endif
-    logInfo(*) 'Maximum ITERATION number allowed:', DISC%MaxIteration                                                   
+    logInfo(*) 'Maximum ITERATION number allowed:', DISC%MaxIteration
     !
     !
         IO%WallTime_h = WallTime_h
         IO%Delay_h = Delay_h
-        
+
         IO%WallTime_s = 3600.*IO%WallTime_h
         IO%Delay_s    = 3600.*IO%Delay_h
-    !                                                                        
-  END SUBROUTINE readpar_abort                                               
+    !
+  END SUBROUTINE readpar_abort
 
   !============================================================================
-  ! A N A L Y S E                 
+  ! A N A L Y S E
   !============================================================================
 
   SUBROUTINE readpar_analyse(ANALYSE,EQN,DISC,IC,IO)
     !------------------------------------------------------------------------
     TYPE(tAnalyse)             :: ANALYSE
     TYPE(tEquations)           :: EQN
-    TYPE(tDiscretization)      :: DISC   
+    TYPE(tDiscretization)      :: DISC
     TYPE(tInitialCondition)    :: IC
     TYPE(tInputOutput)         :: IO
     CHARACTER(LEN=600)         :: name,cdummy
@@ -3897,20 +3928,20 @@ ALLOCATE( SpacePositionx(nDirac), &
     INTEGER                           :: typ, setvar
     INTEGER                           :: variables(9)
     REAL, DIMENSION(:), ALLOCATABLE   :: varfield, ampfield
-    CHARACTER(LEN=600)                :: EigenVecValName 
+    CHARACTER(LEN=600)                :: EigenVecValName
     NAMELIST                          /Analysis/ typ, setvar, variables
-    !------------------------------------------------------------------------    
-    ! 
+    !------------------------------------------------------------------------
+    !
     logInfo(*) '<--------------------------------------------------------->'
     logInfo(*) '<  A N A L Y S I S   O F   T H E   D A T A                >'
     logInfo(*) '<--------------------------------------------------------->'
-    !    
+    !
     !Setting default values
     typ = 0                                                                   !Read which variables are to be analyzed
-    
+
    READ(IO%UNIT%FileIn, nml = Analysis)
     ANALYSE%typ = typ
-    
+
    ANALYSE%AnalyseDataPerIteration = .FALSE.
     SELECT CASE(ANALYSE%typ)
     CASE(0)
@@ -3925,7 +3956,7 @@ ALLOCATE( SpacePositionx(nDirac), &
        logWarning(*) 'THIS METHOD IS NOT IMPLEMENTED YET!'
        STOP
     CASE(3)
-       logInfo(*) 'Analyse the data, using an exact solution '                                                     
+       logInfo(*) 'Analyse the data, using an exact solution '
        logInfo(*) 'The exact solution is the elastic plane wave in 3-D of the form'
        logInfo(*) '     u(x,y,z,t)=u0*exp[ I ( w*t - kx*x - ky*y - kz*z )] '
        logInfo(*) ' '
@@ -3934,51 +3965,51 @@ ALLOCATE( SpacePositionx(nDirac), &
        logInfo(*) 'Analyse the data, using an exact solution '
        logInfo(*) 'All necessary data is given by the initial condition. '
     CASE(14)
-       logInfo(*) 'Analyse the data, using an exact solution '                                                       
+       logInfo(*) 'Analyse the data, using an exact solution '
        logInfo(*) 'The exact solution is the anelastic plane wave in 3-D of the form'
        logInfo(*) '     u(x,y,z,t)=u0*exp[ I ( w*t - kx*x - ky*y - kz*z )] '
        logInfo(*) ' '                                                   !
        !
        ANALYSE%PW%setvar = setvar                                        ! characteristic waves
        ALLOCATE(ANALYSE%PW%varfield(ANALYSE%PW%setvar),ANALYSE%PW%ampfield(ANALYSE%PW%setvar))
-       call readAnalysisFields(IO, setvar, varfield, ampfield, EigenVecValName)         
-       ANALYSE%PW%varfield(:)  = varfield(:)                                  
-       ANALYSE%PW%ampfield(:)  = ampfield(:)                                  
+       call readAnalysisFields(IO, setvar, varfield, ampfield, EigenVecValName)
+       ANALYSE%PW%varfield(:)  = varfield(:)
+       ANALYSE%PW%ampfield(:)  = ampfield(:)
 
        ! set imaginary unit IU
        IU = (0.,1.)
        ! read eigenstructure from file
        ANALYSE%PWAN%EigenVecValName = EigenVecValName
        logInfo(*) 'Data for eigenvectors and eigenvalues are read from file : ', TRIM(ANALYSE%PWAN%EigenVecValName)
-       CALL OpenFile(                                                    &                        
-            UnitNr       = IO%UNIT%other01                      ,        &                        
-            Name         = ANALYSE%PWAN%EigenVecValName         ,        &                        
+       CALL OpenFile(                                                    &
+            UnitNr       = IO%UNIT%other01                      ,        &
+            Name         = ANALYSE%PWAN%EigenVecValName         ,        &
             create       = .FALSE.                          )
        logInfo(*) 'Reading  file ...  '
-       READ(IO%UNIT%other01,*) cdummy    
-       ! Read number of eigenvalues  
+       READ(IO%UNIT%other01,*) cdummy
+       ! Read number of eigenvalues
        READ(IO%UNIT%other01,*) ANALYSE%PWAN%NEigenVal
-         
+
        ALLOCATE(ANALYSE%PWAN%EigenVal(1:ANALYSE%PWAN%NEigenVal),     &
                 ANALYSE%PWAN%EigenVec(1:ANALYSE%PWAN%NEigenVal,1:ANALYSE%PWAN%NEigenVal) )
-       
-       READ(IO%UNIT%other01,*) cdummy 
+
+       READ(IO%UNIT%other01,*) cdummy
        ! Read wavenumbers
        READ(IO%UNIT%other01,*) ANALYSE%PWAN%Wavenumbers(1:EQN%Dimension)
-       READ(IO%UNIT%other01,*) cdummy 
+       READ(IO%UNIT%other01,*) cdummy
        ! Read Eigenvalues
        DO I = 1,ANALYSE%PWAN%NEigenVal
            READ(IO%UNIT%other01,*) Re, Im
            ANALYSE%PWAN%EigenVal(I) = Re + Im*IU
        ENDDO
        READ(IO%UNIT%other01,*) cdummy
-       ! Read Eigenvectors 
+       ! Read Eigenvectors
        DO I = 1,ANALYSE%PWAN%NEigenVal
           DO J = 1,ANALYSE%PWAN%NEigenVal
              READ(IO%UNIT%other01,*) Re, Im
              ANALYSE%PWAN%EigenVec(J,I) = Re + Im*IU
           ENDDO
-       ENDDO  
+       ENDDO
        CLOSE(IO%UNIT%other01)
 
     CASE(15)
@@ -3998,44 +4029,44 @@ ALLOCATE( SpacePositionx(nDirac), &
     CASE DEFAULT                                                            ! This part is common to all the different analysis choices                                                             !
        !
        ALLOCATE(ANALYSE%variables(EQN%nvar))
-       ANALYSE%variables(:) = variables(:)                                     
-       !                                                                    
-       DO I=1,EQN%nvar                                                      
-          IF (ANALYSE%variables(I)) THEN                                    
-             logInfo(*) 'Analyse Variablenr:',I             
-          END IF                                                            
-       END DO                                                               
-       !                                                                    
-    END SELECT                                                              
-    !                                                                       
+       ANALYSE%variables(:) = variables(:)
+       !
+       DO I=1,EQN%nvar
+          IF (ANALYSE%variables(I)) THEN
+             logInfo(*) 'Analyse Variablenr:',I
+          END IF
+       END DO
+       !
+    END SELECT
+    !
   END SUBROUTINE readpar_analyse
 
   SUBROUTINE readAnalysisFields(IO, setvar, varfield, ampfield, EigenVecValName)
-    IMPLICIT NONE 
+    IMPLICIT NONE
     TYPE (tInputOutput)                    :: IO
     INTENT(IN)                             :: IO
     INTEGER                                :: setvar
     REAL, DIMENSION(:), ALLOCATABLE        :: varfield, ampfield
     CHARACTER(LEN=600)                     :: EigenVecValName
     NAMELIST                               /AnalysisFields/ varfield, ampfield, EigenVecValName
-    !---------------------------------------------------------------------- 
+    !----------------------------------------------------------------------
        ALLOCATE(varfield(setvar), &
                 ampfield(setvar))
 
     READ(IO%UNIT%FileIn, nml = AnalysisFields) ! Write in namelistfile varfield(1) = ... and in the next line varfield(2) = ...
                                                   ! and the same for ampfield, ...
-   END SUBROUTINE  
+   END SUBROUTINE
 
   !============================================================================
-  ! A N A L Y S E           
+  ! A N A L Y S E
   !============================================================================
   ! Checks the correct setting of the .par file
   SUBROUTINE analyse_readpar(EQN,DISC,MESH,IC,SOURCE,IO,MPI)
   !SUBROUTINE analyse_readpar_unstruct(EQN,DISC,MESH,IC,SOURCE,IO,MPI)
     !--------------------------------------------------------------------------
-    
+
     !------------------------------------------------------------------------
-    IMPLICIT NONE 
+    IMPLICIT NONE
     !------------------------------------------------------------------------
     TYPE (tEquations)          :: EQN
     TYPE (tDiscretization)     :: DISC
@@ -4044,7 +4075,7 @@ ALLOCATE( SpacePositionx(nDirac), &
     TYPE (tSource)             :: SOURCE
     TYPE (tInputOutput)        :: IO
     TYPE (tMPI), OPTIONAL      :: MPI
-    
+
     ! local variables
     CHARACTER(LEN=80)          :: Filerestart
     CHARACTER(LEN=256)         :: e(1000)
@@ -4053,7 +4084,7 @@ ALLOCATE( SpacePositionx(nDirac), &
     !------------------------------------------------------------------------
     INTENT(IN)                 :: EQN, DISC, MESH, SOURCE, IO
     !------------------------------------------------------------------------
-    
+
 ! Generated kernels sanity check
 #ifdef GENERATEDKERNELS
     if (NUMBER_OF_QUANTITIES .NE. EQN%nVarTotal) then
@@ -4061,7 +4092,7 @@ ALLOCATE( SpacePositionx(nDirac), &
       stop
     end if
 #endif
-                                                                       
+
     logInfo(*) '<--------------------------------------------------------->'
     logInfo(*) '<  END OF PARAMETER FILE                                  >'
     logInfo(*) '<-------------------------------------------------------- >'

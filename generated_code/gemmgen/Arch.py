@@ -47,20 +47,34 @@ alignments = {
   'knl':    64
 }
 
+# Libxsmm currently supports prefetch only for KNL kernels
+enablePrefetch = {
+  'noarch': False,
+  'wsm':    False,
+  'snb':    False,
+  'hsw':    False,
+  'skx':    False,
+  'knc':    False,
+  'knl':    True
+}
+
 class Architecture(object):
-  def __init__(self, name, precision, alignment):
+  def __init__(self, name, precision, alignment, enablePrefetch=False):
     self.name = name
     self.precision = precision.upper()
     if self.precision == 'D':
       self.bytesPerReal = 8
       self.typename = 'double'
+      self.epsilon = 2.22e-16
     elif self.precision == 'S':
       self.bytesPerReal = 4
       self.typename = 'float'
+      self.epsilon = 1.19e-7
     else:
       raise ValueError('Unknown precision type ' + self.precision)
     self.alignment = alignment
     self.alignedReals = self.alignment / self.bytesPerReal
+    self.enablePrefetch = enablePrefetch
     
   def getAlignedIndex(self, index):
     return index - index % self.alignedReals
@@ -74,5 +88,4 @@ class Architecture(object):
 def getArchitectureByIdentifier(ident):
   precision = ident[0].upper()
   name = ident[1:]
-  alignment = alignments[name]
-  return Architecture(name, precision, alignment)
+  return Architecture(name, precision, alignments[name], enablePrefetch[name])

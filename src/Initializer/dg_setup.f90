@@ -6,23 +6,23 @@
 !! @author Sebastian Rettenberger (sebastian.rettenberger @ tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
 !!
 !! @section LICENSE
-!! Copyright (c) 2009-2016, SeisSol Group
+!! Copyright (c) 2009-2017, SeisSol Group
 !! All rights reserved.
-!! 
+!!
 !! Redistribution and use in source and binary forms, with or without
 !! modification, are permitted provided that the following conditions are met:
-!! 
+!!
 !! 1. Redistributions of source code must retain the above copyright notice,
 !!    this list of conditions and the following disclaimer.
-!! 
+!!
 !! 2. Redistributions in binary form must reproduce the above copyright notice,
 !!    this list of conditions and the following disclaimer in the documentation
 !!    and/or other materials provided with the distribution.
-!! 
+!!
 !! 3. Neither the name of the copyright holder nor the names of its
 !!    contributors may be used to endorse or promote products derived from this
 !!    software without specific prior written permission.
-!! 
+!!
 !! THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 !! AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 !! IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -266,7 +266,7 @@ CONTAINS
     IF (ASSOCIATED( DISC%Galerkin%IntGPBaseFunc_Tet)) DEALLOCATE(DISC%Galerkin%IntGPBaseFunc_Tet)
     IF (ASSOCIATED( DISC%Galerkin%IntGPBaseGrad_Tet)) DEALLOCATE(DISC%Galerkin%IntGPBaseGrad_Tet)
     IF (ASSOCIATED( DISC%Galerkin%BndGPBaseFunc_Tet)) DEALLOCATE(DISC%Galerkin%BndGPBaseFunc_Tet)
-    IF (ASSOCIATED( DISC%Galerkin%BndGPBaseFunc3D_Tet)) DEALLOCATE(DISC%Galerkin%BndGPBaseFunc3D_Tet)
+!    IF (ASSOCIATED( DISC%Galerkin%BndGPBaseFunc3D_Tet)) DEALLOCATE(DISC%Galerkin%BndGPBaseFunc3D_Tet)
     IF (ASSOCIATED( DISC%Galerkin%MassMatrix_Tet)) DEALLOCATE(DISC%Galerkin%MassMatrix_Tet)
     IF (ASSOCIATED( DISC%Galerkin%iMassMatrix_Tet)) DEALLOCATE(DISC%Galerkin%iMassMatrix_Tet)
     IF (ASSOCIATED( DISC%Galerkin%Kxi_k_Tet)) DEALLOCATE(DISC%Galerkin%Kxi_k_Tet)
@@ -399,7 +399,7 @@ CONTAINS
     USE MPIExchangeValues_mod
 #endif
 #ifdef GENERATEDKERNELS
-    use iso_c_binding, only: c_loc, c_null_char
+    use iso_c_binding, only: c_loc, c_null_char, c_bool
     use f_ftoc_bind_interoperability
     use calc_deltaT_mod
 #endif
@@ -446,6 +446,8 @@ CONTAINS
     real                            :: l_loads(3), l_scalings(3), l_cuts(2), l_timeScalings(2), l_gts
     integer                         :: iObject, iSide, iNeighbor, MPIIndex
     real, target                    :: materialVal(EQN%nBackgroundVar)
+    logical(kind=c_bool)                        :: enableFreeSurfaceIntegration
+    
 #endif
     ! ------------------------------------------------------------------------!
     !
@@ -494,7 +496,7 @@ CONTAINS
     !  |    d    |  n  |  t  |   /                    /
     !  |         |  d  |     |  /       Symmetry     /
     !  |         |     |     | /                    /
-    !  |_________|_____|_____|/ _ _ _ _ _ _ _ _ _ _/ 
+    !  |_________|_____|_____|/ _ _ _ _ _ _ _ _ _ _/
     !  |s^2/2 + s|  s  |s^2/2|     |     |         |
     !  |         |     |     |     |     |         |
     ! -50     -cut2  -cut1   0    cut1  cut2      50
@@ -537,8 +539,9 @@ CONTAINS
                                               )
     enddo
 
+    enableFreeSurfaceIntegration = (io%surfaceOutput > 0)
     ! put the clusters under control of the time manager
-    call c_interoperability_initializeClusteredLts( i_clustering = disc%galerkin%clusteredLts );
+    call c_interoperability_initializeClusteredLts( i_clustering = disc%galerkin%clusteredLts, i_enableFreeSurfaceIntegration = enableFreeSurfaceIntegration )
 #endif
 
     !
@@ -941,10 +944,11 @@ CONTAINS
     END SELECT
 #endif ! GENERATEDKERNELS
 
-    logInfo0(*) 'Initializing DR parallelization'   
+#ifndef GENERATEDKERNELS
+    logInfo0(*) 'Initializing DR parallelization'
     DISC%DynRup%nDRElems = 0
 
-    IF(EQN%DR.EQ.1) THEN 
+    IF(EQN%DR.EQ.1) THEN
       DO iDRFace=1,mesh%fault%nSide
         IF(MESH%Fault%Face(iDRFace,1,1).GT.0) THEN
           ! increase face counter
@@ -992,6 +996,7 @@ CONTAINS
     ENDIF
 
     logInfo0(*) 'Initializing DR parallelization. Done.'
+#endif
 
     !
     !CALL ini_DGSponge(EQN,DISC,MESH,IO)  ! not yet done for hybrids
@@ -1019,13 +1024,13 @@ CONTAINS
 #if defined(GENERATEDKERNELS)
   do iElem = 1, MESH%nElem
     iSide = 0
-    
+
     materialVal = OptionalFields%BackgroundValue(iElem,:)
     call c_interoperability_setMaterial( i_elem = iElem,                                         \
                                          i_side = iSide,                                         \
                                          i_materialVal = materialVal,\
                                          i_numMaterialVals = EQN%nBackgroundVar                  )
-                                         
+
     do iSide = 1,4
       IF (MESH%ELEM%MPIReference(iSide,iElem).EQ.1) THEN
           iObject         = MESH%ELEM%BoundaryToObject(iSide,iElem)
@@ -1039,21 +1044,21 @@ CONTAINS
           CASE DEFAULT ! For boundary conditions take inside material
               materialVal = OptionalFields%BackgroundValue(iElem,:)
           END SELECT
-      ENDIF      
+      ENDIF
       call c_interoperability_setMaterial( i_elem = iElem,                        \
                                            i_side = iSide,                        \
                                            i_materialVal = materialVal,       \
                                            i_numMaterialVals = EQN%nBackgroundVar )
-                                           
+
     enddo
   enddo
-  
+
 #ifdef USE_MPI
   ! synchronize redundant cell data
   logInfo0(*) 'Synchronizing copy cell material data.';
   call c_interoperability_synchronizeCellLocalData;
 #endif
-  
+
   ! Initialize source terms
   select case(SOURCE%Type)
     case(0)
@@ -1102,16 +1107,20 @@ CONTAINS
     !
     IF(EQN%DR.EQ.1) THEN
 
-      ALLOCATE(DISC%DynRup%SlipRate1(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
-      ALLOCATE(DISC%DynRup%SlipRate2(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
-      ALLOCATE(DISC%DynRup%Slip(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
-      ALLOCATE(DISC%DynRup%Slip1(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
-      ALLOCATE(DISC%DynRup%Slip2(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
-      ALLOCATE(DISC%DynRup%TracXY(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
-      ALLOCATE(DISC%DynRup%TracXZ(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
-      ALLOCATE(DISC%DynRup%Mu(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
+      ALLOCATE(DISC%DynRup%SlipRate1(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
+      ALLOCATE(DISC%DynRup%SlipRate2(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
+      ALLOCATE(DISC%DynRup%Slip(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
+      ALLOCATE(DISC%DynRup%Slip1(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
+      ALLOCATE(DISC%DynRup%Slip2(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
+      ALLOCATE(DISC%DynRup%TracXY(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
+      ALLOCATE(DISC%DynRup%TracXZ(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
+      ALLOCATE(DISC%DynRup%Mu(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
+      ALLOCATE(DISC%DynRup%PeakSR(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
+      ALLOCATE(DISC%DynRup%rupture_time(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
+      ALLOCATE(DISC%DynRup%dynStress_time(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
+      
+      ! TODO: Transpose StateVar
       ALLOCATE(DISC%DynRup%StateVar(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
-      ALLOCATE(DISC%DynRup%PeakSR(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
       !
       DISC%DynRup%SlipRate1     = EQN%IniSlipRate1
       DISC%DynRup%SlipRate2     = EQN%IniSlipRate2
@@ -1123,6 +1132,19 @@ CONTAINS
       DISC%DynRup%Mu(:,:)       = EQN%IniMu(:,:)
       DISC%DynRup%StateVar(:,:) = EQN%IniStateVar(:,:)
       DISC%DynRup%PeakSR        = 0.0D0
+      DISC%DynRup%rupture_time  = 0.0D0
+      DISC%DynRup%dynStress_time = 0.0D0
+
+      allocate(disc%DynRup%output_Mu(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
+      allocate(disc%DynRup%output_Strength(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
+      allocate(disc%DynRup%output_Slip(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
+      allocate(disc%DynRup%output_Slip1(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
+      allocate(disc%DynRup%output_Slip2(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
+      allocate(disc%DynRup%output_rupture_time(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
+      allocate(disc%DynRup%output_PeakSR(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
+      allocate(disc%DynRup%output_dynStress_time(DISC%Galerkin%nBndGP,MESH%Fault%nSide))
+      
+      allocate(disc%DynRup%output_StateVar(MESH%Fault%nSide,DISC%Galerkin%nBndGP))
 
     else
         ! Allocate dummy arrays to avoid debug errors
@@ -1133,8 +1155,19 @@ CONTAINS
             DISC%DynRup%Slip2(0,0),          &
             DISC%DynRup%Mu(0,0),             &
             DISC%DynRup%StateVar(0,0),       &
-            DISC%DynRup%PeakSR(0,0),       &
-            DISC%DynRup%Strength(0,0))
+            DISC%DynRup%PeakSR(0,0),         &
+            DISC%DynRup%Strength(0,0),       &
+            DISC%DynRup%rupture_time(0,0),   &
+            DISC%DynRup%dynStress_time(0,0)  )
+        allocate(DISC%DynRup%output_Mu(0,0),      &
+            DISC%DynRup%output_StateVar(0,0),     &
+            DISC%DynRup%output_Strength(0,0),     &
+            DISC%DynRup%output_Slip(0,0),         &
+            DISC%DynRup%output_Slip1(0,0),        &
+            DISC%DynRup%output_Slip2(0,0),        &
+            DISC%DynRup%output_rupture_time(0,0), &
+            DISC%DynRup%output_PeakSR(0,0),       &
+            DISC%DynRup%output_dynStress_time(0,0))
     ENDIF
     !
     IF(DISC%Galerkin%CKMethod.EQ.1) THEN ! not yet done for hybrids
@@ -1313,14 +1346,16 @@ CONTAINS
                  DISC%Galerkin%iMassMatrix_Tet(MaxDegFr,MaxDegFr, 0:DISC%Galerkin%nPolyRec),                           &
                  DISC%Galerkin%IntGaussP_Tet(EQN%Dimension,DISC%Galerkin%nIntGP),                                      &
                  DISC%Galerkin%IntGaussW_Tet(DISC%Galerkin%nIntGP),                                                    &
-                 DISC%Galerkin%BndGaussP_Tet(EQN%Dimension,DISC%Galerkin%nBndGP),                                      &
+                 DISC%Galerkin%BndGaussP_Tet(EQN%Dimension-1,DISC%Galerkin%nBndGP),                                      &
                  DISC%Galerkin%BndGaussW_Tet(Disc%Galerkin%nBndGP),                                                    &
                  Tens3GaussP(EQN%Dimension,(DISC%Galerkin%nPoly+2)**3),Tens3GaussW((DISC%Galerkin%nPoly+2)**3),        &
                  DISC%Galerkin%IntGPBaseGrad_Tet(EQN%Dimension,0:MaxDegFr,(DISC%Galerkin%nPolyRec+2)**3,               &
                                                  0:DISC%Galerkin%nPolyRec),                                            &
                  DISC%Galerkin%IntGPBaseFunc_Tet(0:MaxDegFr,(DISC%Galerkin%nPolyRec+2)**3,0:DISC%Galerkin%nPolyRec),   &
-                 DISC%Galerkin%BndGPBaseFunc3D_Tet(0:MaxDegFr,(DISC%Galerkin%nPolyRec+2)**2,MESH%nSides_Tet),          &
+!                 DISC%Galerkin%BndGPBaseFunc3D_Tet(0:MaxDegFr,(DISC%Galerkin%nPolyRec+2)**2,MESH%nSides_Tet),          &
+#ifndef GENERATEDKERNELS
                  Mesh%ELEM%BndBF_GP_Tet(0:MaxDegFr,DISC%Galerkin%nBndGP,MESH%nSides_Tet),                              &
+#endif
                  STAT = allocstat                                                                                      )
         IF(allocStat .NE. 0) THEN
            logError(*) 'could not allocate all variables!'
@@ -1586,7 +1621,9 @@ CONTAINS
 
     ! Attention: Don't change Nr of GP here since some routine depend on these numbers
     DISC%Galerkin%nIntGP = (DISC%Galerkin%nPoly + 2)**3
+#ifndef GENERATEDKERNELS
     DISC%Galerkin%nBndGP = (DISC%Galerkin%nPoly + 2)**2
+#endif
 
     SELECT CASE(DISC%Galerkin%DGMethod)
     CASE(3)
@@ -1626,6 +1663,10 @@ CONTAINS
                  IO         = IO,                              &
                  quiet      = .TRUE.                           )
 
+#ifdef USE_DR_CELLAVERAGE
+        call CellCentresOfSubdivision(DISC%Galerkin%nPoly + 1, DISC%Galerkin%BndGaussP_Tet)
+        DISC%Galerkin%BndGaussW_Tet = 1.e99 ! blow up solution if used
+#else
         ! Compute and store surface gaussian integration points
         CALL TriangleQuadraturePoints(                         &
                  nIntGP     = DISC%Galerkin%nBndGP,            &
@@ -1634,6 +1675,7 @@ CONTAINS
                  M          = DISC%Galerkin%nPoly+2,           &
                  IO         = IO,                              &
                  quiet      = .TRUE.                           )
+#endif
 
         NULLIFY( Tens3GaussP )
         NULLIFY( Tens3GaussW )
@@ -1903,7 +1945,7 @@ CONTAINS
 
         DISC%Galerkin%IntGPBaseFunc_Tet(:,:,:)          = 0.0d0
         DISC%Galerkin%IntGPBaseGrad_Tet(:,:,:,:)        = 0.0d0
-        DISC%Galerkin%BndGPBaseFunc3D_Tet(:,:,:)        = 0.0d0
+!        DISC%Galerkin%BndGPBaseFunc3D_Tet(:,:,:)        = 0.0d0
 
         iPoly = DISC%Galerkin%nPoly
 
@@ -1935,7 +1977,7 @@ CONTAINS
             ENDDO
         ENDDO
         !
-
+#ifndef GENERATEDKERNELS
         MESH%ELEM%BndBF_GP_Tet(:,:,:) = 0.0
 
         DO iSide = 1, MESH%nSides_Tet
@@ -1955,7 +1997,7 @@ CONTAINS
                                    DISC%Galerkin%NonZeroCPoly_Tet,             &
                                    DISC%Galerkin%NonZeroCPolyIndex_Tet         )
                   !
-                  DISC%Galerkin%BndGPBaseFunc3D_Tet(iDegFr,iBndGP,iSide)  = phi
+!                   DISC%Galerkin%BndGPBaseFunc3D_Tet(iDegFr,iBndGP,iSide)  = phi
                   MESH%ELEM%BndBF_GP_Tet(iDegFr,iBndGP,iSide) = phi
                   !
                ENDDO
@@ -2098,7 +2140,7 @@ CONTAINS
         ENDWHERE
         !
         ENDIF ! EQN%DR.EQ.1 - force GP matching at fault surface
-
+#endif ! GENERATEDKERNELS
 
 !        ! ------------------------------------------------------------
 !        ! ATTENUATION
@@ -2225,16 +2267,16 @@ CONTAINS
                  quiet      = .TRUE.                           )
 
         ! Compute and store surface gaussian integration points
-        CALL HypercubeQuadraturePoints(                        &
-                 nIntGP     = DISC%Galerkin%nBndGP,            &
-                 IntGaussP  = DISC%Galerkin%BndGaussP_Hex,     &
-                 IntGaussW  = DISC%Galerkin%BndGaussW_Hex,     &
-                 M          = DISC%Galerkin%nPoly+2,           &
-                 nDim       = 2,                               &
-                 X1         = (/ 0., 0. /),                    &
-                 X2         = (/ 1., 1. /),                    &
-                 IO         = IO,                              &
-                 quiet      = .TRUE.                           )
+!~         CALL HypercubeQuadraturePoints(                        &
+!~                  nIntGP     = DISC%Galerkin%nBndGP,            &
+!~                  IntGaussP  = DISC%Galerkin%BndGaussP_Hex,     &
+!~                  IntGaussW  = DISC%Galerkin%BndGaussW_Hex,     &
+!~                  M          = DISC%Galerkin%nPoly+2,           &
+!~                  nDim       = 2,                               &
+!~                  X1         = (/ 0., 0. /),                    &
+!~                  X2         = (/ 1., 1. /),                    &
+!~                  IO         = IO,                              &
+!~                  quiet      = .TRUE.                           )
 
  !       NULLIFY( Tens3GaussP )
  !       NULLIFY( Tens3GaussW )
@@ -2601,8 +2643,8 @@ CONTAINS
 #ifdef GENERATEDKERNELS
     ! temporary degrees of freedom
     real    :: l_dofsUpdate(disc%galerkin%nDegFr, eqn%nVarTotal)
-    real    :: l_initialLoading( NUMBER_OF_BASIS_FUNCTIONS, 6 ) 
-    real    :: l_plasticParameters(3)
+    real    :: l_initialLoading( NUMBER_OF_BASIS_FUNCTIONS, 6 )
+    real    :: l_plasticParameters(4)
 #endif
     !-------------------------------------------------------------------------!
     !
@@ -2621,7 +2663,7 @@ CONTAINS
 
     IF(EQN%Plasticity.EQ.1) THEN
       ALLOCATE(DISC%Galerkin%DOFStress(DISC%Galerkin%nDegFr,6,MESH%nElem), DISC%Galerkin%pstrain(7, MESH%nElem),&
-               DISC%Galerkin%PlasticParameters(3,1:MESH%nElem), DISC%Galerkin%Strain_Matrix(6,6))
+               DISC%Galerkin%PlasticParameters(4,1:MESH%nElem), DISC%Galerkin%Strain_Matrix(6,6))
         !Initialization
         DISC%Galerkin%DOFStress = 0.
         DISC%Galerkin%pstrain = 0.
@@ -2722,7 +2764,7 @@ CONTAINS
                 DISC%Galerkin%dgvar(iDegFr,1:EQN%nVar,iElem,1) + IntGaussW(iIntGP)*iniGP(:)*phi
 #endif
             ENDDO
-            
+
             IF(EQN%Anelasticity.EQ.1) THEN
                 ! Projection of anelastic functions
                 DO iDegFr = 1, nDegFr
@@ -2785,6 +2827,7 @@ CONTAINS
         l_plasticParameters(1) = MESH%Elem%Volume(iElem)
         l_plasticParameters(2) = EQN%PlastCo(iElem) !element-dependent plastic cohesion
         l_plasticParameters(3) = EQN%Rho0    !density
+        l_plasticParameters(4) = EQN%BulkFriction(iElem) !element-dependent bulk friction
 
         ! initialize loading in C
         call c_interoperability_setInitialLoading( i_meshId         = c_loc( iElem), \
@@ -2801,6 +2844,7 @@ CONTAINS
           DISC%Galerkin%plasticParameters(1,iElem) = MESH%Elem%Volume(iElem)
           DISC%Galerkin%plasticParameters(2,iElem) = EQN%PlastCo(iElem) !element-dependent plastic cohesion
           DISC%Galerkin%plasticParameters(3,iElem) = EQN%Rho0 !currently not needed inside the plasticity routine
+          DISC%Galerkin%plasticParameters(4,iElem) = EQN%BulkFriction(iElem) !element-dependent bulk friction
         ENDIF
 #endif
 
@@ -2812,6 +2856,10 @@ CONTAINS
 
 
     ENDDO ! iElem
+
+#ifdef USE_PLASTICITY
+    call c_interoperability_setTv( tv = EQN%Tv )
+#endif
 
 #ifdef GENERATEDKERNELS
 #ifdef USE_PLASTICITY
@@ -3454,7 +3502,6 @@ CONTAINS
 #ifdef HDF
     USE hdf_faultoutput_mod
 #endif
-    use FaultWriter
     use, intrinsic :: iso_c_binding
 
     !-------------------------------------------------------------------!
@@ -3695,12 +3742,6 @@ CONTAINS
     !
     ! Initialize fault rupture output
     ! only in case Dynamic rupture is turned on, and for + elements assigned to the fault
-    if (EQN%DR.EQ.1 .AND. DISC%DynRup%DR_output) then
-        hasDr = 1
-    else
-        hasDr = 0
-    endif
-    call fault_create_comm(hasDr)
     IF(EQN%DR.EQ.1 .AND. DISC%DynRup%DR_output) THEN
         ! Case 3
         ! output at certain positions specified in the *.dyn file
@@ -3740,14 +3781,6 @@ CONTAINS
             CALL ini_fault_subsampled(EQN,MESH,BND,DISC,IO,MPI)
         ENDIF ! DISC%DynRup%OutputPointType
     ENDIF ! end initialize fault output
-    ! Initialize fault output pvd wrapper
-    ! involves collecting meta data of fault ouptut for ALL elements
-    ! but only in cases dynamic rupture is turned on and output is set to 4 or 5
-    IF(DISC%DynRup%OutputPointType.EQ.4.OR.DISC%DynRup%OutputPointType.EQ.5) THEN
-     logInfo(*) "Initialize fault-output.pvd file to wrap fault output data"
-     ! MPI_GATHER
-     CALL create_meta(DISC,MPI,DISC%DynRup%DynRup_out_elementwise%nDR_pick)
-    ENDIF
     !
     !
     !
@@ -4666,14 +4699,14 @@ CONTAINS
     ENDIF
 
         ! Compute and store surface gaussian integration points
-        CALL TriangleQuadraturePoints(                         &
-                 nIntGP     = DISC%Galerkin%nBndGP,            &
-                 IntGaussP  = DISC%Galerkin%BndGaussP_Tet,     &
-                 IntGaussW  = DISC%Galerkin%BndGaussW_Tet,     &
-                 M          = DISC%Galerkin%nPoly+2,           &
-                 IO         = IO,                              &
-                 quiet      = .TRUE.                           )
-      
+!~         CALL TriangleQuadraturePoints(                         &
+!~                  nIntGP     = DISC%Galerkin%nBndGP,            &
+!~                  IntGaussP  = DISC%Galerkin%BndGaussP_Tet,     &
+!~                  IntGaussW  = DISC%Galerkin%BndGaussW_Tet,     &
+!~                  M          = DISC%Galerkin%nPoly+2,           &
+!~                  IO         = IO,                              &
+!~                  quiet      = .TRUE.                           )
+
   END SUBROUTINE Read2dGF
 
 END MODULE dg_setup_mod

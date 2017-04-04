@@ -85,6 +85,7 @@ CONTAINS
     USE read_backgroundstress_mod
     USE ini_model_DR_mod
     use VelocityFieldReader
+    use modules
 
     !--------------------------------------------------------------------------
     IMPLICIT NONE
@@ -166,12 +167,20 @@ CONTAINS
        RETURN
     ENDIF
 
+    ! Call the pre model hooks
+    call call_hook_pre_model()
+
     ALLOCATE ( EQN%LocAnelastic(MESH%nElem) )                 ! Don't use anelasticity by default
     EQN%LocAnelastic(:) = 0
     ALLOCATE ( EQN%LocPoroelastic(MESH%nElem) )               ! Don't use poroelasticity by default
     EQN%LocPoroelastic(:) = 0
 
     IF (EQN%Plasticity .NE. 0) THEN
+        ALLOCATE (EQN%BulkFriction(MESH%nElem), EQN%PlastCo(MESH%nElem))
+        !initialize with constant value from parameter file
+        !add element-dependent assignement for special lintypes in the following
+        EQN%BulkFriction(:) = EQN%BulkFriction_0
+        EQN%PlastCo(:) = EQN%PlastCo_0
         allocate(EQN%IniStress(6,MESH%nElem))
         EQN%IniStress(:,:) = 0.0D0
     ENDIF
@@ -1408,6 +1417,9 @@ CONTAINS
         CALL DR_setup(EQN,DISC,MESH,IO,BND)
 
       ENDIF ! EQN%DR.EQ.1
+
+      ! Call the post model hooks
+      call call_hook_post_model()
 
   END SUBROUTINE ini_MODEL
 

@@ -56,7 +56,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * POSSIBILITY OF SUCH DAMAGE.
  **/
  
-long long libxsmm_num_total_flops = 0;
+extern long long libxsmm_num_total_flops;
 
 #include <cstdlib>
 #include <cstring>
@@ -115,6 +115,15 @@ double derive_cycles_from_time(double time) {
   return cycles;
 }
 
+void print_hostname() {
+  FILE* fp = popen("hostname", "r");
+  if (fp > 0) {
+    char buffer[256];
+    fread(buffer, 255, 1, fp);
+    printf("Host: %s\n", buffer);
+  }
+}
+
 #include <generated_code/init.h>
 #include <generated_code/flops.h>
 #include <Initializer/typedefs.hpp>
@@ -122,13 +131,9 @@ double derive_cycles_from_time(double time) {
 
 #include <Kernels/TimeCommon.h>
 #include <Kernels/Time.h>
-#ifdef REQUIRE_SOURCE_MATRIX
 #include <Kernels/Local.h>
 #include <Kernels/Neighbor.h>
-#else
-#include <Kernels/Volume.h>
-#include <Kernels/Boundary.h>
-#endif
+#include <Kernels/DynamicRupture.h>
 
 #include <omp.h>
 
@@ -142,11 +147,16 @@ inline double sec(struct timeval start, struct timeval end) {
   return ((double)(((end.tv_sec * 1000000 + end.tv_usec) - (start.tv_sec * 1000000 + start.tv_usec)))) / 1.0e6;
 }
 
+void printUsage()
+{
+  printf("Wrong parameters!\n");
+  printf(" #cells #timesteps kernel\n");
+  printf("   kernel-values: all, local, neigh, ader, localwoader, neigh_dr, godunov_dr\n");
+}
+
 int main(int argc, char* argv[]) {
   if (argc != 4) {
-    printf("Wrong parameters!\n");
-    printf(" #cells #timesteps kernel\n");
-    printf("   kernel-values: all, local, neigh, ader, localwoader\n");
+    printUsage();
     return -1;
   }
 
@@ -159,13 +169,18 @@ int main(int argc, char* argv[]) {
   if ( (s_part.compare("all") != 0) &&
        (s_part.compare("local") != 0) &&
        (s_part.compare("neigh") != 0) &&
+       (s_part.compare("neigh_dr") != 0) &&
        (s_part.compare("ader") != 0) &&
-       (s_part.compare("localwoader")) )
+       (s_part.compare("localwoader") != 0) &&
+       (s_part.compare("godunov_dr") != 0) )
   {
-    printf("Wrong parameters!\n");
-    printf(" #cells #timesteps kernel\n");
-    printf("   kernel-values: all, local, neigh, ader, localwoader\n");
+    printUsage();
     return -1;
+  }
+  
+  bool enableDynamicRupture = false;
+  if (s_part.compare("neigh_dr") == 0 || s_part.compare("godunov_dr") == 0) {
+    enableDynamicRupture = true;
   }
 
   char* hostname = getenv("HOSTNAME");
@@ -174,7 +189,7 @@ int main(int argc, char* argv[]) {
   }
 
   printf("Allocating fake data...\n");
-  i_cells = init_data_structures(i_cells);
+  i_cells = init_data_structures(i_cells, enableDynamicRupture);
   printf("...done\n\n");
 
   struct timeval start_time, end_time;
@@ -188,13 +203,17 @@ int main(int argc, char* argv[]) {
     computeNeighboringIntegration();
   } else if (s_part.compare("local") == 0) {
     computeLocalIntegration();
-  } else if (s_part.compare("neigh") == 0) {
+  } else if (s_part.compare("neigh") == 0 || s_part.compare("neigh_dr") == 0) {
     computeNeighboringIntegration();
   } else if (s_part.compare("ader") == 0) {
     computeAderIntegration();
+  } else if (s_part.compare("godunov_dr") == 0) {
+    computeDynRupGodunovState();
   } else {
     computeLocalWithoutAderIntegration();
   }
+  
+  libxsmm_num_total_flops = 0;
 
   gettimeofday(&start_time, NULL);
 #ifdef __USE_RDTSC
@@ -210,13 +229,17 @@ int main(int argc, char* argv[]) {
     for (unsigned int t = 0; t < i_timesteps; t++) {
       computeLocalIntegration();
     }
-  } else if (s_part.compare("neigh") == 0) {
+  } else if (s_part.compare("neigh") == 0 || s_part.compare("neigh_dr") == 0) {
     for (unsigned int t = 0; t < i_timesteps; t++) {
       computeNeighboringIntegration();
     }
   } else if (s_part.compare("ader") == 0) {
     for (unsigned int t = 0; t < i_timesteps; t++) {
       computeAderIntegration();
+    }
+  } else if (s_part.compare("godunov_dr") == 0) {
+    for (unsigned int t = 0; t < i_timesteps; t++) {
+      computeDynRupGodunovState();
     }
   } else {
     for (unsigned int t = 0; t < i_timesteps; t++) {
@@ -235,6 +258,7 @@ int main(int argc, char* argv[]) {
   total_cycles = derive_cycles_from_time(total);
 #endif
 
+  print_hostname();
   printf("=================================================\n");
   printf("===            PERFORMANCE SUMMARY            ===\n");
   printf("=================================================\n");
@@ -250,11 +274,14 @@ int main(int argc, char* argv[]) {
   } else if (s_part.compare("local") == 0) {
     flop_fun = &flops_local_actual;
     bytes_fun = &bytes_local;
-  } else if (s_part.compare("neigh") == 0) {
+  } else if (s_part.compare("neigh") == 0 || s_part.compare("neigh_dr") == 0) {
     flop_fun = &flops_neigh_actual;
     bytes_fun = &bytes_neigh;
   } else if (s_part.compare("ader") == 0) {
     flop_fun = &flops_ader_actual;
+    bytes_fun = &noestimate;
+  } else if (s_part.compare("godunov_dr") == 0) {
+    flop_fun = &flops_drgod_actual;
     bytes_fun = &noestimate;
   } else {
     flop_fun = &flops_localWithoutAder_actual;
@@ -263,14 +290,15 @@ int main(int argc, char* argv[]) {
   
   seissol_flops actual_flops = (*flop_fun)(i_timesteps);
   double bytes_estimate = (*bytes_fun)(i_timesteps);
-  printf("GFLOP (non-zero) for seissol proxy  : %f\n", actual_flops.d_nonZeroFlops/(1e9));
-  printf("GFLOP (hardware) for seissol proxy  : %f\n", actual_flops.d_hardwareFlops/(1e9));
+  printf("GFLOP (libxsmm)                     : %f\n", libxsmm_num_total_flops      * 1.e-9);
+  printf("GFLOP (non-zero) for seissol proxy  : %f\n", actual_flops.d_nonZeroFlops  * 1.e-9);
+  printf("GFLOP (hardware) for seissol proxy  : %f\n", actual_flops.d_hardwareFlops * 1.e-9);
   printf("GiB (estimate) for seissol proxy    : %f\n\n", bytes_estimate/(1024.0*1024.0*1024.0));
   printf("FLOPS/cycle (non-zero)              : %f\n", actual_flops.d_nonZeroFlops/total_cycles);
   printf("FLOPS/cycle (hardware)              : %f\n", actual_flops.d_hardwareFlops/total_cycles);
   printf("Bytes/cycle (estimate)              : %f\n\n", bytes_estimate/total_cycles);
-  printf("GFLOPS (non-zero) for seissol proxy : %f\n", (actual_flops.d_nonZeroFlops/(1e9))/total);
-  printf("GFLOPS (hardware) for seissol proxy : %f\n", (actual_flops.d_hardwareFlops/(1e9))/total);
+  printf("GFLOPS (non-zero) for seissol proxy : %f\n", (actual_flops.d_nonZeroFlops  * 1.e-9)/total);
+  printf("GFLOPS (hardware) for seissol proxy : %f\n", (actual_flops.d_hardwareFlops * 1.e-9)/total);
   printf("GiB/s (estimate) for seissol proxy  : %f\n", (bytes_estimate/(1024.0*1024.0*1024.0))/total);
   printf("=================================================\n");
   printf("\n");

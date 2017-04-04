@@ -138,9 +138,6 @@ struct CellLocalInformation {
 
   // unique global id of the time cluster
   unsigned int clusterId;
-
-  // maximum cfl time step width of this cell
-  double timeStepWidth;
 };
 
 struct MeshStructure {
@@ -239,27 +236,45 @@ struct MeshStructure {
 
 };
 
-struct GlobalData {
- /** 
-   * Addresses of the global flux matrices (multiplied by the inverse diagonal mass matrix):
-   *
-   *    0:  \f$ M^{-1} F^{-, 1} \f$
-   *    1 : \f$ M^{-1} F^{-, 2} \f$
-   *    2:  \f$ M^{-1} F^{-, 3} \f$
-   *    3 : \f$ M^{-1} F^{-, 4} \f$
-   *    4:  \f$ M^{-1} F^+{+, 1, 1, 1} \f$
-   *    5:  \f$ M^{-1} F^+{+, 1, 1, 2} \f$
-   *    6:  \f$ M^{-1} F^+{+, 1, 1, 3} \f$
-   *    7:  \f$ M^{-1} F^+{+, 1, 2, 1} \f$
-   *    8:  \f$ M^{-1} F^+{+, 1, 1, 2} \f$
-   *    9:  \f$ M^{-1} F^+{+, 1, 1, 3} \f$
-   *    [..]
-   *    51: \f$ M^{-1} F^+{+, 4, 4, 3} \f$
-   *    52: \f$ N_{k,i} A_k^+ N_{k,i}^{-1}\f$ or \f$ N_{k,i} A_{k(i)}^- N_{k,i}^{-1} \f$
-   *
-   *   Remark: The ordering of the pointers is given as above, however the chunks in memory are allowed to have a different orderning as given in the XML-file.
-   **/ 
-  real *fluxMatrices[52];
+struct GlobalData {  
+  /**
+   * Addresses of the global change of basis matrices (multiplied by the inverse diagonal mass matrix):
+   * 
+   *    0: \f$ M^{-1} R^1 \f$
+   *    1: \f$ M^{-1} R^2 \f$
+   *    2: \f$ M^{-1} R^3 \f$
+   *    3: \f$ M^{-1} R^4 \f$
+   **/
+  real* changeOfBasisMatrices[4];
+  
+  /**
+   * Addresses of the transposed global change of basis matrices left-multiplied with the local flux matrix:
+   * 
+   *    0: \f$ F^- ( R^1 )^T \f$
+   *    1: \f$ F^- ( R^2 )^T \f$
+   *    2: \f$ F^- ( R^3 )^T \f$
+   *    3: \f$ F^- ( R^4 )^T \f$
+   **/
+  real* localChangeOfBasisMatricesTransposed[4];
+  
+  /**
+   * Addresses of the transposed global change of basis matrices:
+   * 
+   *    0: \f$ ( R^1 )^T \f$
+   *    1: \f$ ( R^2 )^T \f$
+   *    2: \f$ ( R^3 )^T \f$
+   *    3: \f$ ( R^4 )^T \f$
+   **/
+  real* neighbourChangeOfBasisMatricesTransposed[4];
+  
+  /**
+   * Addresses of the global flux matrices:
+   * 
+   *    0: \f$ F^{+,1] \f$
+   *    1: \f$ F^{+,2] \f$
+   *    2: \f$ F^{+,3] \f$
+   **/
+  real* neighbourFluxMatrices[3];
 
   /** 
    * Addresses of the global stiffness matrices (multiplied by the inverse diagonal mass matrix):
@@ -292,6 +307,42 @@ struct GlobalData {
    * Address of the (thread-local) local time stepping integration buffers used in the neighbor integral computation
    **/
   real *integrationBufferLTS;
+  
+   /** 
+   * Addresses of the global nodal flux matrices
+   *
+   *    0:  \f$ P^{+,1} \f$
+   *    1:  \f$ P^{-,1,1} \f$
+   *    2:  \f$ P^{-,1,2} \f$
+   *    3 : \f$ P^{-,1,3} \f$
+   *    4:  \f$ P^{+,2} \f$
+   *    5:  \f$ P^{-,2,1} \f$
+   *    6:  \f$ P^{-,2,2} \f$
+   *    7 : \f$ P^{-,2,3} \f$
+   *    [..]
+   *    15: \f$ P^{-,4,3} \f$
+   **/ 
+  real* nodalFluxMatrices[4][4];
+  
+  /** 
+   * Addresses of the global face to nodal matrices
+   *
+   *    0:  \f$ N^{+,1} \f$
+   *    1:  \f$ N^{-,1,1} \f$
+   *    2:  \f$ N^{-,1,2} \f$
+   *    3 : \f$ N^{-,1,3} \f$
+   *    4:  \f$ N^{+,2} \f$
+   *    5:  \f$ N^{-,2,1} \f$
+   *    6:  \f$ N^{-,2,2} \f$
+   *    7 : \f$ N^{-,2,3} \f$
+   *    [..]
+   *    15: \f$ N^{-,4,3} \f$
+   **/ 
+  real* faceToNodalMatrices[4][4];
+  
+  //! Switch to nodal for plasticity
+  real* vandermondeMatrix;
+  real* vandermondeMatrixInverse;
 };
 
 // data for the cell local integration
@@ -327,6 +378,9 @@ struct PlasticityData {
   real initialLoading[6][NUMBER_OF_BASIS_FUNCTIONS];
   // cell dependent plastic parameters
   real plasticParameters[3];
+  real cohesionTimesCosAngularFriction;
+  real sinAngularFriction;
+  real mufactor;
 };
 
 /**
@@ -508,6 +562,25 @@ struct PiecewiseLinearFunction1D {
   
   PiecewiseLinearFunction1D() : slopes(NULL), intercepts(NULL), numberOfPieces(0) {}
   ~PiecewiseLinearFunction1D() { delete[] slopes; delete[] intercepts; numberOfPieces = 0; }
+};
+
+struct DRFaceInformation {
+  unsigned meshFace;
+  unsigned plusSide;
+  unsigned minusSide;
+  unsigned faceRelation;
+};
+
+struct DRGodunovData {
+  real godunovMatrixPlus[seissol::model::godunovMatrix::reals];
+  real godunovMatrixMinus[seissol::model::godunovMatrix::reals];
+};
+
+struct CellDRMapping {
+  unsigned fluxKernel;
+  real* godunov;
+  real* fluxSolver;
+  real* fluxMatrix;
 };
 
 #endif

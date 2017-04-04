@@ -2,24 +2,26 @@
 !! @file
 !! This file is part of SeisSol.
 !!
+!! @author Sebastian Rettenberger (sebastian.rettenberger @ tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
+!!
 !! @section LICENSE
-!! Copyright (c) 2007-2014, SeisSol Group
+!! Copyright (c) 2007-2017, SeisSol Group
 !! All rights reserved.
-!! 
+!!
 !! Redistribution and use in source and binary forms, with or without
 !! modification, are permitted provided that the following conditions are met:
-!! 
+!!
 !! 1. Redistributions of source code must retain the above copyright notice,
 !!    this list of conditions and the following disclaimer.
-!! 
+!!
 !! 2. Redistributions in binary form must reproduce the above copyright notice,
 !!    this list of conditions and the following disclaimer in the documentation
 !!    and/or other materials provided with the distribution.
-!! 
+!!
 !! 3. Neither the name of the copyright holder nor the names of its
 !!    contributors may be used to endorse or promote products derived from this
 !!    software without specific prior written permission.
-!! 
+!!
 !! THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 !! AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 !! IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -119,7 +121,7 @@ CONTAINS
     REAL                           :: JacobiVol_MassMatrix(1:220)             ! 220 is dummy length good until O10!
 
     REAL, POINTER                  :: TimeIntDof_ptr(:,:)     => NULL()       ! Time integrated dof
-    REAL, POINTER                  :: TimeDerDof_ptr(:,:,:)   => NULL()       ! Space-time polynomial pointer    
+    REAL, POINTER                  :: TimeDerDof_ptr(:,:,:)   => NULL()       ! Space-time polynomial pointer
 
     REAL                           :: dudt(DISC%Galerkin%nDegFr,            & !
                                            EQN%nVarTotal                    ) ! Auxilliary update dof
@@ -215,15 +217,16 @@ CONTAINS
     ! ==============================================================================
     EPIK_USER_START(r_dr)
     SCOREP_USER_REGION_BEGIN( r_dr, "dynamic_rupture", SCOREP_USER_REGION_TYPE_COMMON )
+    ! Calculate Fault Output of the previous timestep
+    ! Here, because the complete updated dgvar value of the (MPI-)Neighbor is needed
+    ! Note that this causes a dt timeshift in the DR output routines
+    EPIK_USER_START(r_dr_output)
+    SCOREP_USER_REGION_BEGIN( r_dr_output, "fault_output", SCOREP_USER_REGION_TYPE_COMMON )
+    CALL faultoutput(EQN, DISC, MESH, IO, MPI, MaterialVal, BND, time, dt)
+    EPIK_USER_END(r_dr_output)
+    SCOREP_USER_REGION_END( r_dr_output )
+
     IF (EQN%DR.EQ.1) THEN
-       ! Calculate Fault Output of the previous timestep
-       ! Here, because the complete updated dgvar value of the (MPI-)Neighbor is needed
-       ! Note that this causes a dt timeshift in the DR output routines
-       EPIK_USER_START(r_dr_output)
-       SCOREP_USER_REGION_BEGIN( r_dr_output, "fault_output", SCOREP_USER_REGION_TYPE_COMMON )
-       CALL faultoutput(EQN, DISC, MESH, IO, MPI, MaterialVal, BND, time, dt)
-       EPIK_USER_END(r_dr_output)
-       SCOREP_USER_REGION_END( r_dr_output )
        ! friction evaluation
        CALL Friction(EQN, DISC, MESH, MPI, IO, OptionalFields, BND, time, dt)
     ENDIF
@@ -274,7 +277,7 @@ CONTAINS
 
         MassMatrix_ptr   => DISC%Galerkin%MassMatrix_Tet(1:LocnDegFr,1:LocnDegFr,LocnPoly)
         JacobiDetVolum   =  6.0d0 * MESH%ELEM%Volume(iElem)
-        
+
         ! Pre-compute combined JacobiDetVolum and mass matrix to avoid devision and large expression later
         JacobiVol_MassMatrix(:)  = 0.0D0
         DO iDegFr = 1, LocnDegFr
@@ -282,15 +285,15 @@ CONTAINS
         ENDDO
 
         ! AStar
-        CALL SPT_T3MUL_M(auxvar(1:LocnDegFr,1:LocnVar,1:LocnDegFrMat),AStar_Sp_ptr,TimeIntDof_ptr,LocnVar,LocnVar,LocnDegFr,LocnDegFrMat )            
+        CALL SPT_T3MUL_M(auxvar(1:LocnDegFr,1:LocnVar,1:LocnDegFrMat),AStar_Sp_ptr,TimeIntDof_ptr,LocnVar,LocnVar,LocnDegFr,LocnDegFrMat )
         CALL SPL_T3MULB(dudt(1:LocnDegFr,1:LocnVar),Kxi_k_Sp_ptr, auxvar(1:LocnDegFr,1:LocnVar,1:LocnDegFrMat),LocnVar,LocnDegFr,LocnDegFr,LocnDegFrMat,AStar_Sp_ptr%nIndex3,AStar_Sp_ptr%Index3)
         CALL SPL_T3MULB(dudt(1:LocnDegFr,1:LocnVar),Kxi_m_Sp_ptr, auxvar(1:LocnDegFr,1:LocnVar,1:LocnDegFrMat),LocnVar,LocnDegFr,LocnDegFr,LocnDegFrMat,AStar_Sp_ptr%nIndex3,AStar_Sp_ptr%Index3)
         ! BStar
-        CALL SPT_T3MUL_M(auxvar(1:LocnDegFr,1:LocnVar,1:LocnDegFrMat),BStar_Sp_ptr,TimeIntDof_ptr,LocnVar,LocnVar,LocnDegFr,LocnDegFrMat )            
+        CALL SPT_T3MUL_M(auxvar(1:LocnDegFr,1:LocnVar,1:LocnDegFrMat),BStar_Sp_ptr,TimeIntDof_ptr,LocnVar,LocnVar,LocnDegFr,LocnDegFrMat )
         CALL SPL_T3MULB(dudt(1:LocnDegFr,1:LocnVar),Keta_k_Sp_ptr, auxvar(1:LocnDegFr,1:LocnVar,1:LocnDegFrMat),LocnVar,LocnDegFr,LocnDegFr,LocnDegFrMat,BStar_Sp_ptr%nIndex3,BStar_Sp_ptr%Index3)
         CALL SPL_T3MULB(dudt(1:LocnDegFr,1:LocnVar),Keta_m_Sp_ptr, auxvar(1:LocnDegFr,1:LocnVar,1:LocnDegFrMat),LocnVar,LocnDegFr,LocnDegFr,LocnDegFrMat,BStar_Sp_ptr%nIndex3,BStar_Sp_ptr%Index3)
         ! CStar
-        CALL SPT_T3MUL_M(auxvar(1:LocnDegFr,1:LocnVar,1:LocnDegFrMat),CStar_Sp_ptr,TimeIntDof_ptr,LocnVar,LocnVar,LocnDegFr,LocnDegFrMat )            
+        CALL SPT_T3MUL_M(auxvar(1:LocnDegFr,1:LocnVar,1:LocnDegFrMat),CStar_Sp_ptr,TimeIntDof_ptr,LocnVar,LocnVar,LocnDegFr,LocnDegFrMat )
         CALL SPL_T3MULB(dudt(1:LocnDegFr,1:LocnVar),Kzeta_k_Sp_ptr, auxvar(1:LocnDegFr,1:LocnVar,1:LocnDegFrMat),LocnVar,LocnDegFr,LocnDegFr,LocnDegFrMat,CStar_Sp_ptr%nIndex3,CStar_Sp_ptr%Index3)
         CALL SPL_T3MULB(dudt(1:LocnDegFr,1:LocnVar),Kzeta_m_Sp_ptr, auxvar(1:LocnDegFr,1:LocnVar,1:LocnDegFrMat),LocnVar,LocnDegFr,LocnDegFr,LocnDegFrMat,CStar_Sp_ptr%nIndex3,CStar_Sp_ptr%Index3)
         !
@@ -350,10 +353,10 @@ CONTAINS
                 FluxSolver_Sp_ptr => DISC%Galerkin%FRStar_Sp(iElem,iSide)
                 !
                 !====================================
-                ! If the neighbor element is an MPI 
+                ! If the neighbor element is an MPI
                 ! 1.- construct an array with the MPI neighbor dof
                 ! 2.- compute the time-integrated dof and assign them to NeigTimeIntDof
-                !====================================                
+                !====================================
                 IF (MESH%ELEM%MPIReference(iSide,iElem).EQ.1) THEN
                     iObject  = MESH%ELEM%BoundaryToObject(iSide,iElem)
                     MPIIndex = MESH%ELEM%MPINumber(iSide,iElem)
@@ -389,7 +392,7 @@ CONTAINS
                 TimeIntDof_ptr  => DISC%Galerkin%DGwork(:,:,iElem)
 
             CASE(3) ! Rupture Dynamics
-            
+
                auxvar(:,:,:)    = 0.0d0
                dudt_flux(:,:)   = 0.0d0
                NULLIFY(FluxInt_Sp_ptr)
@@ -410,7 +413,7 @@ CONTAINS
             dudt(1:LocnDegFr,1:EQN%nVar) = dudt(1:LocnDegFr,1:EQN%nVar) + dudt_flux * JacobiDetSurfa
             !
             NULLIFY(FluxInt_Sp_ptr)
-            NULLIFY(FluxSolver_Sp_ptr)           
+            NULLIFY(FluxSolver_Sp_ptr)
 
         ENDDO ! iSide
 
@@ -461,7 +464,7 @@ CONTAINS
 
 
 ! ==============================================================================
-! OFF-FAULT PLASTICITY 
+! OFF-FAULT PLASTICITY
 ! ==============================================================================
         IF(EQN%Plasticity.EQ.1) THEN
 
@@ -477,14 +480,14 @@ CONTAINS
                 SELECT CASE(EQN%PlastMethod) !two different implementations
                   CASE(0) !high-order points implementation
                     CALL Plasticity_3D_high(DISC%Galerkin%dgvar(:,1:6,iElem,1), DISC%Galerkin%DOFStress(:,1:6,iElem), DISC%Galerkin%nDegFr, DISC%Galerkin%nDegFr, &
-                                              EQN%BulkFriction, EQN%Tv, dt, EQN%mu, EQN%lambda, DISC%Galerkin%plasticParameters(1:3,iElem), &
-                                              EQN%Energy(2:3,iElem), DISC%Galerkin%pstrain(1:7,iElem), intGaussP, intGaussW, &
-                                              DISC, EQN%nVar, DISC%Galerkin%nIntGP)
+                                            EQN%Tv, dt, EQN%mu, EQN%lambda, DISC%Galerkin%plasticParameters(1:4,iElem), &
+                                            EQN%Energy(2:3,iElem), DISC%Galerkin%pstrain(1:7,iElem), intGaussP, intGaussW, &
+                                            DISC, EQN%nVar, DISC%Galerkin%nIntGP)
 
                   CASE(2) !average approach with first dof
                     CALL Plasticity_3D_avg(DISC,DISC%Galerkin%dgvar(:,1:6,iElem,1), DISC%Galerkin%DOFStress(:,1:6,iElem), DISC%Galerkin%nDegFr, &
-                                            DISC%Galerkin%nDegFr, EQN%BulkFriction, EQN%Tv, dt, EQN%mu, EQN%lambda,DISC%Galerkin%plasticParameters(1:3,iElem), &
-                                            EQN%Energy(2:3,iElem), DISC%Galerkin%pstrain(1:7,iElem) )
+                                           DISC%Galerkin%nDegFr, EQN%Tv, dt, EQN%mu, EQN%lambda,DISC%Galerkin%plasticParameters(1:4,iElem), &
+                                           EQN%Energy(2:3,iElem), DISC%Galerkin%pstrain(1:7,iElem) )
                 END SELECT
 
 
@@ -651,15 +654,15 @@ CONTAINS
     INTEGER                        :: NeignPolyMat                            !
     INTEGER                        :: NeignDegFrMat                           !
     INTEGER                        :: ReactionTerm                            !
-    
+
     INTEGER                        :: ncycles
-    INTEGER                        :: SumElementUpdates 
+    INTEGER                        :: SumElementUpdates
     INTEGER                        :: ElementsUpdated(MESH%nElem)
     INTEGER                        :: TotalUpdates(2)
-    
+
     LOGICAL                        :: IterationCompleted
     LOGICAL                        :: UpdateElement(MESH%nElem)
-    
+
     INTEGER                        :: iObject                                 !
     INTEGER                        :: MPIIndex                                !
     INTEGER                        :: iNeighbor                               !
@@ -719,7 +722,7 @@ CONTAINS
         DO iElem = 1, MESH%nElem
             !
             ! Control element update for local timestepping
-            !       
+            !
             ! Match printtime if necessary
             IF(DISC%LocalTime(iElem)+DISC%LocalDt(iElem).GE.DISC%PrintTime) THEN
                 DISC%LocalDt(iElem) = DISC%printtime - DISC%LocalTime(iElem)
@@ -831,15 +834,15 @@ CONTAINS
             JacobiDetVolum   =  6.0d0 * MESH%ELEM%Volume(iElem)
             !
             ! AStar
-            CALL SPT_T3MUL_M(auxvar(1:LocnDegFr,1:LocnVar,1:LocnDegFrMat),AStar_Sp_ptr,TimeIntDofElem,LocnVar,LocnVar,LocnDegFr,LocnDegFrMat )            
+            CALL SPT_T3MUL_M(auxvar(1:LocnDegFr,1:LocnVar,1:LocnDegFrMat),AStar_Sp_ptr,TimeIntDofElem,LocnVar,LocnVar,LocnDegFr,LocnDegFrMat )
             CALL SPL_T3MULB(dudt(1:LocnDegFr,1:LocnVar),Kxi_k_Sp_ptr, auxvar(1:LocnDegFr,1:LocnVar,1:LocnDegFrMat),LocnVar,LocnDegFr,LocnDegFr,LocnDegFrMat,AStar_Sp_ptr%nIndex3,AStar_Sp_ptr%Index3)
             CALL SPL_T3MULB(dudt(1:LocnDegFr,1:LocnVar),Kxi_m_Sp_ptr, auxvar(1:LocnDegFr,1:LocnVar,1:LocnDegFrMat),LocnVar,LocnDegFr,LocnDegFr,LocnDegFrMat,AStar_Sp_ptr%nIndex3,AStar_Sp_ptr%Index3)
             ! BStar
-            CALL SPT_T3MUL_M(auxvar(1:LocnDegFr,1:LocnVar,1:LocnDegFrMat),BStar_Sp_ptr,TimeIntDofElem,LocnVar,LocnVar,LocnDegFr,LocnDegFrMat )            
+            CALL SPT_T3MUL_M(auxvar(1:LocnDegFr,1:LocnVar,1:LocnDegFrMat),BStar_Sp_ptr,TimeIntDofElem,LocnVar,LocnVar,LocnDegFr,LocnDegFrMat )
             CALL SPL_T3MULB(dudt(1:LocnDegFr,1:LocnVar),Keta_k_Sp_ptr, auxvar(1:LocnDegFr,1:LocnVar,1:LocnDegFrMat),LocnVar,LocnDegFr,LocnDegFr,LocnDegFrMat,BStar_Sp_ptr%nIndex3,BStar_Sp_ptr%Index3)
             CALL SPL_T3MULB(dudt(1:LocnDegFr,1:LocnVar),Keta_m_Sp_ptr, auxvar(1:LocnDegFr,1:LocnVar,1:LocnDegFrMat),LocnVar,LocnDegFr,LocnDegFr,LocnDegFrMat,BStar_Sp_ptr%nIndex3,BStar_Sp_ptr%Index3)
             ! CStar
-            CALL SPT_T3MUL_M(auxvar(1:LocnDegFr,1:LocnVar,1:LocnDegFrMat),CStar_Sp_ptr,TimeIntDofElem,LocnVar,LocnVar,LocnDegFr,LocnDegFrMat )            
+            CALL SPT_T3MUL_M(auxvar(1:LocnDegFr,1:LocnVar,1:LocnDegFrMat),CStar_Sp_ptr,TimeIntDofElem,LocnVar,LocnVar,LocnDegFr,LocnDegFrMat )
             CALL SPL_T3MULB(dudt(1:LocnDegFr,1:LocnVar),Kzeta_k_Sp_ptr, auxvar(1:LocnDegFr,1:LocnVar,1:LocnDegFrMat),LocnVar,LocnDegFr,LocnDegFr,LocnDegFrMat,CStar_Sp_ptr%nIndex3,CStar_Sp_ptr%Index3)
             CALL SPL_T3MULB(dudt(1:LocnDegFr,1:LocnVar),Kzeta_m_Sp_ptr, auxvar(1:LocnDegFr,1:LocnVar,1:LocnDegFrMat),LocnVar,LocnDegFr,LocnDegFr,LocnDegFrMat,CStar_Sp_ptr%nIndex3,CStar_Sp_ptr%Index3)
             !
@@ -867,24 +870,24 @@ CONTAINS
                 TimeDerDof_ptr  => DISC%Galerkin%DGTaylor(1:LocnDegFr,1:LocnVar,0:LocnPoly,iElem) ! Pointer to TimeDerDof(iElem)
                 !
                 !====================================
-                ! If the neighbor element is an MPI 
+                ! If the neighbor element is an MPI
                 ! 1.- construct an array with the MPI neighbor dof
                 ! 2.- compute the time-integrated dof and assign them to NeigTimeIntDof
-                !====================================            
+                !====================================
                 IF (MESH%ELEM%MPIReference(iSide,iElem).EQ.1)THEN
-                    SELECT CASE(MESH%ELEM%Reference(iSide,iElem)) 
+                    SELECT CASE(MESH%ELEM%Reference(iSide,iElem))
                     CASE(0,6) ! Internal or periodic boundary
-                        ! The neighbor element belongs to a different MPI domain 
-                        iObject  = MESH%ELEM%BoundaryToObject(iSide,iElem) 
-                        MPIIndex = MESH%ELEM%MPINumber(iSide,iElem) 
-                        IF(MPIIndex.EQ.-1) THEN 
+                        ! The neighbor element belongs to a different MPI domain
+                        iObject  = MESH%ELEM%BoundaryToObject(iSide,iElem)
+                        MPIIndex = MESH%ELEM%MPINumber(iSide,iElem)
+                        IF(MPIIndex.EQ.-1) THEN
                             logError(*) 'Severe Error in Galerkin3D. MPIIndex = -1 !', iElem, iSide
-                            STOP 
-                        ENDIF 
-                        IF(.NOT.BND%ObjMPI(iObject)%Init) THEN 
+                            STOP
+                        ENDIF
+                        IF(.NOT.BND%ObjMPI(iObject)%Init) THEN
                             logError(*) 'SeisSol MPI Error. Domain not initialized. '
                             logError(*) iObject, MPIIndex
-                            STOP 
+                            STOP
                         ENDIF
                         !
                         tmin(iSide) = MAX( DISC%LocalTime(iElem),                                                                 &
@@ -897,14 +900,14 @@ CONTAINS
                         !
                         NeigTime(iSide) = BND%ObjMPI(iObject)%NeighborTime(MPIIndex)
                         !
-                        ! Get Time-Taylor series from MPI neighbor element 
+                        ! Get Time-Taylor series from MPI neighbor element
                         !
-                        DO iVar = 1, EQN%nVarTotal 
-                         counter = 0 
+                        DO iVar = 1, EQN%nVarTotal
+                         counter = 0
                          DO iDegFr = 1, DISC%Galerkin%nDegFr
                           DO iPoly = 0, DISC%Galerkin%nPoly
-                            counter = counter + 1 
-                            NeigTimeDerDof(iDegFr,iVar,iPoly) = BND%ObjMPI(iObject)%NeighborDOF(counter,iVar,MPIIndex) 
+                            counter = counter + 1
+                            NeigTimeDerDof(iDegFr,iVar,iPoly) = BND%ObjMPI(iObject)%NeighborDOF(counter,iVar,MPIIndex)
                           ENDDO
                          ENDDO
                         ENDDO
@@ -971,7 +974,7 @@ CONTAINS
                 NULLIFY(FluxSolver_Sp_ptr)
 
                 !====================================
-                ! Flux contribution of the neighbor 
+                ! Flux contribution of the neighbor
                 ! Boundary conditions, if necessary
                 !====================================
                 SELECT CASE(MESH%ELEM%Reference(iSide,iElem))
@@ -1026,7 +1029,7 @@ CONTAINS
             ! Add the update contribution calculated by other elements
             ! ========================================================
             !
-            dudt = dudt + DISC%Galerkin%dgwork(1:LocnDegFr,1:LocnVar,iElem) 
+            dudt = dudt + DISC%Galerkin%dgwork(1:LocnDegFr,1:LocnVar,iElem)
             !
             !==========================
             ! Multiplication by inverse (diagonal) mass matrix
@@ -1169,12 +1172,12 @@ CONTAINS
                     ENDIF
                     SELECT CASE( BND%ObjMPI(iObject)%NeighborUpdate(MPIIndex) )
                     CASE(0)
-                        BND%ObjMPI(iObject)%NeighborDuDt(:,:,MPIIndex) = BND%ObjMPI(iObject)%NeighborDuDt(:,:,MPIIndex) + dudt(:,:)               
+                        BND%ObjMPI(iObject)%NeighborDuDt(:,:,MPIIndex) = BND%ObjMPI(iObject)%NeighborDuDt(:,:,MPIIndex) + dudt(:,:)
                     CASE(1)
-                        BND%ObjMPI(iObject)%NeighborDuDt(:,:,MPIIndex) = BND%ObjMPI(iObject)%NeighborDuDt(:,:,MPIIndex) + dudt(:,:)               
+                        BND%ObjMPI(iObject)%NeighborDuDt(:,:,MPIIndex) = BND%ObjMPI(iObject)%NeighborDuDt(:,:,MPIIndex) + dudt(:,:)
                     CASE DEFAULT
                         PRINT *, 'Severe Error in Galerkin3D. MPINeighborUpdate must be 0 or 1 but is ', BND%ObjMPI(iObject)%NeighborUpdate(MPIIndex)
-                        STOP                    
+                        STOP
                     END SELECT
                 ELSE
                     DISC%Galerkin%dgwork(1:NeignDegFr,1:NeignVar,iNeighbor) = DISC%Galerkin%dgwork(1:NeignDegFr,1:NeignVar,iNeighbor) + dudt(1:NeignDegFr,1:NeignVar)
@@ -1218,7 +1221,7 @@ CONTAINS
                 PRINT *, '| Min / max t elements  : ', MINLOC(DISC%LocalTime(:)),MAXLOC(DISC%LocalTime(:))
                 PRINT *, '| Element updates       : ', SumElementUpdates, ' out of ', MESH%nElem
                 PRINT *, '| Total element updates : ', SUM( DISC%LocalIteration(:) ), ' ( ', PercentComplete, ' % ) '
-                PRINT *, '| ----- ' 
+                PRINT *, '| ----- '
                 NextPercentComplete = NextPercentComplete + 5
             ENDIF
         ENDIF
@@ -1276,8 +1279,8 @@ CONTAINS
 
     REAL, POINTER                  :: Dof_ptr(:,:)            => NULL()       ! Dof of element iElem at time tau=0
     REAL, POINTER                  :: TimeIntDof_ptr(:,:)     => NULL()       ! Time integrated dof
-    REAL, POINTER                  :: TimeDerDof_ptr(:,:,:)   => NULL()       ! Space-time polynomial pointer 
-    
+    REAL, POINTER                  :: TimeDerDof_ptr(:,:,:)   => NULL()       ! Space-time polynomial pointer
+
     REAL, TARGET                   :: NeigTimeIntDof(DISC%Galerkin%nDegFr,  & !
                                                      EQN%nVarTotal          ) !
 
@@ -1342,7 +1345,7 @@ CONTAINS
 
         Dof_ptr         => DISC%Galerkin%dgvar(:,:,iElem,1)                   ! Pointer to Dof(iElem)
         TimeIntDof_ptr  => DISC%Galerkin%dgwork(:,:,iElem)                    ! Pointer to TimeIntDof(iElem)
-        
+
         AStar_Sp_ptr    => DISC%Galerkin%AStar_Sp(iElem)                      ! Star matrices in sparse version
         BStar_Sp_ptr    => DISC%Galerkin%BStar_Sp(iElem)                      !
         CStar_Sp_ptr    => DISC%Galerkin%CStar_Sp(iElem)                      !
@@ -1373,7 +1376,7 @@ CONTAINS
 #endif
     ENDDO ! iElem
 
-  END SUBROUTINE CKProcedureForEveryoneGTSUni 
+  END SUBROUTINE CKProcedureForEveryoneGTSUni
 
 
   SUBROUTINE CKProcedureForEveryoneLTSUni(time,dt,iteration,MaterialVal,OptionalFields,EQN,MESH,DISC,IC,SOURCE,BND,MPI,IO)
@@ -1475,15 +1478,15 @@ CONTAINS
     INTEGER                        :: NeignPolyMat                            !
     INTEGER                        :: NeignDegFrMat                           !
     INTEGER                        :: ReactionTerm                            !
-    
+
     INTEGER                        :: ncycles
-    INTEGER                        :: SumElementUpdates 
+    INTEGER                        :: SumElementUpdates
     INTEGER                        :: ElementsUpdated(MESH%nElem)
     INTEGER                        :: TotalUpdates(2)
-    
+
     LOGICAL                        :: IterationCompleted
     LOGICAL                        :: UpdateElement(MESH%nElem)
-    
+
     INTEGER                        :: iObject                                 !
     INTEGER                        :: MPIIndex                                !
     INTEGER                        :: iNeighbor                               !
@@ -1530,7 +1533,7 @@ CONTAINS
             !
             Dof_ptr         => DISC%Galerkin%dgvar(:,:,iElem,1)                               ! Pointer to Dof(iElem)
             TimeDerDof_ptr  => DISC%Galerkin%DGTaylor(1:LocnDegFr,1:LocnVar,0:LocnPoly,iElem) ! Pointer to TimeDerDof(iElem)
-            
+
             AStar_Sp_ptr    => DISC%Galerkin%AStar_Sp(iElem)                      ! Star matrices in sparse version
             BStar_Sp_ptr    => DISC%Galerkin%BStar_Sp(iElem)                      !
             CStar_Sp_ptr    => DISC%Galerkin%CStar_Sp(iElem)                      !
@@ -1562,8 +1565,8 @@ CONTAINS
         ENDDO
         !
     ENDIF ! DISC%iterationstep.EQ.0
-    ! 
- END SUBROUTINE CKProcedureForEveryoneLTSUni 
+    !
+ END SUBROUTINE CKProcedureForEveryoneLTSUni
 ! GENERATEDKERNELS
 #endif
 

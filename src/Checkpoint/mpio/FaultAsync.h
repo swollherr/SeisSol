@@ -72,7 +72,9 @@ private:
 
 public:
 	FaultAsync()
-		: m_dataCopy(0L), m_started(false)
+		: seissol::checkpoint::CheckPoint(IDENTIFIER),
+		seissol::checkpoint::Fault(IDENTIFIER),
+		m_dataCopy(0L), m_started(false)
 	{
 	}
 

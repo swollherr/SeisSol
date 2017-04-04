@@ -43,6 +43,7 @@
 
 #include "TimeManager.h"
 #include <Initializer/preProcessorMacros.fpp>
+#include <Initializer/time_stepping/common.hpp>
 
 #if defined(_OPENMP) && defined(USE_MPI) && defined(USE_COMM_THREAD)
 #include <sys/sysinfo.h>
@@ -111,7 +112,9 @@ void seissol::time_stepping::TimeManager::addClusters( struct TimeStepping&     
                                            l_globalDataCopies,
 #endif
                                            &i_memoryManager.getLtsTree()->child(l_cluster),
-                                           i_memoryManager.getLts() )
+                                           &i_memoryManager.getDynamicRuptureTree()->child(l_cluster),
+                                           i_memoryManager.getLts(),
+                                           i_memoryManager.getDynamicRupture() )
                         );
   }
 }
@@ -172,7 +175,7 @@ void seissol::time_stepping::TimeManager::updateClusterDependencies( unsigned in
 
     if( l_cluster < m_timeStepping.numberOfLocalClusters - 1 ) {
       l_nextPredictionTime             = m_clusters[l_cluster+1]->m_predictionTime;
-      l_nextUpcomingFullUpdateTime     = m_clusters[l_cluster+1]->m_fullUpdateTime + m_clusters[l_cluster+1]->m_timeStepWidth;
+      l_nextUpcomingFullUpdateTime     = m_clusters[l_cluster+1]->m_fullUpdateTime + m_clusters[l_cluster+1]->timeStepWidth();
     }
 
     /*
@@ -253,10 +256,9 @@ void seissol::time_stepping::TimeManager::updateClusterDependencies( unsigned in
 
         // derive next time step width of the cluster
         unsigned int l_globalClusterId = m_timeStepping.clusterIds[l_cluster];
-        m_clusters[l_cluster]->m_timeStepWidth = m_timeStepping.globalCflTimeStepWidths[l_globalClusterId];
         // chop of at synchronization time
-        m_clusters[l_cluster]->m_timeStepWidth = std::min( m_clusters[l_cluster]->m_timeStepWidth,
-                                                           m_timeStepping.synchronizationTime - m_clusters[l_cluster]->m_fullUpdateTime );
+        m_clusters[l_cluster]->setTimeStepWidth( std::min( m_timeStepping.globalCflTimeStepWidths[l_globalClusterId],
+                                                           m_timeStepping.synchronizationTime - m_clusters[l_cluster]->m_fullUpdateTime ) );
 
         // derive if the cluster is required to reset its lts buffers, reset sub time start and receive derivatives
         if( m_clusters[l_cluster]->m_numberOfFullUpdates % m_timeStepping.globalTimeStepRates[l_globalClusterId] == 0 ) {
@@ -279,7 +281,7 @@ void seissol::time_stepping::TimeManager::updateClusterDependencies( unsigned in
         }
 
         // derive if cluster is ready for synchronization
-        if( std::abs( m_timeStepping.synchronizationTime - (m_clusters[l_cluster]->m_fullUpdateTime + m_clusters[l_cluster]->m_timeStepWidth) ) < l_timeTolerance ) {
+        if( std::abs( m_timeStepping.synchronizationTime - (m_clusters[l_cluster]->m_fullUpdateTime + m_clusters[l_cluster]->timeStepWidth()) ) < l_timeTolerance ) {
           m_clusters[l_cluster]->m_sendLtsBuffers = true;
         }
 #endif // USE_MPI
@@ -305,7 +307,7 @@ void seissol::time_stepping::TimeManager::advanceInTime( const double &i_synchro
     m_clusters[l_cluster]->m_updatable.neighboringInterior = false;
 
     m_clusters[l_cluster]->m_resetLtsBuffers               = true;
-    m_clusters[l_cluster]->m_timeStepWidth                 = 0;
+    m_clusters[l_cluster]->setTimeStepWidth(0.);
     m_clusters[l_cluster]->m_subTimeStart                  = 0;
     m_clusters[l_cluster]->m_numberOfFullUpdates           = 0;
   }
@@ -407,18 +409,9 @@ void seissol::time_stepping::TimeManager::setInitialTimes( double i_time ) {
   }
 }
 
-void seissol::time_stepping::TimeManager::enableDynamicRupture(unsigned dynamicRuptureCluster) {
-  // if( m_clusters.size() > 1 ) logError() << "Dynamic rupture is not supported for clustered LTS; aborting";
-
-  unsigned localDynamicRuptureTimeCluster = std::numeric_limits<unsigned>::max();
-  for (unsigned cluster = 0; cluster < m_timeStepping.numberOfLocalClusters; ++cluster) {
-    if (m_timeStepping.clusterIds[cluster] == dynamicRuptureCluster) {
-      localDynamicRuptureTimeCluster = cluster;
-    }
-  }
-  if (localDynamicRuptureTimeCluster < std::numeric_limits<unsigned>::max()) {
-    logInfo(MPI::mpi.rank()) << "Dynamic rupture has timestep" << (1 << dynamicRuptureCluster) << "* dt.";
-    m_clusters[localDynamicRuptureTimeCluster]->enableDynamicRupture();
+void seissol::time_stepping::TimeManager::setTv(double tv) {
+  for( unsigned int l_cluster = 0; l_cluster < m_clusters.size(); l_cluster++ ) {
+    m_clusters[l_cluster]->setTv(tv);
   }
 }
 

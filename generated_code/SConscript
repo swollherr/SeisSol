@@ -43,7 +43,7 @@ Import('env')
 import os
 
 def generate_code(target, source, env, for_signature):
-  return 'python {} --matricesDir {} --outputDir {} --arch {} --order {} --numberOfMechanisms {} --generator {} --memLayout {}'.format(
+  return 'python {} --matricesDir {} --outputDir {} --arch {} --order {} --numberOfMechanisms {} --generator {} --memLayout {} --dynamicRuptureMethod {}'.format(
     source[0],
     os.path.join(os.path.split(str(source[0]))[0], 'matrices'),
     os.path.split(str(target[0]))[0],
@@ -51,13 +51,15 @@ def generate_code(target, source, env, for_signature):
     env['order'],
     env['numberOfMechanisms'],
     env['libxsmmGenerator'],
-    env['memLayout']
+    env['memLayout'],
+    env['dynamicRuptureMethod']
   )
 
 env.Append(BUILDERS = {'Generate': Builder(generator=generate_code)})
 
-if env['equations'].startswith('viscoelastic'):
-  generated = env.Generate(['gemms.cpp', 'gemms.h', 'init.cpp', 'init.h', 'sizes.h', 'kernels.cpp', 'kernels.h', 'flops.h', 'KernelTests.t.h'], [env['equations'] + '.py', Glob('gemmgen/*.py')])
+if env['generatedKernels']:
+  generated = env.Generate(['gemms.cpp', 'gemms.h', 'init.cpp', 'init.h', 'sizes.h', 'kernels.cpp', 'kernels.h', 'flops.h', 'KernelTests.t.h'],
+                           [env['equations'] + '.py', 'DynamicRupture.py', 'Plasticity.py', 'SurfaceDisplacement.py', Glob('gemmgen/*.py')])
   buildDir = '#/' + env['buildDir'] if not os.path.isabs(env['buildDir']) else env['buildDir']
   env.Append(CPPPATH=buildDir)
 
@@ -66,7 +68,7 @@ if env['equations'].startswith('viscoelastic'):
     obj = env.Object(cpp)
     env.Depends(obj, generated)
     env.sourceFiles.append(obj)
-  
+
   if hasattr(env, 'generatedTestSourceFiles'):
     testFiles = filter(lambda t: str(t).endswith('.t.h'), generated)
     for test in testFiles:

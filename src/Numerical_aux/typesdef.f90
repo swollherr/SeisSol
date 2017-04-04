@@ -6,23 +6,23 @@
 !! @author Sebastian Rettenberger (sebastian.rettenberger @ tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
 !!
 !! @section LICENSE
-!! Copyright (c) 2008-2016, SeisSol Group
+!! Copyright (c) 2008-2017, SeisSol Group
 !! All rights reserved.
-!! 
+!!
 !! Redistribution and use in source and binary forms, with or without
 !! modification, are permitted provided that the following conditions are met:
-!! 
+!!
 !! 1. Redistributions of source code must retain the above copyright notice,
 !!    this list of conditions and the following disclaimer.
-!! 
+!!
 !! 2. Redistributions in binary form must reproduce the above copyright notice,
 !!    this list of conditions and the following disclaimer in the documentation
 !!    and/or other materials provided with the distribution.
-!! 
+!!
 !! 3. Neither the name of the copyright holder nor the names of its
 !!    contributors may be used to endorse or promote products derived from this
 !!    software without specific prior written permission.
-!! 
+!!
 !! THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 !! AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 !! IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -209,7 +209,7 @@ MODULE TypesDef
 
      real*8, allocatable, dimension( :, :, :, : ) :: fluxSolver !< jacobian of the plus(1)/minus(2) side multiplid by the back rotation matrix from face-normal-space to xyz-space and the determinant of jacobian of the transformation from x-y-z to xi-eta-zeta space
   END TYPE tFault
-  
+
   !< Description of all the vertices in the domain (the first index runs from 1 to MESH%nNode)
   TYPE tVertex
      REAL                         , POINTER :: xyNode(:,:)                      !<Coordinates of the nodes
@@ -541,7 +541,7 @@ MODULE TypesDef
     REAL, POINTER     :: IntGPBaseFunc_Tet(:,:,:) => NULL()       !< Precalc. basis functions
     REAL, POINTER     :: IntGPBaseGrad_Tet(:,:,:,:) => NULL()     !< Precalc. basis gradients
     REAL, POINTER     :: BndGPBaseFunc_Tet(:,:,:,:) => NULL()     !< Precalc. basis functions
-    REAL, POINTER     :: BndGPBaseFunc3D_Tet(:,:,:) => NULL()     !< Precalc. basis functions
+!    REAL, POINTER     :: BndGPBaseFunc3D_Tet(:,:,:) => NULL()     !< Precalc. basis functions
     REAL, POINTER     :: IntGPBaseFunc_Hex(:,:,:) => NULL()       !< Precalc. basis functions
     REAL, POINTER     :: IntGPBaseGrad_Hex(:,:,:,:) => NULL()     !< Precalc. basis gradients
     REAL, POINTER     :: BndGPBaseFunc_Hex(:,:,:,:) => NULL()     !< Precalc. basis functions
@@ -552,37 +552,37 @@ MODULE TypesDef
     REAL, POINTER     :: SectorVectors(:,:,:) => NULL()
     REAL, POINTER     :: Sector_iR(:,:,:) => NULL()
     !<
-    REAL, POINTER     :: IntMonomial(:,:) => NULL()           !< Factors for integrating 2D 
+    REAL, POINTER     :: IntMonomial(:,:) => NULL()           !< Factors for integrating 2D
     !<                                                !< monomials over ref. elem.
-    !< Now, all variables for the quadrature-free nonlinear ADER-DG follow:        
-    REAL, POINTER     :: LocalBinomialCoeff(:,:) => NULL()    !< Bico. with higher order    
-    REAL, POINTER     :: Kxi_loc( :,:,:) => NULL()            !< xi stiffness, nl. ADER-DG  
-    REAL, POINTER     :: Keta_loc(:,:,:) => NULL()            !< eta stiffness, nl. ADER-DG  
-    REAL, POINTER     :: Flux_loc(:,:,:) => NULL()            !< flux-matrix, nl. ADER-DG   
-    REAL, POINTER     :: CNonZero_Kxi(:) => NULL()            !< Sparsity coefficients      
-    REAL, POINTER     :: CNonZero_Keta(:) => NULL()           !< Sparsity coefficients      
-    REAL, POINTER     :: CNonZero_Kzeta(:) => NULL()          !< Sparsity coefficients      
-    REAL, POINTER     :: CNonZero_Kxi_Tet(:) => NULL()            !< Sparsity coefficients      
-    REAL, POINTER     :: CNonZero_Keta_Tet(:) => NULL()           !< Sparsity coefficients      
-    REAL, POINTER     :: CNonZero_Kzeta_Tet(:) => NULL()          !< Sparsity coefficients      
-    REAL, POINTER     :: CNonZero_Flux(:,:) => NULL()         !< Sparsity coefficients      
-    REAL, POINTER     :: CNonZero_Flux3D(:,:,:,:) => NULL()   !< Sparsity coefficients      
-    INTEGER           :: NonZero_Kxi                 !< No. of nonzero elements    
-    INTEGER           :: NonZero_Keta                !< No. of nonzero elements    
-    INTEGER           :: NonZero_Kzeta               !< No. of nonzero elements    
-    INTEGER           :: NonZero_Kxi_Tet             !< No. of nonzero elements    
-    INTEGER           :: NonZero_Keta_Tet            !< No. of nonzero elements    
-    INTEGER           :: NonZero_Kzeta_Tet           !< No. of nonzero elements    
-    INTEGER, POINTER  :: NonZero_Flux(:) => NULL()            !< No. of nonzero elements    
-    INTEGER, POINTER  :: NonZero_Flux3D(:,:,:) => NULL()      !< No. of nonzero elements    
-    INTEGER, POINTER  :: IndexNonZero_Kxi(:,:) => NULL()      !< Sparsity: non-zero indices  
-    INTEGER, POINTER  :: IndexNonZero_Keta(:,:) => NULL()     !< Sparsity: non-zero indices  
-    INTEGER, POINTER  :: IndexNonZero_Kzeta(:,:) => NULL()    !< Sparsity: non-zero indices  
-    INTEGER, POINTER  :: IndexNonZero_Kxi_Tet(:,:) => NULL()      !< Sparsity: non-zero indices  
-    INTEGER, POINTER  :: IndexNonZero_Keta_Tet(:,:) => NULL()     !< Sparsity: non-zero indices  
-    INTEGER, POINTER  :: IndexNonZero_Kzeta_Tet(:,:) => NULL()    !< Sparsity: non-zero indices  
-    INTEGER, POINTER  :: IndexNonZero_Flux(:,:,:) => NULL()   !< Sparsity: non-zero indices  
-    INTEGER, POINTER  :: IndexNonZero_Flux3D(:,:,:,:,:)=> NULL()!< Sparsity: non-zero indices  
+    !< Now, all variables for the quadrature-free nonlinear ADER-DG follow:
+    REAL, POINTER     :: LocalBinomialCoeff(:,:) => NULL()    !< Bico. with higher order
+    REAL, POINTER     :: Kxi_loc( :,:,:) => NULL()            !< xi stiffness, nl. ADER-DG
+    REAL, POINTER     :: Keta_loc(:,:,:) => NULL()            !< eta stiffness, nl. ADER-DG
+    REAL, POINTER     :: Flux_loc(:,:,:) => NULL()            !< flux-matrix, nl. ADER-DG
+    REAL, POINTER     :: CNonZero_Kxi(:) => NULL()            !< Sparsity coefficients
+    REAL, POINTER     :: CNonZero_Keta(:) => NULL()           !< Sparsity coefficients
+    REAL, POINTER     :: CNonZero_Kzeta(:) => NULL()          !< Sparsity coefficients
+    REAL, POINTER     :: CNonZero_Kxi_Tet(:) => NULL()            !< Sparsity coefficients
+    REAL, POINTER     :: CNonZero_Keta_Tet(:) => NULL()           !< Sparsity coefficients
+    REAL, POINTER     :: CNonZero_Kzeta_Tet(:) => NULL()          !< Sparsity coefficients
+    REAL, POINTER     :: CNonZero_Flux(:,:) => NULL()         !< Sparsity coefficients
+    REAL, POINTER     :: CNonZero_Flux3D(:,:,:,:) => NULL()   !< Sparsity coefficients
+    INTEGER           :: NonZero_Kxi                 !< No. of nonzero elements
+    INTEGER           :: NonZero_Keta                !< No. of nonzero elements
+    INTEGER           :: NonZero_Kzeta               !< No. of nonzero elements
+    INTEGER           :: NonZero_Kxi_Tet             !< No. of nonzero elements
+    INTEGER           :: NonZero_Keta_Tet            !< No. of nonzero elements
+    INTEGER           :: NonZero_Kzeta_Tet           !< No. of nonzero elements
+    INTEGER, POINTER  :: NonZero_Flux(:) => NULL()            !< No. of nonzero elements
+    INTEGER, POINTER  :: NonZero_Flux3D(:,:,:) => NULL()      !< No. of nonzero elements
+    INTEGER, POINTER  :: IndexNonZero_Kxi(:,:) => NULL()      !< Sparsity: non-zero indices
+    INTEGER, POINTER  :: IndexNonZero_Keta(:,:) => NULL()     !< Sparsity: non-zero indices
+    INTEGER, POINTER  :: IndexNonZero_Kzeta(:,:) => NULL()    !< Sparsity: non-zero indices
+    INTEGER, POINTER  :: IndexNonZero_Kxi_Tet(:,:) => NULL()      !< Sparsity: non-zero indices
+    INTEGER, POINTER  :: IndexNonZero_Keta_Tet(:,:) => NULL()     !< Sparsity: non-zero indices
+    INTEGER, POINTER  :: IndexNonZero_Kzeta_Tet(:,:) => NULL()    !< Sparsity: non-zero indices
+    INTEGER, POINTER  :: IndexNonZero_Flux(:,:,:) => NULL()   !< Sparsity: non-zero indices
+    INTEGER, POINTER  :: IndexNonZero_Flux3D(:,:,:,:,:)=> NULL()!< Sparsity: non-zero indices
 
     REAL, POINTER     :: NC_BndBF_GP(:,:,:) => NULL()         !<Precomputed basis functions at Gauss Point of non-conforming elements
     !< ---------------------------------------------------------------------------
@@ -879,30 +879,38 @@ MODULE TypesDef
      REAL                         , POINTER :: rotmat(:,:,:)   => NULL()                 !< stores rotation matrix for fault receiver
      REAL                                   :: p0
      integer                                :: refinement
-     integer,pointer                        :: elements_per_rank(:)
      integer                                :: refinement_strategy
   END TYPE tDynRup_output
 
   TYPE tDynRup
-     REAL, POINTER                          :: Slip(:,:) => NULL()               !< Slip path at given fault node
-     REAL, POINTER                          :: Slip1(:,:) => NULL()                      !< Slip at given fault node along loc dir 1
-     REAL, POINTER                          :: Slip2(:,:) => NULL()                      !< Slip at given fault node along loc dir 2
-     REAL, POINTER                          :: SlipRate1(:,:) => NULL()                  !< Slip Rate at given fault node
-     REAL, POINTER                          :: SlipRate2(:,:) => NULL()                  !< Slip Rate at given fault node
-     REAL, POINTER                          :: PeakSR(:,:) => NULL()                     !< Slip Rate at given fault node
-     REAL, POINTER                          :: TracXZ(:,:) => NULL()                     !< Traction at given fault node
-     REAL, POINTER                          :: TracXY(:,:) => NULL()                     !< Traction at given fault node
-     REAL, POINTER                          :: Mu(:,:) => NULL()                         !< Current friction coefficient at given fault node
-     REAL, POINTER                          :: Mu_S(:,:) => NULL()                       !< Static friction coefficient at given fault node
-     REAL, POINTER                          :: Mu_D(:,:) => NULL()                       !< Dynamic friction coefficient at given fault node
-     REAL, POINTER                          :: StateVar(:,:) => NULL()                   !< State variable used at Rate-and-state friction laws
-     REAL, POINTER                          :: cohesion(:,:) => NULL()                   !< cohesion at given fault node  (should be negative since negative normal stress is compression)
+     real, allocatable                      :: output_Mu(:,:)
+     real, allocatable                      :: output_StateVar(:,:)
+     real, allocatable                      :: output_Strength(:,:)
+     real, allocatable                      :: output_Slip(:,:)
+     real, allocatable                      :: output_Slip1(:,:)
+     real, allocatable                      :: output_Slip2(:,:)
+     real, allocatable                      :: output_rupture_time(:,:)
+     real, allocatable                      :: output_PeakSR(:,:)
+     real, allocatable                      :: output_dynStress_time(:,:)  
+     REAL, allocatable                      :: Slip(:,:)               !< Slip path at given fault node
+     REAL, allocatable                      :: Slip1(:,:)                      !< Slip at given fault node along loc dir 1
+     REAL, allocatable                      :: Slip2(:,:)                      !< Slip at given fault node along loc dir 2
+     REAL, allocatable                      :: SlipRate1(:,:)                  !< Slip Rate at given fault node
+     REAL, allocatable                      :: SlipRate2(:,:)                  !< Slip Rate at given fault node
+     REAL, allocatable                      :: PeakSR(:,:)                     !< Slip Rate at given fault node
+     REAL, allocatable                      :: TracXZ(:,:)                     !< Traction at given fault node
+     REAL, allocatable                      :: TracXY(:,:)                     !< Traction at given fault node
+     REAL, allocatable                      :: Mu(:,:)                         !< Current friction coefficient at given fault node
+     REAL, allocatable                      :: Mu_S(:,:)                       !< Static friction coefficient at given fault node
+     REAL, allocatable                      :: Mu_D(:,:)                       !< Dynamic friction coefficient at given fault node
+     REAL, allocatable                      :: StateVar(:,:)                   !< State variable used at Rate-and-state friction laws
+     REAL, allocatable                      :: cohesion(:,:)                   !< cohesion at given fault node  (should be negative since negative normal stress is compression)
      REAL                                   :: cohesion_0                                !< Default cohesion value
      REAL                                   :: cohesion_max                              !< maximum added cohesion for linear increasing cohesion
      REAL                                   :: cohesion_depth                            !< depth at which cohesion is increased
-     REAL, POINTER                          :: forced_rupture_time(:,:) => NULL()        !< forced rupture time at given fault node
-     REAL, POINTER                          :: rupture_time(:,:) => NULL()               !< rupture time at given fault node> used for VR ouput calculation
-     REAL, POINTER                          :: dynStress_time(:,:) => NULL()             !< time at which the shear stress is equal the dynamic stress
+     REAL, allocatable                      :: forced_rupture_time(:,:)        !< forced rupture time at given fault node
+     REAL, allocatable                      :: rupture_time(:,:)               !< rupture time at given fault node> used for VR ouput calculation
+     REAL, allocatable                      :: dynStress_time(:,:)             !< time at which the shear stress is equal the dynamic stress
      REAL                                   :: XHypo                            !< x-coordinate of the forced rupture patch
      REAL                                   :: YHypo                            !< y-coordinate of the forced rupture circle
      REAL                                   :: ZHypo                            !< z-coordinate of the forced rupture circle
@@ -968,21 +976,24 @@ MODULE TypesDef
      ! declarate output types
      LOGICAL                                :: DR_output                        !< Dynamic Rupture output just for domains with "+" elements
      INTEGER                                :: OutputPointType                  !< Type of output (3: at certain pickpoint positions, 4: at every element , 5: option 3 + 4)
+     integer                                :: SlipRateOutputType
      TYPE(tDynRup_output)                   :: DynRup_out_atPickpoint           !< Output data at pickpoints for Dynamic Rupture processes
      TYPE(tDynRup_output)                   :: DynRup_out_elementwise           !< Output data at all elements for Dynamic Rupture processes
 #ifdef HDF
      TYPE(thd_fault_receiver)           , POINTER :: hd_rec  => NULL()                         !< HDF5 file handle for fault hdf5 outpu
 #endif
 
+#ifndef GENERATEDKERNELS
     integer              :: nDRElems !< number of DR Elems
-    real*8, allocatable  :: DRupdates(:,:,:)            !< shadow storage of receiver elemes 
+    real*8, allocatable  :: DRupdates(:,:,:)            !< shadow storage of receiver elemes
     integer, allocatable :: indicesOfDRElems(:) !< indices of elements having a pickpoint
     integer, allocatable :: DRupdatesPosition(:,:) !< helper array to determine the position inside DRupdates in friction routine
 
     integer              :: nDRElemsMIC !< number of DR Elems
-    real*8, allocatable  :: DRupdatesMIC(:,:,:)            !< shadow storage of receiver elemes 
+    real*8, allocatable  :: DRupdatesMIC(:,:,:)            !< shadow storage of receiver elemes
     integer, allocatable :: indicesOfDRElemsMIC(:) !< indices of elements having a pickpoint
     integer, allocatable :: indicesOfDRElemsInCPUupdates(:) !< indices of elements having a pickpoint
+#endif
 
      type(tDynRun_constants),pointer         :: DynRup_Constants(:), DynRup_Constants_globInd(:) => NULL()
    END TYPE tDynRup                                                        !<
@@ -1065,11 +1076,11 @@ MODULE TypesDef
      TYPE(tSparseTensor3), POINTER          :: ESpHexa(:)                       !< Sparse star tensor E
      TYPE(tSparseMatrix),POINTER            :: InvSystemMatrix(:)               !< Inverse system matrix for ST-DG
 
-     TYPE(tSparseTensor3), POINTER          :: AStar_Sp(:)  =>NULL()            !< Sparse star tensor A      
-     TYPE(tSparseTensor3), POINTER          :: BStar_Sp(:)  =>NULL()            !< Sparse star tensor B      
-     TYPE(tSparseTensor3), POINTER          :: CStar_Sp(:)  =>NULL()            !< Sparse star tensor C      
-     TYPE(tSparseTensor3), POINTER          :: EStar_Sp(:)  =>NULL()            !< Sparse star tensor E      
-     !< 
+     TYPE(tSparseTensor3), POINTER          :: AStar_Sp(:)  =>NULL()            !< Sparse star tensor A
+     TYPE(tSparseTensor3), POINTER          :: BStar_Sp(:)  =>NULL()            !< Sparse star tensor B
+     TYPE(tSparseTensor3), POINTER          :: CStar_Sp(:)  =>NULL()            !< Sparse star tensor C
+     TYPE(tSparseTensor3), POINTER          :: EStar_Sp(:)  =>NULL()            !< Sparse star tensor E
+     !<
      TYPE(tSparseTensor3), POINTER          :: FLStar_Sp(:,:) => NULL()         !< Sparse flux tensor
      TYPE(tSparseTensor3), POINTER          :: FRStar_Sp(:,:) => NULL()         !< Sparse flux tensor
      !< Dynamic Rupture variables to exchange dgvar values of MPI-fault elements since the Taylor derivatives are needed in friction
@@ -1182,11 +1193,12 @@ MODULE TypesDef
      INTEGER                                :: Anisotropy                       !< (0) = isotop, (1) = hexagonal, (2) = orthorhombisch, (3) = tetragonal
      INTEGER                                :: Anelasticity                     !< (0) = elastic, (1) = anelastic
      INTEGER                                :: Poroelasticity                   !< (0) = non-porous, (1) = porous-HF, (2) = porous-LF with ST-DG, (3) = porous-LF with FS-DG
-     INTEGER                                :: Plasticity                       !< (0) = elastic, (1) = (Drucker-Prager) visco-plastic 
+     INTEGER                                :: Plasticity                       !< (0) = elastic, (1) = (Drucker-Prager) visco-plastic
      REAL, POINTER                          :: Energy(:,:)=> NULL()
      REAL                                   :: PlastCo_0                        !< Cohesion for the Drucker-Prager plasticity, initial constant value
-     REAL, POINTER                          :: PlastCo(:)                       !< Cohesion for the Drucker-Prager plasticity, depth-dependent
-     REAL                                   :: BulkFriction                     !< Bulk friction for the Drucker-Prager plasticity
+     REAL, POINTER                          :: PlastCo(:)                       !< Cohesion for the Drucker-Prager plasticity, element-dependent
+     REAL                                   :: BulkFriction_0                   !< Bulk friction for the Drucker-Prager plasticity, initial constant value
+     REAL,POINTER                           :: BulkFriction(:)                  !< Bulk friction for the Drucker-Prager plasticity, , element-dependent
      REAL                                   :: Tv                               !< relaxation coefficient for the update of stresses due to the Drucker-Prager plasticity, approx. (dx/V_s)
      INTEGER                                :: PlastMethod                      !< method for plasticity: (0) = high-order, (2) = average of an element
      REAL, POINTER                          :: IniStress(:,:)                   !< Initial stress (loading) for the whole domain, only used for plastic calculations
@@ -1213,14 +1225,15 @@ MODULE TypesDef
      !< Dynamic Rupture variables
      INTEGER                                :: DR                               !< (0) = no, (1) = dynamic rupture is present
      INTEGER                                :: FL                               !< Type of friction law used (0) = none, (1) = imposed rup vel, (2) = LSW, (3) = RS
-     REAL, POINTER                          :: IniBulk_xx(:,:)                  !< Initial bulk stress at fault
-     REAL, POINTER                          :: IniBulk_yy(:,:)                  !< Initial bulk stress at fault
-     REAL, POINTER                          :: IniBulk_zz(:,:)                  !< Initial bulk stress at fault
-     REAL, POINTER                          :: IniShearXY(:,:)                  !< Initial shear stress at fault
-     REAL, POINTER                          :: IniShearYZ(:,:)                  !< Initial shear stress at fault
-     REAL, POINTER                          :: IniShearXZ(:,:)                  !< Initial shear stress at fault
-     REAL, POINTER                          :: IniMu(:,:)                       !< Initial friction coefficient at fault
-     REAL, POINTER                          :: IniStateVar(:,:)                 !< Initial state variable value at fault
+     REAL, allocatable                      :: IniBulk_xx(:,:)                  !< Initial bulk stress at fault
+     REAL, allocatable                      :: IniBulk_yy(:,:)                  !< Initial bulk stress at fault
+     REAL, allocatable                      :: IniBulk_zz(:,:)                  !< Initial bulk stress at fault
+     REAL, allocatable                      :: IniShearXY(:,:)                  !< Initial shear stress at fault
+     REAL, allocatable                      :: IniShearYZ(:,:)                  !< Initial shear stress at fault
+     REAL, allocatable                      :: IniShearXZ(:,:)                  !< Initial shear stress at fault
+     real, allocatable                      :: InitialStressInFaultCS(:,:,:)
+     REAL, allocatable                      :: IniMu(:,:)                       !< Initial friction coefficient at fault
+     REAL, allocatable                      :: IniStateVar(:,:)                 !< Initial state variable value at fault
      REAL                                   :: IniSlipRate1                     !< Initial slip rate value at fault
      REAL                                   :: IniSlipRate2                     !< Initial slip rate value at fault
      REAL                                   :: ShearXY_0                        !< Initial shear stress
@@ -1290,7 +1303,7 @@ MODULE TypesDef
      REAL                   , DIMENSION(3)  :: coordz                           !< (subtet) vertices coordinates in z
      INTEGER                                :: index                            !< Element index
      INTEGER                                :: globalreceiverindex              !< receiver index of global list
-     LOGICAL                                :: inside                           !< If a point is inside the mesh or not     
+     LOGICAL                                :: inside                           !< If a point is inside the mesh or not
   END TYPE tUnstructPoint
   !< Spline
   TYPE  tSpline
@@ -1457,6 +1470,8 @@ MODULE TypesDef
 
      type(tCheckPoint)                      :: checkpoint                       !< Checkpointing configuration
      INTEGER                                :: Refinement
+     integer                                :: SurfaceOutput, SurfaceOutputRefinement
+     real                                   :: SurfaceOutputInterval
   END TYPE tInputOutput
 
   !<--------------------------------------------------------------------------
@@ -1892,7 +1907,7 @@ MODULE TypesDef
      REAL                         , POINTER :: cvar(:,:) => NULL()
      REAL                         , POINTER :: vvar(:,:) => NULL()
      REAL                                   :: dtReference
-     REAL                                   :: PeriodicDisp(4) 
+     REAL                                   :: PeriodicDisp(4)
   END TYPE tUnstructDomainDescript
 
 END MODULE TypesDef

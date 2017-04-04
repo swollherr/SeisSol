@@ -7,17 +7,17 @@
  * @section LICENSE
  * Copyright (c) 2013, SeisSol Group
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
@@ -111,11 +111,16 @@ public:
 		return m_fault;
 	}
 
+	bool hasFault() const
+	{
+		return m_fault.size() > 0;
+	}
+
 	bool hasPlusFault() const
 	{
 		return m_hasPlusFault;
 	}
-  
+
   void displaceMesh(double const displacement[3])
   {
     for (unsigned vertexNo = 0; vertexNo < m_vertices.size(); ++vertexNo) {
@@ -124,9 +129,9 @@ public:
       }
     }
   }
-  
-  // scalingMatrix is stored column-major, i.e. 
-  // scalingMatrix_ij = scalingMatrix[j][i] 
+
+  // scalingMatrix is stored column-major, i.e.
+  // scalingMatrix_ij = scalingMatrix[j][i]
   void scaleMesh(double const scalingMatrix[3][3])
   {
     for (unsigned vertexNo = 0; vertexNo < m_vertices.size(); ++vertexNo) {
@@ -212,14 +217,21 @@ public:
 				}
 				// Fix normal direction and get correct chiVec
 				if (!isPlus) {
-					MeshTools::mul(f.normal, -1.0, f.normal);
-
 					// In case of a minus side, compute chi using node 0 and 1 from the plus side
 					MeshTools::sub(m_vertices[i->vertices[MeshTools::FACE2NODES[j]
 					              [MeshTools::NEIGHBORFACENODE2LOCAL[(3+1-i->sideOrientations[j])%3]]]].coords,
 							m_vertices[i->vertices[MeshTools::FACE2NODES[j]
 							      [MeshTools::NEIGHBORFACENODE2LOCAL[(3+0-i->sideOrientations[j])%3]]]].coords,
 							chiVec);
+
+          MeshTools::sub(m_vertices[i->vertices[MeshTools::FACE2NODES[j]
+					              [MeshTools::NEIGHBORFACENODE2LOCAL[(3+2-i->sideOrientations[j])%3]]]].coords,
+							m_vertices[i->vertices[MeshTools::FACE2NODES[j]
+							      [MeshTools::NEIGHBORFACENODE2LOCAL[(3+0-i->sideOrientations[j])%3]]]].coords,
+							tauVec);
+
+          MeshTools::cross(chiVec, tauVec, f.normal);
+          MeshTools::mul(f.normal, 1.0 / MeshTools::norm(f.normal), f.normal);
 				}
 
 				// Compute vector inside the triangle's plane for the rotation matrix
