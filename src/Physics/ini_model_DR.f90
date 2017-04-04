@@ -2026,7 +2026,6 @@ MODULE ini_model_DR_mod
   END SUBROUTINE
 
  !> SUMATRA test case
->>>>>>> upstream/master
   !> T. ULRICH 06.2015
   !> tpv29 used as a model
   !<

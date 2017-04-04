@@ -468,35 +468,13 @@ CONTAINS
            IF(EQN%PlastMethod .EQ. 0) THEN
               intGaussP     => DISC%Galerkin%intGaussP_Tet
               intGaussW     => DISC%Galerkin%intGaussW_Tet
-<<<<<<< HEAD
-              ! Basis func values
-              !IntGPBaseFunc => DISC%Galerkin%IntGPBaseFunc_Tet(1:DISC%Galerkin%nDegFr,1:DISC%Galerkin%nIntGP,iPoly)
-              ! Mass matrix
-              !MassMatrix    => DISC%Galerkin%MassMatrix_Tet(1:DISC%Galerkin%nDegFr,1:DISC%Galerkin%nDegFr,iPoly)
-          ENDIF
-                DO iElem = 1, nElem !for every element
-=======
            ENDIF
-              DO iElem = 1, nElem !for every element
->>>>>>> upstream/master
+              
+           DO iElem = 1, nElem !for every element
 #ifndef GENERATEDKERNELS
 
 
                 SELECT CASE(EQN%PlastMethod) !two different implementations
-<<<<<<< HEAD
-                  CASE(0) !high order implementation -> is working
-                    CALL Plasticity_3D_high(DISC%Galerkin%dgvar(:,1:6,iElem,1), DISC%Galerkin%DOFStress(:,1:6,iElem), DISC%Galerkin%nDegFr, DISC%Galerkin%nDegFr, &
-                                              EQN%BulkFriction, EQN%Tv, dt, EQN%mu, EQN%lambda, DISC%Galerkin%plasticParameters(1:3,iElem), &
-                                              EQN%Energy(2:3,iElem), DISC%Galerkin%pstrain(1:7,iElem), intGaussP, intGaussW, &
-                                              !IntGPBaseFunc, MassMatrix, &
-                                              DISC, EQN%nVar, DISC%Galerkin%nIntGP)
-
-                  CASE(2) !average approximated with the first dof -> is working
-                    CALL Plasticity_3D_dof(DISC,DISC%Galerkin%dgvar(:,1:6,iElem,1), DISC%Galerkin%DOFStress(:,1:6,iElem), DISC%Galerkin%nDegFr, &
-                                            DISC%Galerkin%nDegFr, EQN%BulkFriction, EQN%Tv, dt, EQN%mu, EQN%lambda,DISC%Galerkin%plasticParameters(1:3,iElem), &
-                                            EQN%Energy(2:3,iElem), DISC%Galerkin%pstrain(1:7,iElem) )
-                  END SELECT
-=======
                   CASE(0) !high-order points implementation
                     CALL Plasticity_3D_high(DISC%Galerkin%dgvar(:,1:6,iElem,1), DISC%Galerkin%DOFStress(:,1:6,iElem), DISC%Galerkin%nDegFr, DISC%Galerkin%nDegFr, &
                                               EQN%BulkFriction, EQN%Tv, dt, EQN%mu, EQN%lambda, DISC%Galerkin%plasticParameters(1:3,iElem), &
@@ -508,15 +486,12 @@ CONTAINS
                                             DISC%Galerkin%nDegFr, EQN%BulkFriction, EQN%Tv, dt, EQN%mu, EQN%lambda,DISC%Galerkin%plasticParameters(1:3,iElem), &
                                             EQN%Energy(2:3,iElem), DISC%Galerkin%pstrain(1:7,iElem) )
                 END SELECT
->>>>>>> upstream/master
 
 
 #endif
 !for the GK version the plasticity call is moved to Interoperability.cpp
-              ENDDO
-
-<<<<<<< HEAD
           ENDDO
+
         ELSE !elastic
              !calculate elastic strain energy (here total strains = elastic strains)
              EstrainEnergy_tmp = 0.0
@@ -548,9 +523,6 @@ CONTAINS
             EQN%Energy(3,iElem) = EstrainEnergy_tmp*6.0D0*MESH%Elem%Volume(iElem)
 
        ENDIF
-=======
-        ENDIF
->>>>>>> upstream/master
 ! ==============================================================================
     ! end epik/scorep region for source terms
     EPIK_USER_END(r_source)
