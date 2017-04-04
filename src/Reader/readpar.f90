@@ -326,13 +326,6 @@ CONTAINS
         EQN%BulkFriction = BulkFriction
         EQN%Tv = Tv
         EQN%PlastMethod = pmethod
-<<<<<<< HEAD
-        SELECT CASE (EQN%PlastMethod)
-        CASE(0,2)
-        logInfo0(*) 'Plastic relaxation Tv is set to: ', EQN%Tv
-        CASE DEFAULT
-        logError(*) 'ERROR: choose 0 or 2 as plasticity method'
-=======
         SELECT CASE (EQN%PlastMethod) !two different methods for plasticity
         CASE(0)
                  logInfo0(*) 'Plastic relaxation Tv is set to: ', EQN%Tv
@@ -342,7 +335,6 @@ CONTAINS
                  logInfo0(*) 'Average of an element is used for plasticity. '
         CASE DEFAULT
                  logError(*) 'ERROR: choose 0 or 2 as plasticity method'
->>>>>>> upstream/master
         stop
         END SELECT
     CASE DEFAULT
@@ -565,13 +557,8 @@ CONTAINS
       ENDDO
       CLOSE(IO%UNIT%other01)      
       !
-<<<<<<< HEAD
   CASE(12, 26, 77) ! Plasticity with constant material properties, initial stress (loading) must be assigned to every element in the domain
            ! special case for TPV13, add other cases that use plasticity with different initial stress values here
-=======
-  CASE(12, 26) ! Plasticity with constant material properties, initial stress (loading) must be assigned to every element in the domain
-               ! special case for TPV13 and TPV27, add other cases that use plasticity with different initial stress values here
->>>>>>> upstream/master
       IF (EQN%Plasticity.EQ.1)THEN
         logInfo0(*) 'Jacobians are globally constant with rho0, mu, lambda:'
         logInfo0(*) ' rho0 = ', EQN%rho0     ! (1)
