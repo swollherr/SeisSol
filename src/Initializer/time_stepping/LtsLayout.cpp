@@ -212,6 +212,19 @@ void seissol::initializers::time_stepping::LtsLayout::derivePlainGhost() {
   delete[] l_numberOfCopyCells;
 }
 
+void seissol::initializers::time_stepping::LtsLayout::deriveDynamicRupturePlainCopyInterior()
+{
+  for (unsigned face = 0; face < m_fault.size(); ++face) {
+    // Local dynamic rupture face
+    if (m_fault[face].element >= 0 && m_fault[face].neighborElement >= 0) {
+      m_dynamicRupturePlainInterior.push_back(face);
+    // Dynamic rupture face with one neighbour in the ghost layer
+    } else {
+      m_dynamicRupturePlainCopy.push_back(face);
+    }
+  }
+}
+
 void seissol::initializers::time_stepping::LtsLayout::normalizeMpiIndices() {
 	const int rank = seissol::MPI::mpi.rank();
 
@@ -1172,6 +1185,9 @@ void seissol::initializers::time_stepping::LtsLayout::deriveLayout( enum TimeClu
 
   // derive plain ghost regions
   derivePlainGhost();
+  
+  // derive dynamic rupture layers
+  deriveDynamicRupturePlainCopyInterior();
 
   // normalize mpi indices
   normalizeMpiIndices();
@@ -1469,6 +1485,25 @@ void seissol::initializers::time_stepping::LtsLayout::getCellInformation( CellLo
 
       l_ltsCell++;
     }
+  }
+}
+
+void seissol::initializers::time_stepping::LtsLayout::getDynamicRuptureInformation( unsigned*&  ltsToFace,
+                                                                                    unsigned&   numberOfDRCopyFaces,
+                                                                                    unsigned&   numberOfDRInteriorFaces )
+{
+  numberOfDRCopyFaces = m_dynamicRupturePlainCopy.size();
+  numberOfDRInteriorFaces = m_dynamicRupturePlainInterior.size();
+  unsigned numberOfDRFaces = numberOfDRCopyFaces + numberOfDRInteriorFaces;
+  
+  ltsToFace = new unsigned[numberOfDRFaces];
+  
+  unsigned ltsId = 0;
+  for (std::vector<int>::const_iterator it = m_dynamicRupturePlainCopy.begin(); it != m_dynamicRupturePlainCopy.end(); ++it) {
+    ltsToFace[ltsId++] = *it;
+  }  
+  for (std::vector<int>::const_iterator it = m_dynamicRupturePlainInterior.begin(); it != m_dynamicRupturePlainInterior.end(); ++it) {
+    ltsToFace[ltsId++] = *it;
   }
 }
 

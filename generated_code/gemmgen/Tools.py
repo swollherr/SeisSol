@@ -41,6 +41,8 @@ import lxml.etree
 import DB
 import Expr
 import Generator
+import numpy
+import scipy.sparse
 
 def __complain(child):
   raise ValueError('Unknown tag ' + child.tag)
@@ -50,30 +52,41 @@ def __parseMatrix(node, clones):
   rows = int( node.get('rows') )
   columns = int( node.get('columns') )
   if len(node) != 0:
-    spp = (list(), list())
-    values = list()
+    indices = (list(), list())
+    data = list()
     for child in node:
       if child.tag == 'entry':
         row = int(child.get('row'))-1
         col = int(child.get('column'))-1
-        spp[0].append(row)
-        spp[1].append(col)
-        if values != None and 'value' in child.keys():
-          values.append((row, col, child.get('value')))
+        indices[0].append(row)
+        indices[1].append(col)
+        if data != None and 'value' in child.keys():
+          data.append(child.get('value'))
         else:
-          values = None
+          data = None
       else:
         self.__complain(child)
   else:
-    spp = None
-    values = None
+    indices = None
+    data = None
+
+  spp = None
+  isConstantGlobalMatrix = False
+  if indices is not None:
+    if data is None:
+      dtype = numpy.float64
+      data = numpy.ones(len(indices[0]))
+    else:
+      dtype = numpy.str_
+      isConstantGlobalMatrix = True
+    spp = scipy.sparse.coo_matrix((data, indices), shape=(rows, columns), dtype=dtype)
 
   dbUpdate = DB.DB()
   if clones.has_key(name):
     for clone in clones[name]:
-      dbUpdate[clone] = DB.MatrixInfo(clone, rows, columns, spp, values)
+      dbUpdate[clone] = DB.MatrixInfo(clone, rows, columns, spp, isConstantGlobalMatrix)
   else:
-    dbUpdate[name] = DB.MatrixInfo(name, rows, columns, spp, values)
+    dbUpdate[name] = DB.MatrixInfo(name, rows, columns, spp, isConstantGlobalMatrix)
   
   return dbUpdate
 
@@ -96,39 +109,71 @@ def memoryLayoutFromFile(xmlFile, db, clones):
   root = tree.getroot()
   strtobool = ['yes', 'true', '1']
   nofits = dict()
-  for matrix in root:
-    if matrix.tag == 'matrix':
-      name = matrix.get('name')
-      nofit = matrix.get('nofit', '').lower() in strtobool
-      sparse = matrix.get('sparse', '').lower() in strtobool
-      if clones.has_key(name) or db.has_key(name):
-        blocks = []
-        for block in matrix:
-          if block.tag == 'block':
-            startrow = int(block.get('startrow'))
-            stoprow = int(block.get('stoprow'))
-            startcol = int(block.get('startcol'))
-            stopcol = int(block.get('stopcol'))
-            blksparse = (block.get('sparse') == None and sparse) or block.get('sparse', '').lower() in strtobool
-            blocks.append(DB.MatrixBlock(startrow, stoprow, startcol, stopcol, blksparse))
-          else:
-            __complain(block)
-        names = clones[name] if clones.has_key(name) else [name]
-        for n in names:
-          nofits[n] = nofit
-          if len(blocks) == 0:
-            db[n].setSingleBlock(sparse)
-          else:
-            db[n].setBlocks(blocks)
-          if not nofit:
-            db[n].fitBlocksToSparsityPattern()
+  groups = dict()
+  
+  for group in root.findall('group'):
+    groupName = group.get('name')
+    noMutualSparsityPattern = group.get('noMutualSparsityPattern', '').lower() in strtobool
+    groups[groupName] = list()
+    for matrix in group:
+      if matrix.tag == 'matrix':
+        matrixName = matrix.get('name')
+        if not db.has_key(matrixName):
+          raise ValueError('Unrecognized matrix name ' + matrixName)
+        if len(groups[groupName]) > 0:
+          lastMatrixInGroup = groups[groupName][-1]
+          if db[lastMatrixInGroup].rows != db[matrixName].rows or db[lastMatrixInGroup].cols != db[matrixName].cols:
+            raise ValueError('Matrix {} cannot be in the same group as matrix {} due to different shapes.'.format(matrixName, lastMatrixInGroup))
+        groups[groupName].append( matrixName )
       else:
-        raise ValueError('Unrecognized matrix name ' + name)
+        __complain(group)
+    # equalize sparsity pattern
+    if not noMutualSparsityPattern:
+      spp = None
+      for matrix in groups[groupName]:
+        spp = spp + db[matrix].spp if spp is not None else db[matrix].spp
+      spp[numpy.abs(spp) > 0] = 1.0
+      for matrix in groups[groupName]:
+        db[matrix].updateSparsityPattern(spp)
+
+  for matrix in root.findall('matrix'):
+    group = matrix.get('group')
+    name = matrix.get('name')
+    nofit = matrix.get('nofit', '').lower() in strtobool
+    sparse = matrix.get('sparse', '').lower() in strtobool
+    
+    if groups.has_key(group) or clones.has_key(name) or db.has_key(name):
+      blocks = []
+      for block in matrix:
+        if block.tag == 'block':
+          startrow = int(block.get('startrow'))
+          stoprow = int(block.get('stoprow'))
+          startcol = int(block.get('startcol'))
+          stopcol = int(block.get('stopcol'))
+          blksparse = (block.get('sparse') == None and sparse) or block.get('sparse', '').lower() in strtobool
+          blocks.append(DB.MatrixBlock(startrow, stoprow, startcol, stopcol, blksparse))
+        else:
+          __complain(block)
+      names = groups[group] if groups.has_key(group) else (clones[name] if clones.has_key(name) else [name])
+      for n in names:
+        nofits[n] = nofit
+        if len(blocks) == 0:
+          db[n].setSingleBlock(sparse)
+        else:
+          db[n].setBlocks(blocks)
+        if not nofit:
+          db[n].fitBlocksToSparsityPattern()
     else:
-      __complain(matrix)
+      raise ValueError('Unrecognized matrix name ' + name)
   for name, matrix in db.iteritems():
     if not nofits.has_key(name) or nofits[name] == False:
       matrix.fitBlocksToSparsityPattern()
+
+def numberOfBasisFunctions2D(order):
+  return order * (order + 1) / 2
+
+def alignedNumberOfBasisFunctions2D(order, architecture):
+  return architecture.getAlignedDim(numberOfBasisFunctions2D(order))
   
 def numberOfBasisFunctions(order):
   return order * (order + 1) * (order + 2) / 6
@@ -136,18 +181,18 @@ def numberOfBasisFunctions(order):
 def alignedNumberOfBasisFunctions(order, architecture):
   return architecture.getAlignedDim(numberOfBasisFunctions(order))
 
-def generate(outputDir, db, kernels, libxsmmGenerator, architecture):
+def generate(outputDir, db, kernels, libxsmmGenerator, architecture, prefix=''):
   Expr.analyseKernels(db, kernels)
 
   for matrixInfo in db.itervalues():
     matrixInfo.generateMemoryLayout(architecture, alignStartrow=matrixInfo.leftMultiplication)    
-  for name, kernel in kernels:
-    kernel.generateMemoryLayout(architecture, alignStartrow=True)
+  for prototype in kernels:
+    prototype.kernel.generateMemoryLayout(architecture, alignStartrow=True)
 
   print('\nKernels')
   print('-------')
-  for name, kernel in kernels:
-    print(u'{}: {}'.format(name, kernel.symbol))
+  for prototype in kernels:
+    print(u'{}: {}'.format(prototype.name, prototype.kernel.symbol))
 
   print('\nMemory layout')
   print('-------------')
@@ -159,7 +204,7 @@ def generate(outputDir, db, kernels, libxsmmGenerator, architecture):
       print('{:16} {}'.format(name, block))
       name = ''
 
-  generator = Generator.Generator(db, libxsmmGenerator, architecture)
+  generator = Generator.Generator(db, libxsmmGenerator, architecture, prefix)
   generator.generateKernels(outputDir, kernels)
   generator.generateInitializer(outputDir)
   generator.generateUnitTests(outputDir, kernels)

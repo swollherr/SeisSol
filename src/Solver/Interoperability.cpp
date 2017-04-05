@@ -6,7 +6,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger @ tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2015, SeisSol Group
+ * Copyright (c) 2015-2017, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -49,7 +49,6 @@
 #include <Initializer/time_stepping/common.hpp>
 #include <Model/Setup.h>
 #include <Monitoring/FlopCounter.hpp>
-#include "ResultWriter/FaultWriterC.h"
 
 seissol::Interoperability e_interoperability;
 
@@ -68,8 +67,8 @@ extern "C" {
                                          i_timeStepWidth );
   }
 
-  void c_interoperability_initializeClusteredLts( int i_clustering ) {
-    e_interoperability.initializeClusteredLts( i_clustering );
+  void c_interoperability_initializeClusteredLts( int i_clustering, bool enableFreeSurfaceIntegration ) {
+    e_interoperability.initializeClusteredLts( i_clustering, enableFreeSurfaceIntegration );
   }
 
   void c_interoperability_setupNRFPointSources(char* nrfFileName)
@@ -135,6 +134,10 @@ extern "C" {
                                                double *i_plasticParameters ) {
     e_interoperability.setPlasticParameters( i_meshId, i_plasticParameters );
   }
+
+  void c_interoperability_setTv(double tv) {
+    e_interoperability.setTv(tv);
+  }
 #endif
 
   void c_interoperability_initializeCellLocalMatrices() {
@@ -153,6 +156,10 @@ extern "C" {
     e_interoperability.enableWaveFieldOutput( i_waveFieldInterval, i_waveFieldFilename );
   }
 
+  void c_interoperability_enableFreeSurfaceOutput(int maxRefinementDepth) {
+	e_interoperability.enableFreeSurfaceOutput(maxRefinementDepth);
+  }
+
   void c_interoperability_enableCheckPointing( double i_checkPointInterval,
 		  const char* i_checkPointFilename, const char* i_checkPointBackend ) {
     e_interoperability.enableCheckPointing( i_checkPointInterval,
@@ -165,9 +172,11 @@ extern "C" {
 
   void c_interoperability_initializeIO( double* mu, double* slipRate1, double* slipRate2,
 		  double* slip, double* slip1, double* slip2, double* state, double* strength,
-		  int numSides, int numBndGP, int refinement, int* outputMask, double* outputRegionBounds) {
+		  int numSides, int numBndGP, int refinement, int* outputMask, double* outputRegionBounds,
+		  double freeSurfaceInterval, const char* freeSurfaceFilename) {
 	  e_interoperability.initializeIO(mu, slipRate1, slipRate2, slip, slip1, slip2, state, strength,
-			  numSides, numBndGP, refinement, outputMask, outputRegionBounds);
+			numSides, numBndGP, refinement, outputMask, outputRegionBounds,
+			freeSurfaceInterval, freeSurfaceFilename);
   }
 
   void c_interoperability_addToDofs( int      i_meshId,
@@ -228,15 +237,31 @@ extern "C" {
                                                  double *i_fullUpdateTime,
                                                  double *i_timeStepWidth );
 
-  extern void f_interoperability_setDynamicRuptureTimeStep( void *i_domain,
-		   	   	   	   	   	   	   	   	   	   	   	   	    int  *i_timeStep );
+  extern void f_interoperability_copyDynamicRuptureState(void* domain);
 
-  extern void f_interoperability_getDynamicRuptureTimeStep( void *i_domain,
-		  	  	  	  	  	  	  	  	  	  	  	  	    int  *i_timeStep );
+  extern void f_interoperability_faultOutput( void   *i_domain,
+                                              double *i_fullUpdateTime,
+                                              double *i_timeStepWidth );
 
-  extern void f_interoperability_computeDynamicRupture( void   *i_domain,
-                                                        double *i_fullUpdateTime,
-                                                        double *i_timeStepWidth );
+  extern void f_interoperability_evaluateFrictionLaw( void*   i_domain,
+                                                      int     i_face,
+                                                      real*   i_godunov,
+                                                      real*   i_imposedStatePlus,
+                                                      real*   i_imposedStateMinus,
+                                                      int     i_numberOfBasisFunctions2D,
+                                                      int     i_godunovLd,
+                                                      double* i_fullUpdateTime,
+                                                      double* timePoints,
+                                                      double* timeWeights,
+                                                      double  densityPlus,
+                                                      double  pWaveVelocityPlus,
+                                                      double  sWaveVelocityPlus,
+                                                      double  densityMinus,
+                                                      double  pWaveVelocityMinus,
+                                                      double  sWaveVelocityMinus );
+
+  extern void f_interoperability_calcElementwiseFaultoutput( void *domain,
+	                                                     double time );
 
   extern void f_interoperability_computePlasticity( void    *i_domain,
                                                     double  *i_timestep,
@@ -267,12 +292,13 @@ extern "C" {
  * C++ functions
  */
 seissol::Interoperability::Interoperability() :
-  m_domain(NULL), m_ltsTree(NULL), m_lts(NULL) // reset domain pointer
+  m_domain(NULL), m_ltsTree(NULL), m_lts(NULL), m_ltsFaceToMeshFace(NULL) // reset domain pointer
 {
 }
 
 seissol::Interoperability::~Interoperability()
 {
+  delete[] m_ltsFaceToMeshFace;
 }
 
 void seissol::Interoperability::setDomain( void* i_domain ) {
@@ -286,7 +312,7 @@ void seissol::Interoperability::setTimeStepWidth( int    i_meshId,
   seissol::SeisSol::main.getLtsLayout().setTimeStepWidth( (i_meshId)-1, i_timeStepWidth );
 }
 
-void seissol::Interoperability::initializeClusteredLts( int i_clustering ) {
+void seissol::Interoperability::initializeClusteredLts( int i_clustering, bool enableFreeSurfaceIntegration ) {
   // assert a valid clustering
   assert( i_clustering > 0 );
 
@@ -304,8 +330,19 @@ void seissol::Interoperability::initializeClusteredLts( int i_clustering ) {
   // get time stepping
   seissol::SeisSol::main.getLtsLayout().getCrossClusterTimeStepping( m_timeStepping );
 
+
+  unsigned numberOfDRCopyFaces;
+  unsigned numberOfDRInteriorFaces;
+  // get cell information & mappings
+  seissol::SeisSol::main.getLtsLayout().getDynamicRuptureInformation( m_ltsFaceToMeshFace,
+                                                                      numberOfDRCopyFaces,
+                                                                      numberOfDRInteriorFaces );
+
   seissol::SeisSol::main.getMemoryManager().fixateLtsTree(  m_timeStepping,
-                                                            m_meshStructure );
+                                                            m_meshStructure,
+                                                            seissol::SeisSol::main.getLtsLayout().getDynamicRuptureCluster(),
+                                                            numberOfDRCopyFaces,
+                                                            numberOfDRInteriorFaces );
 
   m_ltsTree = seissol::SeisSol::main.getMemoryManager().getLtsTree();
   m_lts = seissol::SeisSol::main.getMemoryManager().getLts();
@@ -329,7 +366,7 @@ void seissol::Interoperability::initializeClusteredLts( int i_clustering ) {
                                                          m_ltsTree->var(m_lts->cellInformation) );
 
   // initialize memory layout
-  seissol::SeisSol::main.getMemoryManager().initializeMemoryLayout();
+  seissol::SeisSol::main.getMemoryManager().initializeMemoryLayout(enableFreeSurfaceIntegration);
 
   // add clusters
   seissol::SeisSol::main.timeManager().addClusters( m_timeStepping,
@@ -399,7 +436,7 @@ void seissol::Interoperability::setReceiverSampling( double i_receiverSampling )
 }
 
 void seissol::Interoperability::enableDynamicRupture() {
-  seissol::SeisSol::main.timeManager().enableDynamicRupture( seissol::SeisSol::main.getLtsLayout().getDynamicRuptureCluster() );
+  // DR is always enabled if there are dynamic rupture cells
 }
 
 void seissol::Interoperability::setMaterial(int i_meshId, int i_side, double* i_materialVal, int i_numMaterialVals)
@@ -418,7 +455,7 @@ void seissol::Interoperability::setMaterial(int i_meshId, int i_side, double* i_
 }
 
 #ifdef USE_PLASTICITY
-void seissol::Interoperability::setInitialLoading( int* i_meshId, double *i_initialLoading ) {\
+void seissol::Interoperability::setInitialLoading( int* i_meshId, double *i_initialLoading ) {
   PlasticityData& plasticity = m_ltsLut.lookup(m_lts->plasticity, (*i_meshId) - 1);
 
   for( unsigned int l_stress = 0; l_stress < 6; l_stress++ ) {
@@ -428,12 +465,27 @@ void seissol::Interoperability::setInitialLoading( int* i_meshId, double *i_init
   }
 }
 //synchronize element dependent plasticity parameters
-void seissol::Interoperability::setPlasticParameters( int* i_meshId, double* i_plasticParameters) {\
+void seissol::Interoperability::setPlasticParameters( int* i_meshId, double* i_plasticParameters) {
   PlasticityData& plasticity = m_ltsLut.lookup(m_lts->plasticity, (*i_meshId) - 1);
+  CellMaterialData& material = m_ltsLut.lookup(m_lts->material, (*i_meshId) - 1);
 
-  for( unsigned int l_para = 0; l_para < 3; l_para++ ) {
+  for( unsigned int l_para = 0; l_para < 4; l_para++ ) {
       plasticity.plasticParameters[l_para] = i_plasticParameters[l_para];
   }
+
+
+  double angularFriction = atan(i_plasticParameters[3]);
+
+
+  plasticity.cohesionTimesCosAngularFriction = i_plasticParameters[1] * cos(angularFriction);
+  plasticity.sinAngularFriction = sin(angularFriction);
+  plasticity.mufactor = 1.0 / (2.0 * material.local.mu);
+
+}
+
+
+void seissol::Interoperability::setTv(double tv) {
+  seissol::SeisSol::main.timeManager().setTv(tv);
 }
 #endif
 
@@ -444,6 +496,16 @@ void seissol::Interoperability::initializeCellLocalMatrices()
                                                       m_ltsTree,
                                                       m_lts,
                                                       &m_ltsLut );
+
+  seissol::initializers::initializeDynamicRuptureMatrices( seissol::SeisSol::main.meshReader(),
+                                                           m_ltsTree,
+                                                           m_lts,
+                                                           &m_ltsLut,
+                                                           seissol::SeisSol::main.getMemoryManager().getDynamicRuptureTree(),
+                                                           seissol::SeisSol::main.getMemoryManager().getDynamicRupture(),
+                                                           m_ltsFaceToMeshFace,
+                                                           *seissol::SeisSol::main.getMemoryManager().getGlobalData(),
+                                                           m_timeStepping );
 }
 
 template<typename T>
@@ -482,9 +544,16 @@ void seissol::Interoperability::enableWaveFieldOutput( double i_waveFieldInterva
   seissol::SeisSol::main.waveFieldWriter().setFilename( i_waveFieldFilename );
 }
 
-void seissol::Interoperability::getIntegrationMask( int* i_integrationMask ) {
-  seissol::SeisSol::main.postProcessor().setIntegrationMask(i_integrationMask);
+void seissol::Interoperability::enableFreeSurfaceOutput(int maxRefinementDepth)
+{
+	seissol::SeisSol::main.freeSurfaceWriter().enable();
+
+	seissol::SeisSol::main.freeSurfaceIntegrator().initialize( maxRefinementDepth,
+								m_lts,
+								m_ltsTree,
+								&m_ltsLut );
 }
+
 
 void seissol::Interoperability::enableCheckPointing( double i_checkPointInterval,
 		const char *i_checkPointFilename, const char *i_checkPointBackend ) {
@@ -504,46 +573,56 @@ void seissol::Interoperability::enableCheckPointing( double i_checkPointInterval
   	  seissol::SeisSol::main.checkPointManager().setFilename( i_checkPointFilename );
 }
 
-void seissol::Interoperability::initializeIO(
-		  double* mu, double* slipRate1, double* slipRate2,
-		  double* slip, double* slip1, double* slip2, double* state, double* strength,
-		  int numSides, int numBndGP, int refinement, int* outputMask,
-          double* outputRegionBounds)
-{
-	  // Initialize checkpointing
-	  double currentTime;
-	  int waveFieldTimeStep = 0;
-	  int faultTimeStep;
-	  bool hasCheckpoint = seissol::SeisSol::main.checkPointManager().init(reinterpret_cast<real*>(m_ltsTree->var(m_lts->dofs)),
-				  m_ltsTree->getNumberOfCells(m_lts->dofs.mask) * NUMBER_OF_ALIGNED_DOFS,
-				  mu, slipRate1, slipRate2, slip, slip1, slip2,
-				  state, strength, numSides, numBndGP,
-				  currentTime, waveFieldTimeStep, faultTimeStep);
-	  if (hasCheckpoint) {
-		  seissol::SeisSol::main.simulator().setCurrentTime(currentTime);
-		  f_interoperability_setDynamicRuptureTimeStep(m_domain, &faultTimeStep);
-	  }
-
-	  // Initialize wave field output
-	  seissol::SeisSol::main.waveFieldWriter().init(
-			  NUMBER_OF_QUANTITIES, CONVERGENCE_ORDER,
-              NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
-			  seissol::SeisSol::main.meshReader(),
-			  reinterpret_cast<const double*>(m_ltsTree->var(m_lts->dofs)),
-			  reinterpret_cast<const double*>(m_ltsTree->var(m_lts->pstrain)),
-              seissol::SeisSol::main.postProcessor().getIntegrals(m_ltsTree),
-			  m_ltsLut.getMeshToLtsLut(m_lts->dofs.mask)[0],
-			  refinement, waveFieldTimeStep, outputMask, outputRegionBounds,
-			  seissol::SeisSol::main.timeManager().getTimeTolerance());
-
-	  // I/O initialization is the last step that requires the mesh reader
-	  // (at least at the moment ...)
-	  seissol::SeisSol::main.freeMeshReader();
+void seissol::Interoperability::getIntegrationMask( int* i_integrationMask ) {
+  seissol::SeisSol::main.postProcessor().setIntegrationMask(i_integrationMask);
 }
 
-void seissol::Interoperability::getDynamicRuptureTimeStep(int &o_timeStep)
+void seissol::Interoperability::initializeIO(
+		double* mu, double* slipRate1, double* slipRate2,
+		double* slip, double* slip1, double* slip2, double* state, double* strength,
+		int numSides, int numBndGP, int refinement, int* outputMask,
+		double* outputRegionBounds,
+		double freeSurfaceInterval, const char* freeSurfaceFilename)
 {
-	f_interoperability_getDynamicRuptureTimeStep(m_domain, &o_timeStep);
+	// Initialize checkpointing
+	int faultTimeStep;
+	bool hasCheckpoint = seissol::SeisSol::main.checkPointManager().init(reinterpret_cast<real*>(m_ltsTree->var(m_lts->dofs)),
+			m_ltsTree->getNumberOfCells(m_lts->dofs.mask) * NUMBER_OF_ALIGNED_DOFS,
+			mu, slipRate1, slipRate2, slip, slip1, slip2,
+			state, strength, numSides, numBndGP,
+			faultTimeStep);
+	if (hasCheckpoint) {
+		seissol::SeisSol::main.simulator().setCurrentTime(
+			seissol::SeisSol::main.checkPointManager().header().time());
+		seissol::SeisSol::main.faultWriter().setTimestep(faultTimeStep);
+	}
+
+	// Initialize wave field output
+	seissol::SeisSol::main.waveFieldWriter().init(
+			NUMBER_OF_QUANTITIES, CONVERGENCE_ORDER,
+			NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
+			seissol::SeisSol::main.meshReader(),
+			reinterpret_cast<const double*>(m_ltsTree->var(m_lts->dofs)),
+			reinterpret_cast<const double*>(m_ltsTree->var(m_lts->pstrain)),
+			seissol::SeisSol::main.postProcessor().getIntegrals(m_ltsTree),
+			m_ltsLut.getMeshToLtsLut(m_lts->dofs.mask)[0],
+			refinement, outputMask, outputRegionBounds,
+			seissol::SeisSol::main.timeManager().getTimeTolerance());
+
+	// Initialize free surface output
+	seissol::SeisSol::main.freeSurfaceWriter().init(
+		seissol::SeisSol::main.meshReader(),
+		&seissol::SeisSol::main.freeSurfaceIntegrator(),
+		freeSurfaceFilename, freeSurfaceInterval);
+
+	// I/O initialization is the last step that requires the mesh reader
+	// (at least at the moment ...)
+	seissol::SeisSol::main.freeMeshReader();
+}
+
+void seissol::Interoperability::copyDynamicRuptureState()
+{
+	f_interoperability_copyDynamicRuptureState(m_domain);
 }
 
 void seissol::Interoperability::addToDofs( int      i_meshId,
@@ -558,21 +637,14 @@ void seissol::Interoperability::getTimeDerivatives( int    i_meshId,
   real l_timeDerivatives[NUMBER_OF_ALIGNED_DERS] __attribute__((aligned(ALIGNMENT)));
 
   unsigned nonZeroFlops, hardwareFlops;
-#ifdef REQUIRE_SOURCE_MATRIX
+
   m_timeKernel.computeAder( 0,
                             m_globalData,
                             &m_ltsLut.lookup(m_lts->localIntegration, i_meshId - 1),
                             m_ltsLut.lookup(m_lts->dofs, i_meshId - 1),
                             l_timeIntegrated,
                             l_timeDerivatives );
-#else
-  m_timeKernel.computeAder( 0,
-                            m_globalData->stiffnessMatricesTransposed,
-                            m_ltsLut.lookup(m_lts->dofs, i_meshId - 1),
-                            m_ltsLut.lookup(m_lts->localIntegration, i_meshId - 1).starMatrices,
-                            l_timeIntegrated,
-                            l_timeDerivatives );
-#endif
+
   m_timeKernel.flopsAder(nonZeroFlops, hardwareFlops);
   g_SeisSolNonZeroFlopsOther += nonZeroFlops;
   g_SeisSolHardwareFlopsOther += hardwareFlops;
@@ -658,7 +730,8 @@ void seissol::Interoperability::finalizeIO()
 {
 	seissol::SeisSol::main.waveFieldWriter().close();
 	seissol::SeisSol::main.checkPointManager().close();
-	fault_hdf_close();
+	seissol::SeisSol::main.faultWriter().close();
+	seissol::SeisSol::main.freeSurfaceWriter().close();
 }
 
 void seissol::Interoperability::writeReceivers( double i_fullUpdateTime,
@@ -682,12 +755,49 @@ void seissol::Interoperability::writeReceivers( double i_fullUpdateTime,
                                      l_receiverIds );
 }
 
-void seissol::Interoperability::computeDynamicRupture( double i_fullUpdateTime,
-                                                       double i_timeStepWidth ) {
-  f_interoperability_computeDynamicRupture(  m_domain,
-                                            &i_fullUpdateTime,
-                                            &i_timeStepWidth );
+void seissol::Interoperability::faultOutput( double i_fullUpdateTime,
+                                             double i_timeStepWidth )
+{
+  f_interoperability_faultOutput( m_domain, &i_fullUpdateTime, &i_timeStepWidth );
 }
+
+void seissol::Interoperability::evaluateFrictionLaw(  int face,
+                                                      real godunov[CONVERGENCE_ORDER][seissol::model::godunovState::reals],
+                                                      real imposedStatePlus[seissol::model::godunovState::reals],
+                                                      real imposedStateMinus[seissol::model::godunovState::reals],
+                                                      double i_fullUpdateTime,
+                                                      double timePoints[CONVERGENCE_ORDER],
+                                                      double timeWeights[CONVERGENCE_ORDER],
+                                                      seissol::model::IsotropicWaveSpeeds const& waveSpeedsPlus,
+                                                      seissol::model::IsotropicWaveSpeeds const& waveSpeedsMinus )
+{
+  int fFace = face + 1;
+  int numberOfPoints = seissol::model::godunovState::rows;
+  int godunovLd = seissol::model::godunovState::ld;
+
+  f_interoperability_evaluateFrictionLaw( m_domain,
+                                          fFace,
+                                         &godunov[0][0],
+                                         &imposedStatePlus[0],
+                                         &imposedStateMinus[0],
+                                          numberOfPoints,
+                                          godunovLd,
+                                          &i_fullUpdateTime,
+                                          &timePoints[0],
+                                          &timeWeights[0],
+                                          waveSpeedsPlus.density,
+                                          waveSpeedsPlus.pWaveVelocity,
+                                          waveSpeedsPlus.sWaveVelocity,
+                                          waveSpeedsMinus.density,
+                                          waveSpeedsMinus.pWaveVelocity,
+                                          waveSpeedsMinus.sWaveVelocity);
+}
+
+void seissol::Interoperability::calcElementwiseFaultoutput(double time)
+{
+	f_interoperability_calcElementwiseFaultoutput(m_domain, time);
+}
+
 
 #ifdef USE_PLASTICITY
 void seissol::Interoperability::computePlasticity(  double i_timeStep,

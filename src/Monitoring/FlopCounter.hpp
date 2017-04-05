@@ -52,8 +52,13 @@ extern long long g_SeisSolNonZeroFlopsNeighbor;
 extern long long g_SeisSolHardwareFlopsNeighbor;
 extern long long g_SeisSolNonZeroFlopsOther;
 extern long long g_SeisSolHardwareFlopsOther;
+extern long long g_SeisSolNonZeroFlopsDynamicRupture;
+extern long long g_SeisSolHardwareFlopsDynamicRupture;
+extern long long g_SeisSolNonZeroFlopsPlasticity;
+extern long long g_SeisSolHardwareFlopsPlasticity;
 
 extern "C" {
+  void printNodePerformance(double wallTime);
   void printFlops();
 }
 

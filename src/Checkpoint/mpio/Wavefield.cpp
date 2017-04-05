@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2015-2016, SeisSol Group
+ * Copyright (c) 2015-2017, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -39,31 +39,37 @@
 
 #include <mpi.h>
 
-#include <cstddef>
+#include "utils/env.h"
 
 #include "Wavefield.h"
 #include "Monitoring/instrumentation.fpp"
 
-bool seissol::checkpoint::mpio::Wavefield::init(unsigned long numDofs, unsigned int groupSize)
+void seissol::checkpoint::mpio::Wavefield::setHeader(seissol::checkpoint::WavefieldHeader &header)
 {
-	seissol::checkpoint::Wavefield::init(numDofs, groupSize);
+	seissol::checkpoint::Wavefield::setHeader(header);
+	header.add(m_partitionComp);
+}
+
+bool seissol::checkpoint::mpio::Wavefield::init(size_t headerSize, unsigned long numDofs, unsigned int groupSize)
+{
+	seissol::checkpoint::Wavefield::init(headerSize, numDofs, groupSize);
 
 	// Create the header data type
+	// We cannot use header since this will be called on I/O nodes as well
 	MPI_Datatype headerType;
-	int blockLength[] = {1, 1, 1, 1};
-	MPI_Aint displ[] = {offsetof(Header, identifier), offsetof(Header, partitions),
-			offsetof(Header, time), offsetof(Header, timestepWavefield)};
-	MPI_Datatype types[] = {MPI_UNSIGNED_LONG, MPI_INT, MPI_DOUBLE, MPI_INT};
-	MPI_Type_create_struct(4, blockLength, displ, types, &headerType);
+	MPI_Type_contiguous(headerSize, MPI_BYTE, &headerType);
 	setHeaderType(headerType);
 
 	// Define the file view
-	defineFileView(sizeof(Header), numDofs);
+	defineFileView(headerSize, sizeof(real), numDofs);
+
+	// Large buffers are supported?
+	m_useLargeBuffer = utils::Env::get<int>("SEISSOL_CHECKPOINT_MPIO_LARGE_BUFFER", 1) != 0;
 
 	return exists();
 }
 
-void seissol::checkpoint::mpio::Wavefield::load(double &time, int &timestepWaveField, real* dofs)
+void seissol::checkpoint::mpio::Wavefield::load(real* dofs)
 {
 	logInfo(rank()) << "Loading wave field checkpoint";
 
@@ -76,13 +82,10 @@ void seissol::checkpoint::mpio::Wavefield::load(double &time, int &timestepWaveF
 	// Read and broadcast header
 	checkMPIErr(setHeaderView(file));
 
-	Header header;
 	if (rank() == 0)
-		checkMPIErr(MPI_File_read(file, &header, 1, headerType(), MPI_STATUS_IGNORE));
+		checkMPIErr(MPI_File_read(file, header().data(), 1, headerType(), MPI_STATUS_IGNORE));
 
-	MPI_Bcast(&header, 1, headerType(), 0, comm());
-	time = header.time;
-	timestepWaveField = header.timestepWavefield;
+	MPI_Bcast(header().data(), 1, headerType(), 0, comm());
 
 	// Read dofs
 	checkMPIErr(setDataView(file));
@@ -92,27 +95,35 @@ void seissol::checkpoint::mpio::Wavefield::load(double &time, int &timestepWaveF
 	checkMPIErr(MPI_File_close(&file));
 }
 
-void seissol::checkpoint::mpio::Wavefield::write(double time, int timestepWaveField)
+void seissol::checkpoint::mpio::Wavefield::initHeader(WavefieldHeader &header)
 {
-	EPIK_TRACER("CheckPoint_write");
+	seissol::checkpoint::Wavefield::initHeader(header);
+
+	header.value(m_partitionComp) = partitions();
+}
+
+void seissol::checkpoint::mpio::Wavefield::write(const void* header, size_t headerSize)
+{
 	SCOREP_USER_REGION("CheckPoint_write", SCOREP_USER_REGION_TYPE_FUNCTION);
 
 	logInfo(rank()) << "Checkpoint backend: Writing.";
 
 	// Write the header
-	writeHeader(time, timestepWaveField);
+	writeHeader(header, headerSize);
 
 	// Save data
-	EPIK_USER_REG(r_write_wavefield, "checkpoint_write_wavefield");
 	SCOREP_USER_REGION_DEFINE(r_write_wavefield);
-	EPIK_USER_START(r_write_wavefield);
 	SCOREP_USER_REGION_BEGIN(r_write_wavefield, "checkpoint_write_wavefield", SCOREP_USER_REGION_TYPE_COMMON);
-
 	checkMPIErr(setDataView(file()));
 
-	const unsigned int totalIter = (totalIterations() + sizeof(real) - 1) / sizeof(real);
-	const unsigned int iter = (iterations() + sizeof(real) - 1) / sizeof(real);
-	unsigned int count = dofsPerIteration() * sizeof(real);
+	unsigned int totalIter = totalIterations();
+	unsigned int iter = iterations();
+	unsigned int count = dofsPerIteration();
+	if (m_useLargeBuffer) {
+		totalIter = (totalIter + sizeof(real) - 1) / sizeof(real);
+		iter = (iter + sizeof(real) - 1) / sizeof(real);
+		count *= sizeof(real);
+	}
 	unsigned long offset = 0;
 	for (unsigned int i = 0; i < totalIter; i++) {
 		if (i == iter-1)
@@ -124,9 +135,10 @@ void seissol::checkpoint::mpio::Wavefield::write(double time, int timestepWaveFi
 		if (i < iter-1)
 			offset += count;
 		// otherwise we just continue writing the last chunk over and over
+		else if (i != totalIter-1)
+			checkMPIErr(MPI_File_seek(file(), -count * sizeof(real), MPI_SEEK_CUR));
 	}
 
-	EPIK_USER_END(r_write_wavefield);
 	SCOREP_USER_REGION_END(r_write_wavefield);
 
 	// Finalize the checkpoint
@@ -135,7 +147,7 @@ void seissol::checkpoint::mpio::Wavefield::write(double time, int timestepWaveFi
 	logInfo(rank()) << "Checkpoint backend: Writing. Done.";
 }
 
-bool seissol::checkpoint::mpio::Wavefield::validate(MPI_File file) const
+bool seissol::checkpoint::mpio::Wavefield::validate(MPI_File file)
 {
 	if (setHeaderView(file) != 0) {
 		logWarning() << "Could not set checkpoint header view";
@@ -144,16 +156,14 @@ bool seissol::checkpoint::mpio::Wavefield::validate(MPI_File file) const
 
 	int result = true;
 
-	if (rank() == 0) {
-		Header header;
-
+	if (rank() == 0 && hasHeader()) { // Only validate on compute nodes
 		// Check the header
-		MPI_File_read(file, &header, 1, headerType(), MPI_STATUS_IGNORE);
+		MPI_File_read(file, header().data(), 1, headerType(), MPI_STATUS_IGNORE);
 
-		if (header.identifier != identifier()) {
+		if (header().identifier() != identifier()) {
 			logWarning() << "Checkpoint identifier does match";
 			result = false;
-		} else if (header.partitions != partitions()) {
+		} else if (header().value(m_partitionComp) != partitions()) {
 			logWarning() << "Number of partitions in checkpoint does not match";
 			result = false;
 		}
@@ -165,20 +175,13 @@ bool seissol::checkpoint::mpio::Wavefield::validate(MPI_File file) const
 	return result;
 }
 
-void seissol::checkpoint::mpio::Wavefield::writeHeader(double time, int timestepWaveField)
+void seissol::checkpoint::mpio::Wavefield::writeHeader(const void* header, size_t headerSize)
 {
-	EPIK_TRACER("checkpoint_write_header");
 	SCOREP_USER_REGION("checkpoint_write_header", SCOREP_USER_REGION_TYPE_FUNCTION);
 
 	checkMPIErr(setHeaderView(file()));
 
-	if (rank() == 0) {
-		Header header;
-		header.identifier = identifier();
-		header.partitions = partitions();
-		header.time = time;
-		header.timestepWavefield = timestepWaveField;
+	if (rank() == 0)
+		checkMPIErr(MPI_File_write(file(), const_cast<void*>(header), 1, headerType(), MPI_STATUS_IGNORE));
 
-		checkMPIErr(MPI_File_write(file(), &header, 1, headerType(), MPI_STATUS_IGNORE));
-	}
 }

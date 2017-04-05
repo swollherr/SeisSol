@@ -73,12 +73,7 @@
 
 #include <Kernels/common.hpp>
 
-// if equations == viscoelastic
-#ifdef REQUIRE_SOURCE_MATRIX
 #include <generated_code/init.h>
-#else
-#define MATRIXXMLFILE "matrices_" STR(NUMBER_OF_BASIS_FUNCTIONS) ".xml"
-#endif
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -91,22 +86,11 @@ seissol::initializers::MemoryManager::MemoryManager()
 
 void seissol::initializers::MemoryManager::initialize()
 {
-#ifndef REQUIRE_SOURCE_MATRIX
-  // init the sparse switch
-#   define SPARSE_SWITCH
-#   include <initialization/bind.h>
-#   undef SPARSE_SWITCH
-#endif
-
   // allocate thread-local LTS integration buffers
   allocateIntegrationBufferLTS();
-  
-// if equations == viscoelastic
-// @TODO Remove ifdef and generalize initialization
-// @TODO This implementation doesn't backport the support for multiple copies of global data
-// @TODO make sure that multiple copies of global data are still supported by this unified implementation
-#ifdef REQUIRE_SOURCE_MATRIX
-#  ifndef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
+
+  // initialize global matrices
+#ifndef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
   initializeGlobalData( m_globalData );
 #else
   // determine the number of threads
@@ -131,45 +115,6 @@ void seissol::initializers::MemoryManager::initialize()
 
   // set master structure
   m_globalData = m_globalDataCopies[0];
-#  endif
-#else
-
-  XmlParser i_matrixReader(MATRIXXMLFILE);
-
-  // initialize global matrices
-#ifndef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
-  initializeGlobalMatrices( i_matrixReader, m_globalData );
-#else
-  // determine the number of threads
-  unsigned int l_numberOfThreads = omp_get_max_threads();
-  unsigned int l_numberOfCopiesCeil = (l_numberOfThreads%NUMBER_OF_THREADS_PER_GLOBALDATA_COPY == 0) ? 0 : 1;
-  unsigned int l_numberOfCopies = (l_numberOfThreads/NUMBER_OF_THREADS_PER_GLOBALDATA_COPY) + l_numberOfCopiesCeil;
-  logInfo(0) << "Number of GlobalData copies: " << l_numberOfCopies;
-
-  m_globalDataCopies = new GlobalData[l_numberOfCopies]; 
-
-  // initialize all copies
-#if 0 
-  // use serial initialization -> first touch places everything in the corresponding NUMA nodes
-  for ( unsigned int l_globalDataCopy = 0; l_globalDataCopy < l_numberOfCopies; l_globalDataCopy++ ) {
-    initializeGlobalMatrices( i_matrixReader, m_globalDataCopies[l_globalDataCopy] );
-  }
-#else
-  // initialize in parallel to obtain best possible NUMA placement
-  #pragma omp parallel
-  {
-    if (omp_get_thread_num()%NUMBER_OF_THREADS_PER_GLOBALDATA_COPY == 0) {
-      // @TODO check why initializeGlobalMatrices is not thread-safe
-      #pragma omp critical
-      {
-        initializeGlobalMatrices( i_matrixReader, m_globalDataCopies[omp_get_thread_num()/NUMBER_OF_THREADS_PER_GLOBALDATA_COPY] );
-      }
-    }
-  }
-#endif
-  // set master structure
-  m_globalData = m_globalDataCopies[0];
-#endif
 #endif
 }
 
@@ -180,256 +125,9 @@ seissol::initializers::MemoryManager::~MemoryManager() {
 #endif
 }
 
-#ifndef REQUIRE_SOURCE_MATRIX
-void seissol::initializers::MemoryManager::initializeGlobalMatrix(          int                        i_sparse,
-                                                                   unsigned int                        i_leadingDimension,
-                                                                   unsigned int                        i_numberOfColumns,
-                                                                      const std::vector<unsigned int> &i_rows,
-                                                                      const std::vector<unsigned int> &i_columns,
-                                                                      const std::vector<double>       &i_values,
-                                                                            real*                      o_matrix ) {
-  // assert matching dimensions
-  assert( i_rows.size()    == i_columns.size() );
-  assert( i_columns.size() == i_values.size()  );
-
-  // easy case: just write the values one after another
-  if( i_sparse != -1 ) {
-    // assert we have all nonzeros
-    assert( static_cast<int>(i_values.size()) == i_sparse );
-
-    for( unsigned int l_entry = 0; l_entry < i_values.size(); l_entry++) {
-      o_matrix[l_entry] = i_values[l_entry];
-    }
-  }
-  // dense matrix: set everything to zero and set only nonzeros
-  else {
-    // set everything to zero
-    std::fill( o_matrix, o_matrix+i_leadingDimension*i_numberOfColumns, 0 );
-
-    // iterate over nonzeros
-    for( unsigned int l_entry = 0; l_entry < i_values.size(); l_entry++) {
-      // index calculation (counting in XML starts at 1)
-      unsigned int l_row    = i_rows[l_entry]    - 1;
-      unsigned int l_column = i_columns[l_entry] - 1;
-
-      // assert a valid position in the (possibly reduced) size of the matrix
-      assert( l_row < i_leadingDimension );
-      assert( l_column < i_numberOfColumns ) ;
-
-      // jump over columns
-      unsigned int l_position = l_column * i_leadingDimension;
-      // jump over rows
-      l_position += l_row; 
-
-      // set the nonzero
-      o_matrix[l_position] = i_values[l_entry];
-    } 
-  }
-}
-
-void seissol::initializers::MemoryManager::initializeGlobalMatrices( const seissol::XmlParser &i_matrixReader,
-                                                                     struct GlobalData        &o_globalData ) {
-  /*
-   * Test whether LTS integation buffer was allocated
-   **/
-  if ( m_integrationBufferLTS == NULL ) {
-    logError() << "MemoryManager: allocateIntegrationBufferLTS need called before initializeGlobalMatrices!"; 
-  }
-
-  /*
-   * read the global matrices
-   */
-  //! vectors, which hold information about our matrices
-  std::vector< unsigned int > l_matrixIds;
-  std::vector< std::string  > l_matrixNames;
-  std::vector< unsigned int > l_matrixNumberOfRows;
-  std::vector< unsigned int > l_matrixNumberOfColumns;
-  std::vector< bool         > l_matrixSparsities;
-
-  // element information in coordinate format
-  std::vector< std::vector<unsigned int> > l_matrixRows;
-  std::vector< std::vector<unsigned int> > l_matrixColumns;
-  std::vector< std::vector<double>       > l_matrixValues;
-
-  // read the flux matrices
-  i_matrixReader.readGlobalMatrices( "flux",
-                                     l_matrixIds,  l_matrixNames,
-                                     l_matrixNumberOfRows, l_matrixNumberOfColumns, l_matrixSparsities,
-                                     l_matrixRows, l_matrixColumns, l_matrixValues );
-  // assert we have all flux matrices
-  assert( l_matrixIds.size() == 52 );
-
-  // read the stiffness matrices
-  i_matrixReader.readGlobalMatrices( "stiffness",
-                                     l_matrixIds,  l_matrixNames,
-                                     l_matrixNumberOfRows, l_matrixNumberOfColumns, l_matrixSparsities,
-                                     l_matrixRows, l_matrixColumns, l_matrixValues );
-
-  // assert we have all stiffness matrices
-  assert( l_matrixIds.size() == 58 );
-
-  // set negative sign of stiffness matrices in time derivative computation
-  for( unsigned int l_transposedStiff = 55; l_transposedStiff < 58; l_transposedStiff++ ) {
-    for( unsigned int l_entry = 0; l_entry < l_matrixValues[l_transposedStiff].size(); l_entry++ ) {
-      l_matrixValues[l_transposedStiff][l_entry] = -l_matrixValues[l_transposedStiff][l_entry];
-    }
-  }
-  
-  // read the inverse mass matrix
-  i_matrixReader.readGlobalMatrices( "inverseMass",
-                                     l_matrixIds, l_matrixNames,
-                                     l_matrixNumberOfRows, l_matrixNumberOfColumns, l_matrixSparsities,
-                                     l_matrixRows, l_matrixColumns, l_matrixValues );
-
-  // assert we have the mass matrix
-  assert ( l_matrixIds.size() == 59 );
-
-  /*
-   * Allocate memory.
-   */
-  // offset to reach each of the matrices; ordering transposed stiffness, stiffness, flux, inverse mass, dummy for total size
-  unsigned int l_offset[60]; l_offset[0] = 0;
-
-  // number of aligned reals of a matrix
-  unsigned int l_alignedReals = 0;
-
-  // transposed stiffness matrices
-  for( unsigned int l_matrix = 0; l_matrix < 3; l_matrix++ ) {
-    // dense
-    if( m_sparseSwitch[l_matrix+56] == -1 ) {
-      l_alignedReals = seissol::kernels::getNumberOfAlignedBasisFunctions( CONVERGENCE_ORDER-1 ) * NUMBER_OF_BASIS_FUNCTIONS;
-    }
-    // sparse
-    else {
-      l_alignedReals = seissol::kernels::getNumberOfAlignedReals( m_sparseSwitch[l_matrix+56] );
-    }
-
-    l_offset[l_matrix+1] = l_offset[l_matrix+0] + l_alignedReals;
-  }
-
-  // stiffness matrices
-  for( unsigned int l_matrix = 0; l_matrix < 3; l_matrix++ ) {
-    // dense
-    if( m_sparseSwitch[l_matrix+53] == -1 ) {
-      l_alignedReals = NUMBER_OF_ALIGNED_BASIS_FUNCTIONS * seissol::kernels::getNumberOfBasisFunctions( CONVERGENCE_ORDER-1 );
-    }
-    // sparse
-    else {
-      l_alignedReals = seissol::kernels::getNumberOfAlignedReals( m_sparseSwitch[l_matrix+53] );
-    }
-
-    l_offset[l_matrix+4] = l_offset[l_matrix+3] + l_alignedReals;
-  }
-
-  // flux matrices
-  for( unsigned int l_matrix = 0; l_matrix < 52; l_matrix++ ) {
-    // dense
-    if( m_sparseSwitch[l_matrix] == -1 ) {
-      l_alignedReals = NUMBER_OF_ALIGNED_BASIS_FUNCTIONS * NUMBER_OF_BASIS_FUNCTIONS;
-    }
-    // sparse
-    else {
-      l_alignedReals = seissol::kernels::getNumberOfAlignedReals( m_sparseSwitch[l_matrix] );
-    }
-
-    l_offset[l_matrix+7] = l_offset[l_matrix+6] + l_alignedReals;
-  }
-  
-  // inverse mass matrix
-  l_alignedReals = seissol::kernels::getNumberOfAlignedReals( NUMBER_OF_BASIS_FUNCTIONS );
-  l_offset[59] = l_offset[58] + l_alignedReals;
-
-  real* l_pointer = (real*) m_memoryAllocator.allocateMemory( l_offset[59] * sizeof(real), PAGESIZE_HEAP, MEMKIND_GLOBAL );
-
-  // init data fast to get contiguous physical memory, or at least increase the chances
-  for( unsigned int l_init = 0; l_init < l_offset[59]; l_init++) {
-    l_pointer[l_init] = static_cast<real>(0.0);
-  }
-
-  /*
-   * Set up pointers.
-   */
-  for( unsigned int l_transposedStiffnessMatrix = 0; l_transposedStiffnessMatrix < 3; l_transposedStiffnessMatrix++ ) {
-    o_globalData.stiffnessMatricesTransposed[l_transposedStiffnessMatrix] = l_pointer + l_offset[l_transposedStiffnessMatrix];
-  }
-
-  for( unsigned int l_stiffnessMatrix = 0; l_stiffnessMatrix < 3; l_stiffnessMatrix++ ) {
-    o_globalData.stiffnessMatrices[l_stiffnessMatrix] = l_pointer + l_offset[l_stiffnessMatrix+3];
-  }
-
-  for( unsigned int l_fluxMatrix = 0; l_fluxMatrix < 52; l_fluxMatrix++ ) {
-    o_globalData.fluxMatrices[l_fluxMatrix] = l_pointer + l_offset[l_fluxMatrix+6];
-  }
-
-  o_globalData.inverseMassMatrix = l_pointer + l_offset[58];
-
-  /**
-   * Initialize transposed stiffness matrices.
-   **/
-  for( int l_transposedStiffnessMatrix = 0; l_transposedStiffnessMatrix < 3; l_transposedStiffnessMatrix++ ) {
-    // jump over the 52 flux matrices, flu solver and 3 stiffness matrices
-    int l_globalMatrix = l_transposedStiffnessMatrix + 56;
-
-    // initialize the stiffness matrix
-    initializeGlobalMatrix( m_sparseSwitch[l_globalMatrix],
-                            seissol::kernels::getNumberOfAlignedBasisFunctions( CONVERGENCE_ORDER-1 ),
-                            NUMBER_OF_BASIS_FUNCTIONS,
-                            l_matrixRows[l_globalMatrix-1], // -1: flux solver is not part of the matrices read from XML
-                            l_matrixColumns[l_globalMatrix-1],
-                            l_matrixValues[l_globalMatrix-1],
-                            o_globalData.stiffnessMatricesTransposed[l_transposedStiffnessMatrix] );
-  }
-
-  /*
-   * Initialize stiffness matrices.
-   */
-  for( int l_stiffnessMatrix = 0; l_stiffnessMatrix < 3; l_stiffnessMatrix++ ) {
-    // jump over the 52 flux matrices and flux solver
-    int l_globalMatrix = l_stiffnessMatrix + 53;
-
-    // initialize the stiffness matrix
-    initializeGlobalMatrix( m_sparseSwitch[l_globalMatrix],
-                            NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
-                            seissol::kernels::getNumberOfBasisFunctions( CONVERGENCE_ORDER-1 ),
-                            l_matrixRows[l_globalMatrix-1],
-                            l_matrixColumns[l_globalMatrix-1],
-                            l_matrixValues[l_globalMatrix-1],
-                            o_globalData.stiffnessMatrices[l_stiffnessMatrix] );
-  }
-
-  /*
-   * Initialize flux matrices.
-   */
-  for( int l_fluxMatrix = 0; l_fluxMatrix < 52; l_fluxMatrix++) {
-    // initialize the stiffness matrix
-    initializeGlobalMatrix( m_sparseSwitch[l_fluxMatrix],
-                            NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
-                            NUMBER_OF_BASIS_FUNCTIONS,
-                            l_matrixRows[l_fluxMatrix],
-                            l_matrixColumns[l_fluxMatrix],
-                            l_matrixValues[l_fluxMatrix],
-                            o_globalData.fluxMatrices[l_fluxMatrix] );
-  }
-  
-  /*
-   * Initialize inverse mass matrix.
-   */
-  initializeGlobalMatrix( NUMBER_OF_BASIS_FUNCTIONS,
-                          NUMBER_OF_ALIGNED_BASIS_FUNCTIONS,
-                          NUMBER_OF_BASIS_FUNCTIONS,
-                          l_matrixRows[58],
-                          l_matrixColumns[58],
-                          l_matrixValues[58],
-                          o_globalData.inverseMassMatrix );
-
-  /*
-   *  (thread-local) LTS integration buffers
-   */
-  o_globalData.integrationBufferLTS = m_integrationBufferLTS;
-}
-#else
 void seissol::initializers::MemoryManager::initializeGlobalData( struct GlobalData &o_globalData )
 {
+  // DG global matrices
   real* globalMatrixMem = static_cast<real*>(m_memoryAllocator.allocateMemory( seissol::model::globalMatrixOffsets[seissol::model::numGlobalMatrices] * sizeof(real), PAGESIZE_HEAP, MEMKIND_GLOBAL ));
   for (unsigned matrix = 0; matrix < seissol::model::numGlobalMatrices; ++matrix) {
     memcpy(
@@ -444,8 +142,17 @@ void seissol::initializers::MemoryManager::initializeGlobalData( struct GlobalDa
   for (unsigned stiffness = 0; stiffness < 3; ++stiffness) {
     o_globalData.stiffnessMatrices[stiffness] = &globalMatrixMem[ seissol::model::globalMatrixOffsets[3 + stiffness] ];
   }
-  for (unsigned flux = 0; flux < 52; ++flux) {
-    o_globalData.fluxMatrices[flux] = &globalMatrixMem[ seissol::model::globalMatrixOffsets[6 + flux] ];
+  for (unsigned cob = 0; cob < 4; ++cob) {
+    o_globalData.changeOfBasisMatrices[cob] = &globalMatrixMem[ seissol::model::globalMatrixOffsets[6 + cob] ];
+  }
+  for (unsigned cob = 0; cob < 4; ++cob) {
+    o_globalData.neighbourChangeOfBasisMatricesTransposed[cob] = &globalMatrixMem[ seissol::model::globalMatrixOffsets[10 + cob] ];
+  }
+  for (unsigned cob = 0; cob < 4; ++cob) {
+    o_globalData.localChangeOfBasisMatricesTransposed[cob] = &globalMatrixMem[ seissol::model::globalMatrixOffsets[14 + cob] ];
+  }
+  for (unsigned flux = 0; flux < 3; ++flux) {
+    o_globalData.neighbourFluxMatrices[flux] = &globalMatrixMem[ seissol::model::globalMatrixOffsets[18 + flux] ];
   }
 
   // @TODO Integrate this step into the code generator
@@ -457,8 +164,34 @@ void seissol::initializers::MemoryManager::initializeGlobalData( struct GlobalDa
   }
 
   o_globalData.integrationBufferLTS = m_integrationBufferLTS;
+
+  // Dynamic Rupture global matrices  
+  real* drGlobalMatrixMem = static_cast<real*>(m_memoryAllocator.allocateMemory( seissol::model::dr_globalMatrixOffsets[seissol::model::dr_numGlobalMatrices] * sizeof(real), PAGESIZE_HEAP, MEMKIND_GLOBAL ));
+  for (unsigned matrix = 0; matrix < seissol::model::dr_numGlobalMatrices; ++matrix) {
+    memcpy(
+      &drGlobalMatrixMem[ seissol::model::dr_globalMatrixOffsets[matrix] ],
+      seissol::model::dr_globalMatrixValues[matrix],
+      (seissol::model::dr_globalMatrixOffsets[matrix+1] - seissol::model::dr_globalMatrixOffsets[matrix]) * sizeof(real)
+    );
+  }
+  for (unsigned face = 0; face < 4; ++face) {
+    for (unsigned h = 0; h < 4; ++h) {
+      o_globalData.nodalFluxMatrices[face][h] = &drGlobalMatrixMem[ seissol::model::dr_globalMatrixOffsets[4*face+h] ];
+      o_globalData.faceToNodalMatrices[face][h] = &drGlobalMatrixMem[ seissol::model::dr_globalMatrixOffsets[16 + 4*face+h] ];
+    }
+  }
+  
+  real* plasticityGlobalMatrixMem = static_cast<real*>(m_memoryAllocator.allocateMemory( seissol::model::plasticity_globalMatrixOffsets[seissol::model::plasticity_numGlobalMatrices] * sizeof(real), PAGESIZE_HEAP, MEMKIND_GLOBAL ));
+  for (unsigned matrix = 0; matrix < seissol::model::plasticity_numGlobalMatrices; ++matrix) {
+    memcpy(
+      &plasticityGlobalMatrixMem[ seissol::model::plasticity_globalMatrixOffsets[matrix] ],
+      seissol::model::plasticity_globalMatrixValues[matrix],
+      (seissol::model::plasticity_globalMatrixOffsets[matrix+1] - seissol::model::plasticity_globalMatrixOffsets[matrix]) * sizeof(real)
+    );
+  }
+  o_globalData.vandermondeMatrix = &plasticityGlobalMatrixMem[ seissol::model::plasticity_globalMatrixOffsets[0] ];
+  o_globalData.vandermondeMatrixInverse = &plasticityGlobalMatrixMem[ seissol::model::plasticity_globalMatrixOffsets[1] ];
 }
-#endif
 
 void seissol::initializers::MemoryManager::allocateIntegrationBufferLTS() {
   /*
@@ -809,7 +542,10 @@ void seissol::initializers::MemoryManager::touchBuffersDerivatives( Layer& layer
 }
 
 void seissol::initializers::MemoryManager::fixateLtsTree( struct TimeStepping&        i_timeStepping,
-                                                          struct MeshStructure*       i_meshStructure )
+                                                          struct MeshStructure*       i_meshStructure,
+                                                          unsigned                    globalDynamicRuptureTimeCluster,
+                                                          unsigned                    numberOfDRCopyFaces,
+                                                          unsigned                    numberOfDRInteriorFaces )
 {
   // store mesh structure and the number of time clusters
   m_meshStructure = i_meshStructure;
@@ -832,9 +568,81 @@ void seissol::initializers::MemoryManager::fixateLtsTree( struct TimeStepping&  
 
   m_ltsTree.allocateVariables();
   m_ltsTree.touchVariables();
+  
+  /// Dynamic rupture tree  
+  m_dynRup.addTo(m_dynRupTree);
+  m_dynRupTree.setNumberOfTimeClusters(i_timeStepping.numberOfLocalClusters);
+  m_dynRupTree.fixate();
+
+  unsigned localDynamicRuptureTimeCluster = std::numeric_limits<unsigned>::max();
+  assert( i_timeStepping.numberOfLocalClusters < localDynamicRuptureTimeCluster);
+  for (unsigned cluster = 0; cluster < i_timeStepping.numberOfLocalClusters; ++cluster) {
+    if (i_timeStepping.clusterIds[cluster] == globalDynamicRuptureTimeCluster) {
+      localDynamicRuptureTimeCluster = cluster;
+    }
+  }
+
+  for (unsigned tc = 0; tc < m_dynRupTree.numChildren(); ++tc) {
+    TimeCluster& cluster = m_dynRupTree.child(tc);
+    cluster.child<Ghost>().setNumberOfCells(0);
+    if (tc == localDynamicRuptureTimeCluster) {
+      cluster.child<Copy>().setNumberOfCells(numberOfDRCopyFaces);
+      cluster.child<Interior>().setNumberOfCells(numberOfDRInteriorFaces);
+    } else {
+      cluster.child<Copy>().setNumberOfCells(0);
+      cluster.child<Interior>().setNumberOfCells(0);
+    }
+  }
+  
+  m_dynRupTree.allocateVariables();
+  m_dynRupTree.touchVariables();
 }
 
-void seissol::initializers::MemoryManager::initializeMemoryLayout()
+void seissol::initializers::MemoryManager::deriveDisplacementsBucket()
+{
+  for ( seissol::initializers::LTSTree::leaf_iterator layer = m_ltsTree.beginLeaf(m_lts.displacements.mask); layer != m_ltsTree.endLeaf(); ++layer) {
+    CellLocalInformation* cellInformation = layer->var(m_lts.cellInformation);
+    real** displacements = layer->var(m_lts.displacements);
+    
+    unsigned numberOfCells = 0;
+    for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
+      bool hasFreeSurface = false;
+      for (unsigned face = 0; face < 4; ++face) {
+        hasFreeSurface = hasFreeSurface || (cellInformation[cell].faceTypes[face] == freeSurface);
+      }
+      if (hasFreeSurface) {
+        // We add the base address later when the bucket is allocated
+        // +1 is necessary as we want to reserve the NULL pointer for cell without displacement.
+        displacements[cell] = static_cast<real*>(NULL) + 1 + numberOfCells * NUMBER_OF_ALIGNED_VELOCITY_DOFS;
+        ++numberOfCells;
+      } else {
+        displacements[cell] = NULL;
+      }
+    }
+    layer->setBucketSize(m_lts.displacementsBuffer, numberOfCells * NUMBER_OF_ALIGNED_VELOCITY_DOFS * sizeof(real));
+  }
+}
+
+void seissol::initializers::MemoryManager::initializeDisplacements()
+{
+  for ( seissol::initializers::LTSTree::leaf_iterator layer = m_ltsTree.beginLeaf(m_lts.displacements.mask); layer != m_ltsTree.endLeaf(); ++layer) {
+    real** displacements = layer->var(m_lts.displacements);
+    real* bucket = static_cast<real*>(layer->bucket(m_lts.displacementsBuffer));
+
+    #pragma omp parallel for schedule(static)
+    for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
+      if (displacements[cell] != NULL) {
+        displacements[cell] = bucket + ((displacements[cell] - static_cast<real*>(NULL)) - 1);
+        for (unsigned dof = 0; dof < NUMBER_OF_ALIGNED_VELOCITY_DOFS; ++dof) {
+          // zero displacements
+          displacements[cell][dof] = static_cast<real>(0.0);
+        }
+      }
+    }
+  }
+}
+
+void seissol::initializers::MemoryManager::initializeMemoryLayout(bool enableFreeSurfaceIntegration)
 {
   // correct LTS-information in the ghost layer
   correctGhostRegionSetups();
@@ -865,6 +673,11 @@ void seissol::initializers::MemoryManager::initializeMemoryLayout()
     cluster.child<Interior>().setBucketSize(m_lts.buffersDerivatives, l_interiorSize);
   }
   
+  if (enableFreeSurfaceIntegration) {
+    deriveDisplacementsBucket();
+  }
+  
+  
   m_ltsTree.allocateBuckets();
 
   // initialize the internal state
@@ -887,6 +700,10 @@ void seissol::initializers::MemoryManager::initializeMemoryLayout()
   // initialize the communication structure
   initializeCommunicationStructure();
 #endif
+  
+  if (enableFreeSurfaceIntegration) {
+    initializeDisplacements();
+  }
 }
 
 void seissol::initializers::MemoryManager::getMemoryLayout( unsigned int                    i_cluster,

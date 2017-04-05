@@ -117,15 +117,14 @@ void computeNeighboringIntegration() {
   real *l_timeIntegrated[4];
 #ifdef ENABLE_MATRIX_PREFETCH
   real *l_faceNeighbors_prefetch[4];
-  real *l_fluxMatricies_prefetch[4];
 #endif
 
 #ifdef _OPENMP
-#ifdef ENABLE_MATRIX_PREFETCH
-  #pragma omp parallel private(l_integrationBuffer, l_timeIntegrated, l_faceNeighbors_prefetch, l_fluxMatricies_prefetch)
-#else
+#  ifdef ENABLE_MATRIX_PREFETCH
+  #pragma omp parallel private(l_integrationBuffer, l_timeIntegrated, l_faceNeighbors_prefetch)
+#  else
   #pragma omp parallel private(l_integrationBuffer, l_timeIntegrated)
-#endif
+#  endif
   {
 #if NUMBER_OF_THREADS_PER_GLOBALDATA_COPY < 512
   GlobalData* l_globalData = m_globalDataArray[omp_get_thread_num()/NUMBER_OF_THREADS_PER_GLOBALDATA_COPY];
@@ -140,58 +139,65 @@ void computeNeighboringIntegration() {
     seissol::kernels::TimeCommon::computeIntegrals(m_timeKernel,
                                               m_cellInformation[l_cell].ltsSetup,
                                                m_cellInformation[l_cell].faceTypes,
-                                               m_cellInformation[l_cell].timeStepWidth,
+                                               0.0,
                                        (double)m_timeStepWidthSimulation,
                                                m_cells->faceNeighbors[l_cell],
                                                l_integrationBuffer,
                                                l_timeIntegrated );
 
 #ifdef ENABLE_MATRIX_PREFETCH
-    int l_face = 1;
-    l_faceNeighbors_prefetch[0] = m_cells->faceNeighbors[l_cell][l_face];
-    l_fluxMatricies_prefetch[0] = l_globalData->fluxMatrices[4+(l_face*12)
-                                                             +(m_cellInformation[l_cell].faceRelations[l_face][0]*3)
-                                                             +(m_cellInformation[l_cell].faceRelations[l_face][1])];
-    l_face = 2;
-    l_faceNeighbors_prefetch[1] = m_cells->faceNeighbors[l_cell][l_face];
-    l_fluxMatricies_prefetch[1] = l_globalData->fluxMatrices[4+(l_face*12)
-                                                             +(m_cellInformation[l_cell].faceRelations[l_face][0]*3)
-                                                             +(m_cellInformation[l_cell].faceRelations[l_face][1])];
-    l_face = 3;
-    l_faceNeighbors_prefetch[2] = m_cells->faceNeighbors[l_cell][l_face];
-    l_fluxMatricies_prefetch[2] = l_globalData->fluxMatrices[4+(l_face*12)
-                                                             +(m_cellInformation[l_cell].faceRelations[l_face][0]*3)
-                                                             +(m_cellInformation[l_cell].faceRelations[l_face][1])];
-    l_face = 0;
+#pragma message("the current prefetch structure (flux matrices and tDOFs is tuned for higher order and shouldn't be harmful for lower orders")
+    l_faceNeighbors_prefetch[0] = (m_cellInformation[l_cell].faceTypes[1] != dynamicRupture) ? m_cells->faceNeighbors[l_cell][1] : m_cells->drMapping[l_cell][1].godunov;
+    l_faceNeighbors_prefetch[1] = (m_cellInformation[l_cell].faceTypes[2] != dynamicRupture) ? m_cells->faceNeighbors[l_cell][2] : m_cells->drMapping[l_cell][2].godunov;
+    l_faceNeighbors_prefetch[2] = (m_cellInformation[l_cell].faceTypes[3] != dynamicRupture) ? m_cells->faceNeighbors[l_cell][3] : m_cells->drMapping[l_cell][3].godunov;
+
+    // fourth face's prefetches
     if (l_cell < (m_cells->numberOfCells-1) ) {
-      l_faceNeighbors_prefetch[3] = m_cells->faceNeighbors[l_cell+1][l_face];
-      l_fluxMatricies_prefetch[3] = l_globalData->fluxMatrices[4+(l_face*12)
-                                                               +(m_cellInformation[l_cell+1].faceRelations[l_face][0]*3)
-                                                               +(m_cellInformation[l_cell+1].faceRelations[l_face][1])];
+      l_faceNeighbors_prefetch[3] = (m_cellInformation[l_cell+1].faceTypes[0] != dynamicRupture) ? m_cells->faceNeighbors[l_cell+1][0] : m_cells->drMapping[l_cell+1][0].godunov;
     } else {
       l_faceNeighbors_prefetch[3] = m_cells->faceNeighbors[l_cell][3];
-      l_fluxMatricies_prefetch[3] = l_globalData->fluxMatrices[4+(3*12)
-                                                               +(m_cellInformation[l_cell].faceRelations[l_face][0]*3)
-                                                               +(m_cellInformation[l_cell].faceRelations[l_face][1])];
     }
 #endif
 
     m_neighborKernel.computeNeighborsIntegral( m_cellInformation[l_cell].faceTypes,
                                                m_cellInformation[l_cell].faceRelations,
+                                               m_cells->drMapping[l_cell],
                                                l_globalData,
                                                &m_cellData->neighboringIntegration[l_cell],
                                                l_timeIntegrated,
 #ifdef ENABLE_MATRIX_PREFETCH
-                                               m_cells->dofs[l_cell],
                                                l_faceNeighbors_prefetch,
-                                               l_fluxMatricies_prefetch );
-#else
-                                               m_cells->dofs[l_cell]);
 #endif
+                                               m_cells->dofs[l_cell]);
   }
 
 #ifdef _OPENMP
   }
 #endif
+}
+
+void computeDynRupGodunovState()
+{
+  seissol::initializers::Layer& layerData = m_dynRupTree.child(0).child<Interior>();
+  DRFaceInformation*                    faceInformation                                                   = layerData.var(m_dynRup.faceInformation);
+  DRGodunovData*                        godunovData                                                       = layerData.var(m_dynRup.godunovData);
+  real**                                timeDerivativePlus                                                = layerData.var(m_dynRup.timeDerivativePlus);
+  real**                                timeDerivativeMinus                                               = layerData.var(m_dynRup.timeDerivativeMinus);
+  real                                (*godunov)[CONVERGENCE_ORDER][seissol::model::godunovState::reals]  = layerData.var(m_dynRup.godunov);
+
+#ifdef _OPENMP
+  #pragma omp parallel for schedule(static)
+#endif
+  for (unsigned face = 0; face < layerData.getNumberOfCells(); ++face) {
+    unsigned prefetchFace = (face < layerData.getNumberOfCells()-1) ? face+1 : face;
+    m_dynRupKernel.computeGodunovState( faceInformation[face],
+                                        m_globalData,
+                                       &godunovData[face],
+                                        timeDerivativePlus[face],
+                                        timeDerivativeMinus[face],
+                                        godunov[face],
+                                        timeDerivativePlus[prefetchFace],
+                                        timeDerivativeMinus[prefetchFace] );
+  }
 }
 

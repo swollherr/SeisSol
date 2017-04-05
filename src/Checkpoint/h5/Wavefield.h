@@ -77,11 +77,11 @@ typedef WavefieldDummy Wavefield;
 class Wavefield : public CheckPoint, virtual public seissol::checkpoint::Wavefield
 {
 private:
-	/** Identifiers of the HDF5 time attributes */
-	hid_t m_h5time[2];
+	/** Opaque header type */
+	hid_t m_h5headerType;
 
-	/** Identifiers of the HDF5 wavefield attributes */
-	hid_t m_h5timestepWavefield[2];
+	/** Identifiers of the HDF5 header attributes */
+	hid_t m_h5header[2];
 
 	/** Identifiers of the main data set in the files */
 	hid_t m_h5data[2];
@@ -91,28 +91,33 @@ private:
 
 public:
 	Wavefield()
-		: m_h5fSpaceData(-1)
+		: seissol::checkpoint::CheckPoint(IDENTIFIER),
+		seissol::checkpoint::Wavefield(IDENTIFIER),
+		CheckPoint(IDENTIFIER),
+		m_h5headerType(-1),
+		m_h5fSpaceData(-1)
 	{
-		m_h5time[0] = m_h5time[1] = -1;
-		m_h5timestepWavefield[0] = m_h5timestepWavefield[1] = -1;
+		m_h5header[0] = m_h5header[1] = -1;
 		m_h5data[0] = m_h5data[1] = -1;
 	}
 
 	~Wavefield()
 	{ }
 
-	bool init(unsigned long numDofs, unsigned int groupSize = 1);
+	bool init(size_t headerSize, unsigned long numDofs, unsigned int groupSize = 1);
 
-	void load(double &time, int &timestepWavefield, real* dofs);
+	void load(real* dofs);
 
-	void write(double time, int timestepWaveField);
+	void write(const void* header, size_t headerSize);
 
 	void close()
 	{
-		if (m_h5time[0] >= 0) {
+		if (m_h5headerType >= 0)
+			checkH5Err(H5Tclose(m_h5headerType));
+
+		if (m_h5header[0] >= 0) {
 			for (unsigned int i = 0; i < 2; i++) {
-				checkH5Err(H5Aclose(m_h5time[i]));
-				checkH5Err(H5Aclose(m_h5timestepWavefield[i]));
+				checkH5Err(H5Aclose(m_h5header[i]));
 				checkH5Err(H5Dclose(m_h5data[i]));
 			}
 		}
@@ -126,6 +131,9 @@ protected:
 	bool validate(hid_t h5file) const;
 
 	hid_t initFile(int odd, const char* filename);
+
+private:
+	static const unsigned long IDENTIFIER = 0x7A93F;
 };
 
 #endif // USE_HDF

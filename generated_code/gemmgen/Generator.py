@@ -51,7 +51,7 @@ def generateRoutineName(gemm):
   name = 'sparse_' + gemm['spMtxName'] if gemm['spp'] is not None else 'gemm'
   lda = 'Asparse' if gemm['LDA'] <= 0 else 'ldA{}'.format(gemm['LDA'])
   ldb = 'Bsparse' if gemm['LDB'] <= 0 else 'ldB{}'.format(gemm['LDB'])
-  return '{}_m{}_n{}_k{}_{}_{}_ldC{}_beta{}_alignedA{}_alignedC{}_pfsigonly'.format(
+  return '{}_m{}_n{}_k{}_{}_{}_ldC{}_beta{}_alignedA{}_alignedC{}_{}'.format(
     name,
     gemm['M'],
     gemm['N'],
@@ -61,7 +61,8 @@ def generateRoutineName(gemm):
     gemm['LDC'],
     gemm['beta'],
     gemm['alignedA'],
-    gemm['alignedC']
+    gemm['alignedC'],
+    gemm['prefetch']
   )
 
 def formatOffset(name, offset):
@@ -85,14 +86,15 @@ def functionName(name):
   return (functionName, base, index)
 
 class Generator:
-  def __init__(self, db, libxsmmGenerator, architecture):
+  def __init__(self, db, libxsmmGenerator, architecture, prefix=''):
     self.db = db
     self.libxsmmGenerator = libxsmmGenerator
     self.architecture = architecture
+    self.prefix = prefix
     
   def __generateGemms(self, outputDir, gemmlist):
-    cppFilename = outputDir + '/gemms.cpp'
-    hFilename = outputDir + '/gemms.h'
+    cppFilename = '{}/{}gemms.cpp'.format(outputDir,self.prefix)
+    hFilename = '{}/{}gemms.h'.format(outputDir,self.prefix)
     
     with Code.Cpp(cppFilename) as cpp:
       cpp('#ifndef NDEBUG')
@@ -103,7 +105,7 @@ class Generator:
       cpp('#endif')
 
     with Code.Cpp(hFilename) as header:
-      with header.HeaderGuard('GEMMS'):
+      with header.HeaderGuard(self.prefix.upper() + 'GEMMS'):
         indexnamelist = [(i, generateRoutineName(gemm)) for i, gemm in enumerate(gemmlist)]
         keyFunc = lambda x: x[1]
         indexnamelist.sort(key=keyFunc)
@@ -127,7 +129,7 @@ class Generator:
           os.system(self.__generateLibxsmmGeneratorCall(cppFilename, gemmlist[index], sppFile))
 
   def __generateLibxsmmGeneratorCall(self, filename, gemm, sppFile):
-    return '{} {} {} {} {} {} {} {} {} {} {} {} {} {} {} pfsigonly {}P {}'.format(
+    return '{} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {}P {}'.format(
       self.libxsmmGenerator,
       gemm['type'],
       filename,
@@ -143,19 +145,16 @@ class Generator:
       gemm['alignedA'],
       gemm['alignedC'],
       self.architecture.name,
+      gemm['prefetch'],
       self.architecture.precision,
       sppFile
     )
     
   def __gemmSignature(self, names, writeNames=True):
     if writeNames:
-      signature = ', '.join(['{} const* {}'.format(self.architecture.typename, name) for name in names[0:-1]])
-      signature += ', {}* {}'.format(self.architecture.typename, names[-1])
+      signature = ', '.join(['{}{}* {}'.format(self.architecture.typename, ' const' if name != Kernel.Kernel.ResultName else '', name) for name in names])
     else:
-      signature = ''
-      for i in range(0, len(names)-1):
-        signature += self.architecture.typename + ' const*, '
-      signature += self.architecture.typename + '*'
+      signature = ', '.join(['{}{}*'.format(self.architecture.typename, ' const' if name != Kernel.Kernel.ResultName else '') for name in names])
     return signature
     
   def __localArray(self, name, reals, aligned=True):
@@ -168,10 +167,10 @@ class Generator:
     flops = dict()
     generatedKernels = list()
     gemmlist = list()
-    for name, kernel in kernels:
-      gk = Kernel.GeneratedKernel(kernel, self.db, self.architecture)
+    for prototype in kernels:
+      gk = Kernel.GeneratedKernel(prototype, self.db, self.architecture)
       flop = (gk.nonZeroFlops, gk.hardwareFlops)
-      funName, base, index = functionName(name)
+      funName, base, index = functionName(prototype.name)
       if index >= 0:
         if not luts.has_key(base):
           luts[base] = dict()
@@ -183,12 +182,12 @@ class Generator:
       else:
         flops[funName] = flop
       generatedKernels.append( (funName, gk) )
-      gemmlist.extend(gk.gemmlist)
+      gemmlist.extend([op['gemm'] for op in gk.operations if op.has_key('gemm')])
       
     self.__generateGemms(outputDir, gemmlist)
 
-    with Code.Cpp(outputDir + '/kernels.h') as header:
-      with header.HeaderGuard('KERNELS'):
+    with Code.Cpp('{}/{}kernels.h'.format(outputDir, self.prefix)) as header:
+      with header.HeaderGuard(self.prefix.upper() + 'KERNELS'):
         with header.Namespace('seissol'):
           with header.Namespace('generatedKernels'):
             for name, gk in generatedKernels:
@@ -198,10 +197,10 @@ class Generator:
               pointers = [value[i] + str(i) if value.has_key(i) else '0' for i in range(0, maxkey+1)]
               header('static void (* const {}[])({}) = {{ {} }};'.format(key, signatures[key], ', '.join(pointers)))
             
-    with Code.Cpp(outputDir + '/kernels.cpp') as cpp:
+    with Code.Cpp('{}/{}kernels.cpp'.format(outputDir, self.prefix)) as cpp:
       cpp.includeSys('cstring')
       cpp.includeSys('Initializer/preProcessorMacros.fpp')
-      cpp.include('gemms.h')
+      cpp.include(self.prefix + 'gemms.h')
       with cpp.Namespace('seissol'):
         with cpp.Namespace('generatedKernels'):
           for name, gk in generatedKernels:
@@ -212,15 +211,17 @@ class Generator:
                 if operation['type'] == Kernel.Operation.MEMSET:
                   cpp.memset(operation['pointer'], operation['numberOfReals'], operation['dataType'], operation['offset'])
                 elif operation['type'] == Kernel.Operation.GEMM:
-                  cpp('{}({}, {}, {}, NULL, NULL, NULL);'.format(
+                  prefetch = formatOffset(operation['gemm']['prefetchPointer'], operation['offsetC']) if operation['gemm'].has_key('prefetchPointer') else 'NULL'
+                  cpp('{}({}, {}, {}, NULL, {}, NULL);'.format(
                     generateRoutineName(operation['gemm']),
                     formatOffset(operation['nameA'], operation['offsetA']),
                     formatOffset(operation['nameB'], operation['offsetB']),
-                    formatOffset(operation['nameC'], operation['offsetC'])
+                    formatOffset(operation['nameC'], operation['offsetC']),
+                    prefetch
                   ))
                   
-    with Code.Cpp(outputDir + '/flops.h') as header:
-      with header.HeaderGuard('FLOPS'):
+    with Code.Cpp('{}/{}flops.h'.format(outputDir, self.prefix)) as header:
+      with header.HeaderGuard(self.prefix.upper() + 'FLOPS'):
         with header.Namespace('seissol'):
           with header.Namespace('flops'):
             for key, value in flops.iteritems():
@@ -236,19 +237,25 @@ class Generator:
     
   def generateInitializer(self, outputDir):
     globalMatrixValues = dict()
-    maxGlobalMatrixId = -1
+    maxGlobalMatrixId = dict()
     for matrixInfo in self.db.itervalues():
-      if matrixInfo.values != None:
-        globalMatrixValues[matrixInfo.globalMatrixId] = matrixInfo.name
-        maxGlobalMatrixId = max(maxGlobalMatrixId, matrixInfo.globalMatrixId)
-        
-    globalMatrixOffsets = [0]
-    for i in range(0, maxGlobalMatrixId+1):
-      offset = self.db[globalMatrixValues[i]].requiredReals if globalMatrixValues.has_key(i) else 0
-      globalMatrixOffsets.append(globalMatrixOffsets[-1] + offset)
+      if matrixInfo.isConstantGlobalMatrix:
+        group = matrixInfo.globalMatrixGroup
+        if not globalMatrixValues.has_key(group):
+          globalMatrixValues[group] = dict()
+          maxGlobalMatrixId[group] = -1
+        globalMatrixValues[group][matrixInfo.globalMatrixId] = matrixInfo.name
+        maxGlobalMatrixId[group] = max(maxGlobalMatrixId[group], matrixInfo.globalMatrixId)
+    
+    globalMatrixOffsets = dict()
+    for group in globalMatrixValues.keys():
+      globalMatrixOffsets[group] = [0]
+      for i in range(0, maxGlobalMatrixId[group]+1):
+        offset = self.db[globalMatrixValues[group][i]].requiredReals if globalMatrixValues[group].has_key(i) else 0
+        globalMatrixOffsets[group].append(globalMatrixOffsets[group][-1] + offset)
       
-    with Code.Cpp(outputDir + '/sizes.h') as header:
-      with header.HeaderGuard('SIZES'):
+    with Code.Cpp('{}/{}sizes.h'.format(outputDir, self.prefix)) as header:
+      with header.HeaderGuard(self.prefix.upper() + 'SIZES'):
         with header.Namespace('seissol'):
           with header.Namespace('model'):
             for matrixInfo in self.db.itervalues():
@@ -259,15 +266,15 @@ class Generator:
                 if len(matrixInfo.blocks) == 1 and matrixInfo.blocks[0].ld > 0:
                   header('unsigned const ld = {};'.format(matrixInfo.blocks[0].ld))
     
-    hFilename = 'init.h'
+    hFilename = self.prefix + 'init.h'
     with Code.Cpp(outputDir + '/' + hFilename) as header:
-      with header.HeaderGuard('INIT'):
+      with header.HeaderGuard(self.prefix.upper() + 'INIT'):
         header.includeSys('cstring')
         with header.Namespace('seissol'):
           with header.Namespace('model'):
             for matrixInfo in self.db.itervalues():
               with header.Namespace(matrixInfo.name):
-                if matrixInfo.values == None:
+                if not matrixInfo.isConstantGlobalMatrix:
                   header('void convertToDense({typename} const* matrix, {typename}* denseMatrix);'.format(typename=self.architecture.typename))
                   with header.Function('static inline int index(unsigned row, unsigned column)'):
                     header('static int const lut[] = {{ {} }};'.format(
@@ -284,18 +291,20 @@ class Generator:
                       ', '.join(matrixInfo.getValuesDense())
                     ))
                     header('memcpy(denseMatrix, denseValues, {reals} * sizeof({typename}));'.format(reals=matrixInfo.rows*matrixInfo.cols, typename=self.architecture.typename))
-                  
-            header('extern {} const*const globalMatrixValues[];'.format(self.architecture.typename))
-            header('extern unsigned const globalMatrixOffsets[];')
-            header('unsigned const numGlobalMatrices = {};'.format(maxGlobalMatrixId+1))
+            
+            for group in globalMatrixValues.keys():
+              prefix = group + '_' if len(group) > 0 else ''
+              header('extern {} const*const {}globalMatrixValues[];'.format(self.architecture.typename, prefix))
+              header('extern unsigned const {}globalMatrixOffsets[];'.format(prefix))
+              header('unsigned const {}numGlobalMatrices = {};'.format(prefix, maxGlobalMatrixId[group]+1))
                   
 
-    with Code.Cpp(outputDir + '/init.cpp') as cpp:
+    with Code.Cpp('{}/{}init.cpp'.format(outputDir, self.prefix)) as cpp:
       cpp.include(hFilename)      
       with cpp.Namespace('seissol'):
         with cpp.Namespace('model'):
           for matrixInfo in self.db.itervalues():
-            if matrixInfo.values == None:
+            if not matrixInfo.isConstantGlobalMatrix:
               with cpp.Function('void {namespace}::convertToDense({typename} const* matrix, {typename}* denseMatrix)'.format(namespace=matrixInfo.name, typename=self.architecture.typename)):
                 cpp.memset('denseMatrix', matrixInfo.rows * matrixInfo.cols, self.architecture.typename)
                 for block in matrixInfo.blocks:
@@ -317,32 +326,37 @@ class Generator:
                 ', '.join(matrixInfo.getValuesAsStoredInMemory())
               ))
 
-          cpp('{} const*const globalMatrixValues[] = {{ {} }};'.format(
-            self.architecture.typename,
-            ', '.join(['&' + globalMatrixValues[i] + '::values[0]' if globalMatrixValues.has_key(i) else 'NULL' for i in range(0, maxGlobalMatrixId+1)])
-          ))            
-          cpp('unsigned const globalMatrixOffsets[] = {{ {} }};'.format(
-            ', '.join(map(str, globalMatrixOffsets))
-          ))
+          
+          for group in globalMatrixValues.keys():
+            prefix = group + '_' if len(group) > 0 else ''
+            cpp('{} const*const {}globalMatrixValues[] = {{ {} }};'.format(
+              self.architecture.typename,
+              prefix,
+              ', '.join(['&' + globalMatrixValues[group][i] + '::values[0]' if globalMatrixValues[group].has_key(i) else 'NULL' for i in range(0, maxGlobalMatrixId[group]+1)])
+            ))            
+            cpp('unsigned const {}globalMatrixOffsets[] = {{ {} }};'.format(
+              prefix,
+              ', '.join(map(str, globalMatrixOffsets[group]))
+            ))
           
   def generateUnitTests(self, outputDir, kernels):
     referenceKernels = list()
-    for name, kernel in kernels:
-      rk = Kernel.ReferenceKernel(kernel, self.db, self.architecture)
-      funName, base, index = functionName(name)  
+    for prototype in kernels:
+      rk = Kernel.ReferenceKernel(prototype, self.db, self.architecture)
+      funName, base, index = functionName(prototype.name)  
       referenceKernels.append( (funName, rk) )
     
-    with Code.Cpp(outputDir + '/KernelTests.t.h') as test:
-      with test.HeaderGuard('TEST'):
+    with Code.Cpp('{}/{}KernelTests.t.h'.format(outputDir, self.prefix)) as test:
+      with test.HeaderGuard(self.prefix.upper() + 'TEST'):
         test.includeSys('cstdlib')
         test.includeSys('cstring')
         test.includeSys('ctime')
         test.includeSys('cxxtest/TestSuite.h')
         test.includeSys('Initializer/preProcessorMacros.fpp')
-        test.include('init.h')
-        test.include('kernels.h')
+        test.include(self.prefix + 'init.h')
+        test.include(self.prefix + 'kernels.h')
         with test.Ifndef('NDEBUG'):
-          test('long long libxsmm_num_total_flops = 0;')
+          test('extern long long libxsmm_num_total_flops;')
         with test.Namespace('seissol'):
           with test.Namespace('unit_test'):
             with test.Function('void gemm(unsigned m, unsigned n, unsigned k, {tn}* A, {tn}* B, {tn} beta, {tn}* C)'.format(tn=self.architecture.typename)):
@@ -358,7 +372,7 @@ class Generator:
                   if self.db.has_key(matrix):
                     matrixInfo = self.db[matrix]
                     test(self.__localArray(matrix + '_dense', matrixInfo.rows * matrixInfo.cols, aligned=False))
-                    if matrixInfo.values == None:
+                    if not matrixInfo.isConstantGlobalMatrix:
                       test('seissol::model::{name}::convertToDense({name}, {name}_dense);'.format(name=matrix))
                     else:
                       test('seissol::model::{name}::convertToDense({name}_dense);'.format(name=matrix))
@@ -388,31 +402,33 @@ class Generator:
                 if self.db.has_key(matrix):
                   matrixInfo = self.db[matrix]
                   test(self.__localArray(matrix, matrixInfo.requiredReals))
-                  if matrixInfo.values != None:
+                  if matrixInfo.isConstantGlobalMatrix:
                     test('memcpy({name}, seissol::model::{name}::values, {reals} * sizeof({typename}));'.format(name=matrix, reals=matrixInfo.requiredReals, typename=self.architecture.typename))
                   else:
                     test.memset(matrix, matrixInfo.requiredReals, self.architecture.typename)
                     with test.For('unsigned col = 0; col < {}; ++col'.format(matrixInfo.cols)):
                       with test.For('unsigned row = 0; row < {}; ++row'.format(matrixInfo.rows)):
-                        test('unsigned idx = seissol::model::{}::index(row, col);'.format(matrix))
+                        test('int idx = seissol::model::{}::index(row, col);'.format(matrix))
                         with test.If('idx != -1'):
                           test('{name}[idx] = drand48();'.format(name=matrix))
-              referenceReals = rk.kernel.rows * rk.kernel.cols
+              referenceReals = rk.prototype.kernel.rows * rk.prototype.kernel.cols
               test(self.__localArray('reference', referenceReals))
               test.memset('reference', referenceReals, self.architecture.typename)
-              test(self.__localArray('result', rk.kernel.requiredReals))
-              test.memset('result', rk.kernel.requiredReals, self.architecture.typename)
+              test(self.__localArray('result', rk.prototype.kernel.requiredReals))
+              if rk.prototype.beta != 0.0:
+                test.memset('result', rk.prototype.kernel.requiredReals, self.architecture.typename)
               
+              dummyPrefetch = ['NULL'] * len(rk.prototype.prefetch)
               test('seissol::unit_test::{}({});'.format(name, ', '.join(rk.involvedMatrices[0:-1] + ['reference'])))
-              test('seissol::generatedKernels::{}({});'.format(name, ', '.join(rk.involvedMatrices)))
+              test('seissol::generatedKernels::{}({});'.format(name, ', '.join(rk.involvedMatrices + dummyPrefetch)))
 
               test('double error = 0.0;')
               test('double refNorm = 0.0;')
-              resultBlock = rk.kernel.blocks[0]
+              resultBlock = rk.prototype.kernel.blocks[0]
               with test.For('unsigned col = {block.startcol}; col < {block.stopcol}; ++col'.format(block=resultBlock)):
                 with test.For('unsigned row = {block.startrow}; row < {block.stoprow}; ++row'.format(block=resultBlock)):
-                  test('double ref = reference[col*{} + row];'.format(rk.kernel.rows))
+                  test('double ref = reference[col*{} + row];'.format(rk.prototype.kernel.rows))
                   test('double diff = ref - result[col*{} + row];'.format(resultBlock.ld))
                   test('error += diff * diff;')
                   test('refNorm += ref * ref;')
-              test('TS_ASSERT_LESS_THAN(sqrt(error/refNorm), 1e-15);')
+              test('TS_ASSERT_LESS_THAN(sqrt(error/refNorm), {});'.format(10. * self.architecture.epsilon))

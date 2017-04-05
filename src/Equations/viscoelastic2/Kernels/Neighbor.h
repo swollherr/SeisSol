@@ -57,15 +57,19 @@ class seissol::kernels::Neighbor {
 
     void computeNeighborsIntegral(  enum faceType const               i_faceTypes[4],
                                     int const                         i_neighboringIndices[4][2],
+                                    CellDRMapping const             (&cellDrMapping)[4],
                                     GlobalData const*                 global,
                                     NeighboringIntegrationData const* neighbor,
                                     real*                             i_timeIntegrated[4],
+                                    real*                             faceNeighbors_prefetch[4],
                                     real                              io_degreesOfFreedom[ NUMBER_OF_ALIGNED_BASIS_FUNCTIONS*NUMBER_OF_QUANTITIES ] );
 
     void flopsNeighborsIntegral( const enum faceType  i_faceTypes[4],
                                  const int            i_neighboringIndices[4][2],
                                  unsigned int        &o_nonZeroFlops,
-                                 unsigned int        &o_hardwareFlops );
+                                 unsigned int        &o_hardwareFlops,
+                                 long long&           o_drNonZeroFlops,
+                                 long long&           o_drHardwareFlops );
                                  
     unsigned bytesNeighborsIntegral();
 };

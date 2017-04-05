@@ -128,6 +128,12 @@ class seissol::initializers::time_stepping::LtsLayout {
 
     //! dynamic rupture indicator of the cells in the ghost layer
     unsigned** m_plainGhostCellDynamicRuptureIndicator;
+    
+    //! face ids of interior dr faces
+    std::vector< int > m_dynamicRupturePlainInterior;
+    
+    //! face ids of copy dr faces
+    std::vector< int > m_dynamicRupturePlainCopy;
 
     /*
      * Cluster dependent characteristics.
@@ -231,6 +237,11 @@ class seissol::initializers::time_stepping::LtsLayout {
      * Derives plain ghost regions.
      **/
     void derivePlainGhost();
+    
+    /**
+     * Derives plain copy and interior regions for dynamic rupture.
+     **/
+    void deriveDynamicRupturePlainCopyInterior();
 
     /**
      * Overwrite the given setting of mpi indices with required information.
@@ -514,6 +525,10 @@ class seissol::initializers::time_stepping::LtsLayout {
     void getCellInformation( CellLocalInformation* io_cellLocalInformation,
                              unsigned int         *&o_ltsToMesh,
                              unsigned int          &o_numberOfMeshCells );
+
+    void getDynamicRuptureInformation(  unsigned*&  ltsToFace,
+                                        unsigned&   numberOfDRCopyFaces,
+                                        unsigned&   numberOfDRInteriorFaces );
 
     /**
      * Get the per cluster mesh structure.

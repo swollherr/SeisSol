@@ -44,44 +44,96 @@ import itertools
 import operator
 import numpy
 
+def calculateOptimalSparseFlops(matrices):
+  sparsityPatterns = [matrix.getOriginalSparsityPattern() for matrix in matrices]
+  # Eliminate irrelevant entries in the matrix multiplication
+  equivalentSparsityPatterns = Sparse.equivalentMultiplicationPatterns(sparsityPatterns)
+  return Sparse.calculateOptimalSparseFlops(equivalentSparsityPatterns)
+
+class DummyPrefetch:
+  pass
+
+class Prototype:
+  def __init__(self, name, kernel, beta=1, prefetch=list()):
+    if beta != 0 and beta != 1:
+      raise ValueError('Other betas than one or zero are currently not supported.')
+    self.name = name
+    self.kernel = kernel
+    self.beta = beta
+    self.prefetch = prefetch if isinstance(prefetch, list) else [prefetch]
+
 class Operation:
   MEMSET = 1,
   GEMM = 2
   
 class Kernel(object):
-  def __init__(self, kernel, db, architecture):
+  ResultName = 'result'
+
+  def __init__(self, prototype, db, architecture):
     self.db = db
     self.arch = architecture
     self.involvedMatrices = set()
     self.temps = list()
     self.operations = list()
     self.tempBaseName = 'temporaryResult'
-    self.resultName = 'result'
-    self.kernel = kernel
+    self.prototype = prototype
 
-    for mul in kernel.symbol:
-      self.gemms([self.db[name] for name in mul])
+    for index, mul in enumerate(prototype.kernel.symbol):
+      self.gemms([self.db[name] for name in mul], index == 0)
 
     self.temps.sort(key=lambda temp: temp.name)
-    self.involvedMatrices = set([name for mul in kernel.symbol for name in mul])
+    self.involvedMatrices = set([name for mul in prototype.kernel.symbol for name in mul])
     self.involvedMatrices = sorted(list(self.involvedMatrices))
-    self.involvedMatrices.append(self.resultName)
+    self.involvedMatrices.append(Kernel.ResultName)
       
-  def gemms(self, matrices):
+  def gemms(self, matrices, firstProduct):
     raise NotImplementedError()
 
 class GeneratedKernel(Kernel):
+  PrefetchSuffix = '_prefetch'
+  DefaultPrefetchMode = 'pfsigonly'
+  
   def __init__(self, kernel, db, architecture):
-    self.gemmlist = list()
     self.nonZeroFlops = 0
     self.hardwareFlops = 0
     
     super(GeneratedKernel, self).__init__(kernel, db, architecture)
+    
+    for prefetch in self.prototype.prefetch:
+      if self.arch.enablePrefetch and not isinstance(prefetch, DummyPrefetch):
+        blocks = prefetch.blocks
+        if db.has_key(prefetch.name):
+          prefetchPointerName = prefetch.name + GeneratedKernel.PrefetchSuffix
+        else:
+          prefetchPointerName = Kernel.ResultName + GeneratedKernel.PrefetchSuffix
+        if len(blocks) > 1 or blocks[0].sparse:
+          raise ValueError('Prefetching is currently only supported for matrices with dense single block memory layout.')
+        match = -1
+        bestOverlap = 0
+        writesByLDC = dict()
+        for index, op in enumerate(self.operations):
+          if op['type'] == Operation.GEMM and op['gemm']['prefetch'] == GeneratedKernel.DefaultPrefetchMode:
+            ldc = op['gemm']['LDC']
+            if not writesByLDC.has_key(ldc):
+              writesByLDC[ldc] = {'indices': list(), 'modBlocks': list()}
+            writesByLDC[ldc]['indices'].append(index)
+            writesByLDC[ldc]['modBlocks'].append(op['modifiedBlockC'])
+        bestLDC = min(writesByLDC.keys(), key=lambda x: abs(x - blocks[0].ld))
+        targetCard = blocks[0].ld * blocks[0].cols()
+        mds = MDS.maxDisjointSet(writesByLDC[bestLDC]['modBlocks'], targetCard)
+        for m in mds:
+          opIndex = writesByLDC[bestLDC]['indices'][m]
+          self.operations[opIndex]['gemm']['prefetch'] = 'BL2viaC'
+          self.operations[opIndex]['gemm']['prefetchPointer'] = prefetchPointerName
+      else:
+        prefetchPointerName = '/* no prefetch */'
+      
+      self.involvedMatrices.append(prefetchPointerName)
 
   def __intersect(self, blockA, blockB):
     return (max(blockA.startcol, blockB.startrow), min(blockA.stopcol, blockB.stoprow))
 
-  def gemms(self, matrices):
+  def gemms(self, matrices, firstProduct):
     nameToIndex = dict()
     for i,matrix in enumerate(matrices):
       nameToIndex[matrix.name] = i
@@ -96,7 +148,7 @@ class GeneratedKernel(Kernel):
     # Determine the matrix multiplication order based on the implementation pattern
     chainOrder, dummy = Sparse.sparseMatrixChainOrder(implementationPatterns)
     
-    self.nonZeroFlops += Sparse.calculateOptimalSparseFlops(equivalentSparsityPatterns)
+    self.nonZeroFlops += calculateOptimalSparseFlops(matrices)
 
     # convert matrix chain order to postfix
     stack = list()
@@ -134,12 +186,12 @@ class GeneratedKernel(Kernel):
         if len(output) > 0:
           if len(self.temps) == 0:
             tempCounter += 1
-            self.temps.append(DB.MatrixInfo(self.tempBaseName + str(tempCounter)))
+            self.temps.append(DB.MatrixInfo(self.tempBaseName + str(tempCounter), 1, 1))
           result = self.temps.pop()
           resultRequiredReals = result.requiredReals
           spp1 = implementationPatterns[nameToIndex[op1.name]] if nameToIndex.has_key(op1.name) else op1.spp
           spp2 = implementationPatterns[nameToIndex[op2.name]] if nameToIndex.has_key(op2.name) else op2.spp
-          result = DB.MatrixInfo(result.name, op1.rows, op2.cols, sparsityPattern = spp1 * spp2)
+          result = DB.MatrixInfo(result.name, op1.rows, op2.cols, matrix = spp1 * spp2)
           result.fitBlocksToSparsityPattern()
           result.generateMemoryLayout(self.arch, alignStartrow=True)
           resultName = result.name
@@ -147,12 +199,11 @@ class GeneratedKernel(Kernel):
           beta = 0
           result.requiredReals = max(resultRequiredReals, result.requiredReals)
         else:
-          beta = 1
-          result = self.kernel
-          resultName = self.resultName
+          beta = 1 if not firstProduct else self.prototype.beta
+          result = self.prototype.kernel
+          resultName = Kernel.ResultName
         
         ops = []
-        writes = []
         # op1 and op2 may be partitioned in several blocks.
         # Here we split the blocks of op1 and op2 in sums, i.e.
         # op1 * op2 = (op11 + op12 + ... + op1m) * (op21 + op22 + ... + op2n)
@@ -166,14 +217,15 @@ class GeneratedKernel(Kernel):
           for i2, block2 in enumerate(blocks2):
             # op1k * op2l is only nonzero if the columns of op1k and
             # the rows of op2l intersect.
-            self.__gemm(op1.name, block1, op1.blocks[i1], op2.name, block2, op2.blocks[i2], resultName, result.blocks[0], beta, ops, writes)
+            self.__gemm(op1.name, block1, op1.blocks[i1], op2.name, block2, op2.blocks[i2], resultName, result.blocks[0], beta, ops)
 
+        writes = [op['modifiedBlockC'] for op in ops]
         # Reorder ops in order to find betas
         if len(writes) > 0 and beta == 0:
           targetCard = result.blocks[0].ld * result.blocks[0].cols()
           mdsIn = MDS.maxDisjointSet(writes, targetCard)
           mdsOut = list( set(range(len(writes))).difference(set(mdsIn)) )
-          order = mdsIn + mdsOut          
+          order = mdsIn + mdsOut
           memsetInterval = set(range(targetCard))
           for m in mdsIn:
             memsetInterval.difference_update(set( [i + j*result.blocks[0].ld for j in range(writes[m].startcol, writes[m].stopcol) for i in range(writes[m].startrow, writes[m].stoprow)] ))
@@ -195,7 +247,6 @@ class GeneratedKernel(Kernel):
           ops = [ops[o] for o in order]
 
         for op in ops:
-          self.gemmlist.append(op['gemm'])
           self.operations.append(op)
           if op['gemm']['spp'] is not None:
             NNZ = int(numpy.sum(op['gemm']['spp']))
@@ -212,23 +263,27 @@ class GeneratedKernel(Kernel):
         if not nameToIndex.has_key(op2.name):
           self.temps.append(op2)
 
-  def __gemm(self, nameA, blockA, memoryBlockA, nameB, blockB, memoryBlockB, nameC, memoryBlockC, beta, ops, writes):
+  def __gemm(self, nameA, blockA, memoryBlockA, nameB, blockB, memoryBlockB, nameC, memoryBlockC, beta, ops):
     if memoryBlockA.sparse and memoryBlockB.sparse:
-      raise NotImplementedError('The generator does not support sparse * sparse multiplications.')
+      raise NotImplementedError('The generator does not support sparse * sparse multiplications ({} = {} . {}).'.format(nameC, nameA, nameB))
 
     k1, k2 = self.__intersect(blockA, blockB)
     if k2 > k1:
       if memoryBlockA.sparse:
+        if memoryBlockA.startrow != blockA.startrow:
+          raise NotImplementedError('__gemm: memoryBlockA.startrow != blockA.startrow unsupported.')
         m1 = memoryBlockA.startrow
-        m2 = memoryBlockA.stoprow
+        m2 = blockA.stoprow
         sparsityPattern = memoryBlockA.sparsityPattern(k1, k2)
         mmType = 'sparse'
         spMtxName = nameA
       elif memoryBlockB.sparse:
         m1 = self.arch.getAlignedIndex(blockA.startrow)
         m2 = m1 + self.arch.getAlignedDim(blockA.stoprow - m1)
+        if memoryBlockB.startrow != blockB.startrow:
+          raise NotImplementedError('__gemm: memoryBlockB.startrow != blockB.startrow unsupported.')
         k1 = memoryBlockB.startrow
-        k2 = memoryBlockB.stoprow
+        k2 = blockB.stoprow
         sparsityPattern = memoryBlockB.sparsityPattern(blockB.startcol, blockB.stopcol)
         mmType = 'sparse'
         spMtxName = nameB
@@ -249,7 +304,6 @@ class GeneratedKernel(Kernel):
 
       startrowC = m1 - memoryBlockC.startrow
       startcolC = blockB.startcol - memoryBlockC.startcol
-      writes.append(DB.MatrixBlock(startrowC, startrowC + M, startcolC, startcolC + N))
 
       alignedA = self.arch.checkAlignment(offsetA)
       alignedC = self.arch.checkAlignment(offsetC)
@@ -270,7 +324,8 @@ class GeneratedKernel(Kernel):
         'alignedA':     int(alignedA),
         'alignedC':     int(alignedC),
         'spp':          sparsityPattern,
-        'spMtxName':    spMtxName
+        'spMtxName':    spMtxName,
+        'prefetch':     GeneratedKernel.DefaultPrefetchMode
       }
       ops.append(dict(
         type=Operation.GEMM,
@@ -280,15 +335,16 @@ class GeneratedKernel(Kernel):
         nameC=nameC,
         offsetA=offsetA,
         offsetB=offsetB,
-        offsetC=offsetC        
+        offsetC=offsetC,
+        modifiedBlockC=DB.MatrixBlock(startrowC, startrowC + M, startcolC, startcolC + N)
       ))
     
 
 class ReferenceKernel(Kernel):
-  def __init__(self, kernel, db, architecture):
-    super(ReferenceKernel, self).__init__(kernel, db, architecture)
+  def __init__(self, prototype, db, architecture):
+    super(ReferenceKernel, self).__init__(prototype, db, architecture)
 
-  def gemms(self, matrices):
+  def gemms(self, matrices, firstProduct):
     resultSize = 0
     leftName = matrices[0].name
     leftRows = matrices[0].rows

@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2016, SeisSol Group
+ * Copyright (c) 2016-2017, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -69,6 +69,7 @@ public:
 
 #ifdef USE_MPI
 		seissol::MPI::mpi.setComm(commWorld());
+		// TODO Update fault communicator (not really sure how we can do this at this point)
 #endif // USE_MPI
 
 		return dispatch();

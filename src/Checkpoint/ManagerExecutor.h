@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2016, SeisSol Group
+ * Copyright (c) 2016-2017, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -43,6 +43,7 @@
 #include "async/ExecInfo.h"
 
 #include "Backend.h"
+#include "Monitoring/Stopwatch.h"
 
 namespace seissol
 {
@@ -53,8 +54,9 @@ namespace checkpoint
 /** Buffer ids for asynchronous IO */
 enum BufferTags {
 	FILENAME = 0,
-	DOFS = 1,
-	DR_DOFS0 = 2
+	HEADER = 1,
+	DOFS = 2,
+	DR_DOFS0 = 3
 };
 
 /**
@@ -73,7 +75,6 @@ struct CheckpointInitParam
 struct CheckpointParam
 {
 	double time;
-	int waveFieldTimeStep;
 	int faultTimeStep;
 };
 
@@ -85,6 +86,9 @@ private:
 
 	/** The dynamic rupture checkpoint */
 	Fault *m_fault;
+
+	/** Stopwatch for checkpoint backend */
+	Stopwatch m_stopwatch;
 
 public:
 	ManagerExecutor()
@@ -107,7 +111,7 @@ public:
 		m_waveField->setFilename(filename);
 		m_fault->setFilename(filename);
 
-		m_waveField->init(info.bufferSize(DOFS) / sizeof(real));
+		m_waveField->init(info.bufferSize(HEADER), info.bufferSize(DOFS) / sizeof(real));
 		m_fault->init(info.bufferSize(DR_DOFS0) / param.numBndGP / sizeof(double), param.numBndGP);
 
 		if (param.loaded) {
@@ -128,9 +132,11 @@ public:
 	/**
 	 * Write the checkpoint
 	 */
-	void exec(const CheckpointParam &param)
+	void exec(const async::ExecInfo &info, const CheckpointParam &param)
 	{
-		m_waveField->write(param.time, param.waveFieldTimeStep);
+		m_stopwatch.start();
+
+		m_waveField->write(info.buffer(HEADER), info.bufferSize(HEADER));
 		m_fault->write(param.faultTimeStep);
 
 		// Update both links at the "same" time
@@ -138,13 +144,17 @@ public:
 		m_fault->updateLink();
 
 		// Prepare next checkpoint (only for async checkpoints)
-		m_waveField->writePrepare(param.time, param.waveFieldTimeStep);
+		m_waveField->writePrepare(info.buffer(HEADER), info.bufferSize(HEADER));
 		m_fault->writePrepare(param.faultTimeStep);
+
+		m_stopwatch.pause();
 	}
 
 	void finalize()
 	{
 		if (m_waveField) {
+			m_stopwatch.printTime("Time checkpoint backend:");
+
 			m_waveField->close();
 			m_fault->close();
 

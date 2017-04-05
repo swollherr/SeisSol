@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2015-2016, SeisSol Group
+ * Copyright (c) 2015-2017, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -51,8 +51,11 @@
 
 #include "async/Module.h"
 
+#ifdef GENERATEDKERNELS
+#include "Checkpoint/DynStruct.h"
+#endif // GENERATEDKERNELS
 #include "Geometry/refinement/VariableSubSampler.h"
-#include "Monitoring/instrumentation.fpp"
+#include "Monitoring/Stopwatch.h"
 #include "WaveFieldWriterExecutor.h"
 
 namespace seissol
@@ -65,6 +68,11 @@ class WaveFieldWriter : private async::Module<WaveFieldWriterExecutor, WaveField
 {
 	/** True if wave field output is enabled */
 	bool m_enabled;
+
+#ifdef GENERATEDKERNELS
+	/** The timestep component in the checkpoint header */
+	DynStruct::Component<int> m_timestepComp;
+#endif // GENERATEDKERNELS
 
 	/** False if entire region is to be written */
 	bool m_extractRegion;
@@ -117,8 +125,8 @@ class WaveFieldWriter : private async::Module<WaveFieldWriterExecutor, WaveField
 	/** The tolerance in the time for ignoring duplicate time steps */
 	double m_timeTolerance;
 
-	/** The current output time step */
-	unsigned int m_timestep;
+	/** The stopwatch for the frontend */
+	Stopwatch m_stopwatch;
 
 	/** Checks if a vertex given by the vertexCoords lies inside the boxBounds */
 	/*   The boxBounds is in the format: xMin, xMax, yMin, yMax, zMin, zMax */
@@ -144,18 +152,14 @@ public:
 		  m_dofs(0L), m_pstrain(0L), m_integrals(0L),
 		  m_map(0L),
 		  m_lastTimeStep(-1),
-		  m_timeTolerance(0),
-		  m_timestep(0)
+		  m_timeTolerance(0)
 	{
 	}
 
 	/**
 	 * Activate the wave field output
 	 */
-	void enable()
-	{
-		m_enabled = true;
-	}
+	void enable();
 
 	/**
 	 * @return True if wave field output is enabled, false otherwise
@@ -191,109 +195,13 @@ public:
 			const MeshReader &meshReader,
 			const double* dofs,  const double* pstrain, const double* integrals,
 			unsigned int* map,
-			int refinement, int timestep, int* outputMask, double* outputRegionBounds,
+			int refinement, int* outputMask, double* outputRegionBounds,
 			double timeTolerance);
-
-	/**
-	 * @return The current time step of the wave field output
-	 */
-	unsigned int timestep() const
-	{
-		return m_timestep;
-	}
 
 	/**
 	 * Write a time step
 	 */
-	void write(double time)
-	{
-		SCOREP_USER_REGION("WaveFieldWriter_write", SCOREP_USER_REGION_TYPE_FUNCTION);
-
-		if (!m_enabled)
-			return;
-
-		const int rank = seissol::MPI::mpi.rank();
-
-		if (time <= m_lastTimeStep + m_timeTolerance) {
-			// Ignore duplicate time steps. Might happen at the end of a simulation
-			logInfo(rank) << "Ignoring duplicate time step at time " << time;
-			return;
-		}
-
-		SCOREP_USER_REGION_DEFINE(r_wait);
-		SCOREP_USER_REGION_BEGIN(r_wait, "wavfieldwriter_wait", SCOREP_USER_REGION_TYPE_COMMON);
-		logInfo(rank) << "Waiting for last wave field.";
-		wait();
-		SCOREP_USER_REGION_END(r_wait);
-
-		logInfo(rank) << "Writing wave field at time" << utils::nospace <<  time << '.';
-
-		unsigned int nextId = m_variableBufferIds[0];
-		for (unsigned int i = 0; i < m_numVariables; i++) {
-			if (!m_outputFlags[i])
-				continue;
-
-			double* managedBuffer = async::Module<WaveFieldWriterExecutor,
-					WaveFieldInitParam, WaveFieldParam>::managedBuffer<double*>(nextId);
-			m_variableSubsampler->get(m_dofs, m_map, i, managedBuffer);
-
-			sendBuffer(nextId, m_numCells*sizeof(double));
-
-			nextId++;
-		}
-
-		// nextId is required in a manner similar to above for writing integrated variables
-		nextId = 0;
-		if (m_pstrain) {
-			for (unsigned int i = 0; i < WaveFieldWriterExecutor::NUM_PLASTICITY_VARIABLES; i++) {
-				double* managedBuffer = async::Module<WaveFieldWriterExecutor,
-						WaveFieldInitParam, WaveFieldParam>::managedBuffer<double*>(m_variableBufferIds[1]+i);
-
-#ifdef _OPENMP
-				#pragma omp parallel for schedule(static)
-#endif // _OPENMP
-				for (unsigned int j = 0; j < m_numLowCells; j++)
-					managedBuffer[j] = m_pstrain[m_map[j]
-							* WaveFieldWriterExecutor::NUM_PLASTICITY_VARIABLES + i];
-
-				sendBuffer(m_variableBufferIds[1]+i, m_numLowCells*sizeof(double));
-			}
-			nextId = WaveFieldWriterExecutor::NUM_PLASTICITY_VARIABLES;
-		}
-		
-		// This offset is used to access the correct variable in m_integrals
-		// If pstrain is enabled then the offset is set to NUM_PLASTICITY_VARIABLES otherwise it is set to 0
-		unsigned int offset = nextId;
-
-		if (m_integrals) {
-			for (unsigned int i = 0; i < WaveFieldWriterExecutor::NUM_INTEGRATED_VARIABLES; i++) {
-				if (!m_lowOutputFlags[i+WaveFieldWriterExecutor::NUM_PLASTICITY_VARIABLES])
-					continue;
-				double* managedBuffer = async::Module<WaveFieldWriterExecutor,
-				WaveFieldInitParam, WaveFieldParam>::managedBuffer<double*>(m_variableBufferIds[1]+nextId);
-
-#ifdef _OPENMP
-				#pragma omp parallel for schedule(static)
-#endif // _OPENMP
-				for (unsigned int j = 0; j < m_numLowCells; j++)
-					managedBuffer[j] = m_integrals[m_map[j]
-							* m_numIntegratedVariables + nextId - offset];
-
-				sendBuffer(m_variableBufferIds[1]+nextId, m_numLowCells*sizeof(double));
-				nextId++;
-			}
-		}
-
-		WaveFieldParam param;
-		param.time = time;
-		call(param);
-
-		// Update last time step
-		m_lastTimeStep = time;
-		m_timestep++;
-
-		logInfo(rank) << "Writing wave field at time" << utils::nospace << time << ". Done.";
-	}
+	void write(double time);
 
 	/**
 	 * Close wave field writer and free resources
@@ -309,6 +217,8 @@ public:
 		if (!m_enabled)
 			return;
 
+		m_stopwatch.printTime("Time wave field writer frontend:");
+
 		delete m_variableSubsampler;
 		m_variableSubsampler = 0L;
 		delete [] m_outputFlags;
@@ -323,9 +233,6 @@ public:
 
 	void tearDown()
 	{
-		if (!m_enabled)
-			return;
-
 		m_executor.finalize();
 	}
 };

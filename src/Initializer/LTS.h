@@ -80,9 +80,12 @@ struct seissol::initializers::LTS {
   Variable<NeighboringIntegrationData>    neighboringIntegration;
   Variable<CellMaterialData>              material;
   Variable<PlasticityData>                plasticity;
+  Variable<CellDRMapping[4]>              drMapping;
   Variable<real[3]>                       energy;
   Variable<real[7]>                       pstrain;
+  Variable<real*>                         displacements;
   Bucket                                  buffersDerivatives;
+  Bucket                                  displacementsBuffer;
   
   /// \todo Memkind
   void addTo(LTSTree& tree) {
@@ -100,10 +103,13 @@ struct seissol::initializers::LTS {
     tree.addVar(  neighboringIntegration, LayerMask(Ghost),                 1,      MEMKIND_CONSTANT );
     tree.addVar(                material, LayerMask(Ghost),                 1,      seissol::memory::Standard );
     tree.addVar(              plasticity,   plasticityMask,                 1,      seissol::memory::Standard );
+    tree.addVar(               drMapping, LayerMask(Ghost),                 1,      MEMKIND_CONSTANT );
     tree.addVar(                  energy,   plasticityMask,     PAGESIZE_HEAP,      seissol::memory::Standard );
     tree.addVar(                 pstrain,   plasticityMask,     PAGESIZE_HEAP,      seissol::memory::Standard );
+    tree.addVar(           displacements, LayerMask(Ghost),     PAGESIZE_HEAP,      seissol::memory::Standard );
     
     tree.addBucket(buffersDerivatives,                          PAGESIZE_HEAP,      MEMKIND_TIMEDOFS );
+    tree.addBucket(displacementsBuffer,                         PAGESIZE_HEAP,      MEMKIND_TIMEDOFS );
   }
 };
 #endif

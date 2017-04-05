@@ -265,12 +265,13 @@ CONTAINS
     posz_max = MAXVAL(posz(1:nsamples_total))
     posz_min = MINVAL(posz(1:nsamples_total))
     !
-    IF( posx_max.GT.xf_max .OR. posz_max.GT.zf_max .OR.  &
-        posx_min.LT.xf_min .OR. posz_min.LT.zf_min)THEN
-        logError(*) 'Background stress field ',TRIM(IO%FileName_BackgroundStress),   &
-                    ' does not fully include the entire fault!'
-        STOP
-    ENDIF
+    ! \todo include tolerance here
+!~     IF( posx_max.GT.xf_max .OR. posz_max.GT.zf_max .OR.  &
+!~         posx_min.LT.xf_min .OR. posz_min.LT.zf_min)THEN
+!~         logError(*) 'Background stress field ',TRIM(IO%FileName_BackgroundStress),   &
+!~                     ' does not fully include the entire fault!'
+!~         STOP
+!~     ENDIF
 
     ! Interpolation of the background field onto the barycenter of the elements fault face
     DO ibackgroundfield = 1,nbackgroundfield
@@ -296,11 +297,11 @@ CONTAINS
             EQN%IniShearXZ(i,:) = 0.0D0
             EQN%IniStateVar(i,:) = 0.0D0
 
-            DISC%DynRup%Mu_S(i,:) = P(4,i)
-            DISC%DynRup%Mu_D(i,:) = P(5,i)
-            DISC%DynRup%D_C(i,:)= P(6,i)
-            DISC%DynRup%cohesion(i,:)= -P(7,i) ! ATTENTION: Sign change as compression is negative in SeisSol3D
-            DISC%DynRup%forced_rupture_time(i,:) = P(8,i)
+            DISC%DynRup%Mu_S(:,i) = P(4,i)
+            DISC%DynRup%Mu_D(:,i) = P(5,i)
+            DISC%DynRup%D_C(:,i)= P(6,i)
+            DISC%DynRup%cohesion(:,i)= -P(7,i) ! ATTENTION: Sign change as compression is negative in SeisSol3D
+            DISC%DynRup%forced_rupture_time(:,i) = P(8,i)
         ENDDO ! i = 1,MESH%Fault%nSide
 !            ! DEVELOPMENT INFORMATION
 !            open(111,FILE='field_output.dat',FORM='FORMATTED')
@@ -323,11 +324,11 @@ CONTAINS
                 EQN%IniShearXZ(i,iBndGP) = 0.0D0
                 EQN%IniStateVar(i,iBndGP) = 0.0D0
 
-                DISC%DynRup%Mu_S(i,iBndGP) = P(4,counter)
-                DISC%DynRup%Mu_D(i,iBndGP) = P(5,counter)
-                DISC%DynRup%D_C(i,iBndGP)= P(6,counter)
-                DISC%DynRup%cohesion(i,iBndGP)= -P(7,counter) ! ATTENTION: Sign change as compression is negative in SeisSol3D
-                DISC%DynRup%forced_rupture_time(i,iBndGP) = P(8,counter)
+                DISC%DynRup%Mu_S(iBndGP,i) = P(4,counter)
+                DISC%DynRup%Mu_D(iBndGP,i) = P(5,counter)
+                DISC%DynRup%D_C(iBndGP,i)= P(6,counter)
+                DISC%DynRup%cohesion(iBndGP,i)= -P(7,counter) ! ATTENTION: Sign change as compression is negative in SeisSol3D
+                DISC%DynRup%forced_rupture_time(iBndGP,i) = P(8,counter)
             ENDDO ! iBndGP
         ENDDO ! i = 1,MESH%Fault%nSide
 !            ! DEVELOPMENT INFORMATION

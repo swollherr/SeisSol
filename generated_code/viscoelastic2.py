@@ -38,9 +38,12 @@
 # @section DESCRIPTION
 #
 
-from gemmgen import DB, Tools, Arch
+from gemmgen import DB, Tools, Arch, Kernel
 import numpy as np
 import argparse
+import DynamicRupture
+import Plasticity
+import SurfaceDisplacement
 
 cmdLineParser = argparse.ArgumentParser()
 cmdLineParser.add_argument('--matricesDir')
@@ -50,6 +53,7 @@ cmdLineParser.add_argument('--order')
 cmdLineParser.add_argument('--numberOfMechanisms')
 cmdLineParser.add_argument('--generator')
 cmdLineParser.add_argument('--memLayout')
+cmdLineParser.add_argument('--dynamicRuptureMethod')
 cmdLineArgs = cmdLineParser.parse_args()
 
 architecture = Arch.getArchitectureByIdentifier(cmdLineArgs.arch)
@@ -57,9 +61,10 @@ libxsmmGenerator = cmdLineArgs.generator
 order = int(cmdLineArgs.order)
 numberOfMechanisms = int(cmdLineArgs.numberOfMechanisms)
 numberOfBasisFunctions = Tools.numberOfBasisFunctions(order)
+numberOfElasticQuantities = 9
 numberOfMechanismQuantities = 6
-numberOfReducedQuantities = 9 + numberOfMechanismQuantities
-numberOfQuantities = 9 + 6*numberOfMechanisms
+numberOfReducedQuantities = numberOfElasticQuantities + numberOfMechanismQuantities
+numberOfQuantities = numberOfElasticQuantities + 6*numberOfMechanisms
 
 clones = {
   'star': [ 'AstarT', 'BstarT', 'CstarT' ]
@@ -71,8 +76,12 @@ db.update(Tools.parseMatrixFile('{}/matrices_viscoelastic.xml'.format(cmdLineArg
 
 # Determine sparsity patterns that depend on the number of mechanisms
 riemannSolverSpp = np.bmat([[np.matlib.ones((9, numberOfReducedQuantities), dtype=np.float64)], [np.matlib.zeros((numberOfReducedQuantities-9, numberOfReducedQuantities), dtype=np.float64)]])
-db.insert(DB.MatrixInfo('AplusT', numberOfReducedQuantities, numberOfReducedQuantities, sparsityPattern=riemannSolverSpp))
-db.insert(DB.MatrixInfo('AminusT', numberOfReducedQuantities, numberOfReducedQuantities, sparsityPattern=riemannSolverSpp))
+db.insert(DB.MatrixInfo('AplusT', numberOfReducedQuantities, numberOfReducedQuantities, matrix=riemannSolverSpp))
+db.insert(DB.MatrixInfo('AminusT', numberOfReducedQuantities, numberOfReducedQuantities, matrix=riemannSolverSpp))
+
+DynamicRupture.addMatrices(db, cmdLineArgs.matricesDir, order, cmdLineArgs.dynamicRuptureMethod, numberOfElasticQuantities, numberOfReducedQuantities)
+Plasticity.addMatrices(db, cmdLineArgs.matricesDir, order)
+SurfaceDisplacement.addMatrices(db, order)
 
 # Load sparse-, dense-, block-dense-config
 Tools.memoryLayoutFromFile(cmdLineArgs.memLayout, db, clones)
@@ -82,8 +91,10 @@ stiffnessOrder = { 'Xi': 0, 'Eta': 1, 'Zeta': 2 }
 globalMatrixIdRules = [
   (r'^k(Xi|Eta|Zeta)DivMT$', lambda x: stiffnessOrder[x[0]]),
   (r'^k(Xi|Eta|Zeta)DivM$', lambda x: 3 + stiffnessOrder[x[0]]),  
-  (r'^fM(\d{1})$', lambda x: 6 + int(x[0])-1),
-  (r'^fP(\d{1})(\d{1})(\d{1})$', lambda x: 10 + (int(x[0])-1)*12 + (int(x[1])-1)*3 + (int(x[2])-1))
+  (r'^r(\d{1})DivM$', lambda x: 6 + int(x[0])-1),
+  (r'^rT(\d{1})$', lambda x: 10 + int(x[0])-1),
+  (r'^fMrT(\d{1})$', lambda x: 14 + int(x[0])-1),
+  (r'^fP(\d{1})$', lambda x: 18 + (int(x[0])-1))
 ]
 DB.determineGlobalMatrixIds(globalMatrixIdRules, db)
 
@@ -97,25 +108,36 @@ db.insert(DB.MatrixInfo('mechanism', numberOfBasisFunctions, numberOfMechanismQu
 volume = db['kXiDivM'] * db['reducedTimeIntegratedDofs'] * db['AstarT'] \
        + db['kEtaDivM'] * db['reducedTimeIntegratedDofs'] * db['BstarT'] \
        + db['kZetaDivM'] * db['reducedTimeIntegratedDofs'] * db['CstarT']
-kernels.append(('volume', volume))
+kernels.append(Kernel.Prototype('volume', volume, beta=0))
 
 for i in range(0, 4):
-  localFlux = db['fM{}'.format(i+1)] * db['reducedTimeIntegratedDofs'] * db['AplusT']
-  kernels.append(('localFlux[{}]'.format(i), localFlux))
+  localFlux = db['r{}DivM'.format(i+1)] * db['fMrT{}'.format(i+1)] * db['reducedTimeIntegratedDofs'] * db['AplusT']
+  prefetch = None
+  if i == 0:
+    prefetch = db['reducedTimeIntegratedDofs']
+  elif i == 1:
+    prefetch = localFlux
+  else:
+    prefetch = Kernel.DummyPrefetch()
+  kernels.append(Kernel.Prototype('localFlux[{}]'.format(i), localFlux, prefetch=prefetch))
 
 for i in range(0, 4):
   for j in range(0, 4):
     for h in range(0, 3):
-      neighboringFlux = db['fP{}{}{}'.format(i+1, j+1, h+1)] * db['reducedTimeIntegratedDofs'] * db['AminusT']
-      kernels.append(('neighboringFlux[{}]'.format(i*12+j*3+h), neighboringFlux))
+      neighboringFlux = db['r{}DivM'.format(i+1)] * db['fP{}'.format(h+1)] * db['rT{}'.format(j+1)] * db['reducedTimeIntegratedDofs'] * db['AminusT']
+      kernels.append(Kernel.Prototype('neighboringFlux[{}]'.format(i*12+j*3+h), neighboringFlux, prefetch=db['reducedTimeIntegratedDofs']))
 
 derivative = db['kXiDivMT'] * db['reducedDofs'] * db['AstarT'] \
            + db['kEtaDivMT'] * db['reducedDofs'] * db['BstarT'] \
            + db['kZetaDivMT'] * db['reducedDofs'] * db['CstarT']
-kernels.append(('derivative', derivative))
+kernels.append(Kernel.Prototype('derivative', derivative, beta=0))
 
 source = db['mechanism'] * db['ET']
-kernels.append(('source', source))
+kernels.append(Kernel.Prototype('source', source))
+
+DynamicRupture.addKernels(db, kernels, 'reducedDofs')
+Plasticity.addKernels(db, kernels)
+SurfaceDisplacement.addKernels(db, kernels)
 
 # Generate code
 Tools.generate(cmdLineArgs.outputDir, db, kernels, libxsmmGenerator, architecture)
