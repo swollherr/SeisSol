@@ -77,9 +77,6 @@ class seissol::initializers::time_stepping::LtsLayout {
 
     //! cluster ids of the cells
     unsigned int *m_cellClusterIds;
-    
-    //! dynamic rupture indicator of the cells
-    unsigned* m_cellDynamicRuptureIndicator;
 
     //! number of clusters in the global domain
     unsigned int  m_numberOfGlobalClusters;
@@ -89,8 +86,6 @@ class seissol::initializers::time_stepping::LtsLayout {
 
     //! time step rates of all clusters
     unsigned int *m_globalTimeStepRates;
-    
-    unsigned int  m_dynamicRuptureCluster;
 
     //! mpi tags used for communication
     enum mpiTag {
@@ -125,15 +120,12 @@ class seissol::initializers::time_stepping::LtsLayout {
 
     //! cluster ids of the cells in the ghost layer
     unsigned int **m_plainGhostCellClusterIds;
-
-    //! dynamic rupture indicator of the cells in the ghost layer
-    unsigned** m_plainGhostCellDynamicRuptureIndicator;
     
     //! face ids of interior dr faces
-    std::vector< int > m_dynamicRupturePlainInterior;
+    std::vector< std::vector<int> > m_dynamicRupturePlainInterior;
     
     //! face ids of copy dr faces
-    std::vector< int > m_dynamicRupturePlainCopy;
+    std::vector< std::vector<int> > m_dynamicRupturePlainCopy;
 
     /*
      * Cluster dependent characteristics.
@@ -260,12 +252,7 @@ class seissol::initializers::time_stepping::LtsLayout {
      * Synchronizes the cluster ids of the cells in the plain ghost layer.
      **/
     void synchronizePlainGhostClusterIds();
-    
-    /**
-     * Synchronizes the dynamic rupture indicator of the cells in the plain ghost layer.
-     **/
-    void synchronizePlainGhostDynamicRuptureIndicator();
-    
+
     /**
      * Enforces the same time step for all cells with dynamic rupture faces.
      */
@@ -527,8 +514,8 @@ class seissol::initializers::time_stepping::LtsLayout {
                              unsigned int          &o_numberOfMeshCells );
 
     void getDynamicRuptureInformation(  unsigned*&  ltsToFace,
-                                        unsigned&   numberOfDRCopyFaces,
-                                        unsigned&   numberOfDRInteriorFaces );
+                                        unsigned*&  numberOfDRCopyFaces,
+                                        unsigned*&  numberOfDRInteriorFaces );
 
     /**
      * Get the per cluster mesh structure.
@@ -536,13 +523,6 @@ class seissol::initializers::time_stepping::LtsLayout {
      * @param mesh structure.
      **/
     void getMeshStructure( MeshStructure *&o_meshStructure );
-    
-    /**
-     * All dynamic rupture faces reside in this cluster.
-     */
-    unsigned getDynamicRuptureCluster() const {
-      return m_dynamicRuptureCluster;
-    }
 };
 
 #endif
