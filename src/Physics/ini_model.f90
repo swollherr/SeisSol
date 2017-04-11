@@ -117,7 +117,7 @@ CONTAINS
     REAL                            :: posx_max,posx_min,posy_max,posy_min,posz_max,posz_min
     REAL                            :: pert_max, pert_min
     REAL, allocatable, dimension(:) :: BaryDist
-    REAL                            :: omega
+    REAL                            :: omega, stress_depth
     REAL                            :: circ
     REAL                            :: QPLocVal,QSLocVal
     REAL                            :: Theta(EQN%nMechanisms,3)
@@ -809,20 +809,20 @@ CONTAINS
 
              !Plasticity initializations
              IF (EQN%Plasticity.EQ.1) THEN
-
+                stress_depth = EQN%Ini_depth
                 !stress tensor for the whole domain
                 IF (z.LT. 1500.0D0) THEN
-                    EQN%IniStress(1,iElem)  = EQN%Bulk_xx_0*(abs(z-2000.0D0))/1000.0D0
-                    EQN%IniStress(2,iElem)  = EQN%Bulk_yy_0*(abs(z-2000.0D0))/1000.0D0
-                    EQN%IniStress(3,iElem)  = EQN%Bulk_zz_0*(abs(z-2000.0D0))/1000.0D0
-                    EQN%IniStress(4,iElem)  = EQN%ShearXY_0*(abs(z-2000.0D0))/1000.0D0
+                    EQN%IniStress(1,iElem)  = EQN%Bulk_xx_0*(abs(z-stress_depth))/1000.0D0
+                    EQN%IniStress(2,iElem)  = EQN%Bulk_yy_0*(abs(z-stress_depth))/1000.0D0
+                    EQN%IniStress(3,iElem)  = EQN%Bulk_zz_0*(abs(z-stress_depth))/1000.0D0
+                    EQN%IniStress(4,iElem)  = EQN%ShearXY_0*(abs(z-stress_depth))/1000.0D0
                     EQN%IniStress(5,iElem)  =  0.0D0
                     EQN%IniStress(6,iElem)  =  0.0D0
                 ELSE ! constant stress tensor for everything higher or equal than 1500m ~ fault height
-                    EQN%IniStress(1,iElem)  = EQN%Bulk_xx_0*(abs(-500.0D0))/1000.0D0
-                    EQN%IniStress(2,iElem)  = EQN%Bulk_yy_0*(abs(-500.0D0))/1000.0D0
-                    EQN%IniStress(3,iElem)  = EQN%Bulk_zz_0*(abs(-500.0D0))/1000.0D0
-                    EQN%IniStress(4,iElem)  = EQN%ShearXY_0*(abs(-500.0D0))/1000.0D0
+                    EQN%IniStress(1,iElem)  = EQN%Bulk_xx_0*(abs(stress_depth-1500.0D0))/1000.0D0
+                    EQN%IniStress(2,iElem)  = EQN%Bulk_yy_0*(abs(stress_depth-1500.0D0))/1000.0D0
+                    EQN%IniStress(3,iElem)  = EQN%Bulk_zz_0*(abs(stress_depth-1500.0D0))/1000.0D0
+                    EQN%IniStress(4,iElem)  = EQN%ShearXY_0*(abs(stress_depth-1500.0D0))/1000.0D0
                     EQN%IniStress(5,iElem)  =  0.0D0
                     EQN%IniStress(6,iElem)  =  0.0D0
                 ENDIF   !
@@ -835,7 +835,7 @@ CONTAINS
                    EQN%PlastCo(iElem) = 6.0e+06
                 ELSEIF ((z.LT. 500.0).AND.(z.GE.-1500.0)) THEN !second layer between -1000+1500 and -3000+1500
                    EQN%PlastCo(iElem) = 10.0e+06
-                ELSE !below -3000+1500
+                ELSE
                    EQN%PlastCo(iElem) = 12.0e+06
                 ENDIF !cohesion
                 

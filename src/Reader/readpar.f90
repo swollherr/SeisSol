@@ -1541,7 +1541,7 @@ CONTAINS
 
     CHARACTER(600)                         :: FileName_BackgroundStress
     REAL                                   :: Bulk_xx_0, Bulk_yy_0, &
-                                              Bulk_zz_0, ShearXY_0, ShearYZ_0, ShearXZ_0, &
+                                              Bulk_zz_0, ShearXY_0, ShearYZ_0, ShearXZ_0, Ini_depth, &
                                               RS_sv0, XRef, YRef, ZRef, GPwise, Rupspeed, &
                                               Mu_D_ini, Mu_S_ini, Mu_SNuc_ini, H_Length, D_C_ini, RS_f0, &
                                               RS_sr0, RS_a, RS_b, RS_sl0, RS_iniSlipRate1, &
@@ -1552,7 +1552,7 @@ CONTAINS
 
     !------------------------------------------------------------------------
     NAMELIST                              /DynamicRupture/ FL, BackgroundType, Bulk_xx_0, Bulk_yy_0, &
-                                                Bulk_zz_0, ShearXY_0, ShearYZ_0, ShearXZ_0, &
+                                                Bulk_zz_0, ShearXY_0, ShearYZ_0, ShearXZ_0, Ini_depth, &
                                                 RS_sv0, XRef, YRef, ZRef,refPointMethod, FileName_BackgroundStress, &
                                                 GPwise, inst_healing, Rupspeed, &
                                                 Mu_D_ini, Mu_S_ini,Mu_SNuc_ini, H_Length, D_C_ini, RS_f0, &
@@ -1582,6 +1582,7 @@ CONTAINS
     ShearXY_0 = 0
     ShearYZ_0 = 0
     ShearXZ_0 = 0
+    Ini_depth = 2000.0 !for Landers
     RS_sv0 = 0
     XRef = 0
     YRef = 0
@@ -1651,6 +1652,7 @@ CONTAINS
              EQN%ShearXY_0 = ShearXY_0
              EQN%ShearYZ_0 = ShearYZ_0
              EQN%ShearXZ_0 = ShearXZ_0
+             EQN%Ini_depth = Ini_depth
              EQN%RS_sv0 = RS_sv0
              EQN%XRef = XRef
              EQN%YRef = YRef

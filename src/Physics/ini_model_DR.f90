@@ -2960,7 +2960,7 @@ MODULE ini_model_DR_mod
   INTEGER                        :: iLocalNeighborSide,iNeighbor
   INTEGER                        :: MPIIndex, iObject
   REAL                           :: xV(MESH%GlobalVrtxType),yV(MESH%GlobalVrtxType),zV(MESH%GlobalVrtxType)
-  REAL                           :: z
+  REAL                           :: z, stress_depth
   REAL                           :: chi,tau
   REAL                           :: xi, eta, zeta, XGp, YGp, ZGp
   !-------------------------------------------------------------------------!
@@ -3034,10 +3034,11 @@ MODULE ini_model_DR_mod
           !EQN%IniBulk_zz(i,iBndGP)  =  -20.0000e6*(abs(z-2000.0D0))/1000.0D0
           !EQN%IniShearXY(i,iBndGP)  =   -3.7687e6*(abs(z-2000.0D0))/1000.0D0
           !can now be changed from the input
-          EQN%IniBulk_xx(i,iBndGP)  =  EQN%Bulk_xx_0*(abs(z-2000.0D0))/1000.0D0
-          EQN%IniBulk_yy(i,iBndGP)  =  EQN%Bulk_yy_0*(abs(z-2000.0D0))/1000.0D0
-          EQN%IniBulk_zz(i,iBndGP)  =  EQN%Bulk_zz_0*(abs(z-2000.0D0))/1000.0D0
-          EQN%IniShearXY(i,iBndGP)  =  EQN%ShearXY_0 *(abs(z-2000.0D0))/1000.0D0
+          stress_depth = EQN%Ini_depth
+          EQN%IniBulk_xx(i,iBndGP)  =  EQN%Bulk_xx_0*(abs(z-stress_depth))/1000.0D0
+          EQN%IniBulk_yy(i,iBndGP)  =  EQN%Bulk_yy_0*(abs(z-stress_depth))/1000.0D0
+          EQN%IniBulk_zz(i,iBndGP)  =  EQN%Bulk_zz_0*(abs(z-stress_depth))/1000.0D0
+          EQN%IniShearXY(i,iBndGP)  =  EQN%ShearXY_0 *(abs(z-stress_depth))/1000.0D0
           EQN%IniShearYZ(i,iBndGP)  =  EQN%ShearYZ_0
           EQN%IniShearXZ(i,iBndGP)  =  EQN%ShearXZ_0
           EQN%IniStateVar(i,iBndGP) =  EQN%RS_sv0
