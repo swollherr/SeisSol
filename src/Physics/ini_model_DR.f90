@@ -3043,13 +3043,16 @@ MODULE ini_model_DR_mod
           EQN%IniShearXZ(i,iBndGP)  =  EQN%ShearXZ_0
           EQN%IniStateVar(i,iBndGP) =  EQN%RS_sv0
 
-          ! manage D_C
-          IF (z.GT.-4000.0D0) THEN
-              ! higher D_C to surpress supershear rupture at free surface
-              DISC%DynRup%D_C(iBndGP,i) = DISC%DynRup%D_C_ini+0.6D0*(1.0D0+COS(4.0D0*ATAN(1.0D0) * abs(z)/4000.0D0))
-          ELSEIF (z.LT.-12000.0D0) THEN
-              ! higher D_C in depth mimic brittle ductile transition
-              DISC%DynRup%D_C(iBndGP,i) = DISC%DynRup%D_C_ini+1.0D0*(1.0D0+COS(4.0D0*ATAN(1.0D0) * abs(z)/4000.0D0))
+
+          ! manage D_C only if desired
+          IF (EQN%changeDc.EQ.1) THEN
+              IF (z.GT.-4000.0D0) THEN
+                  ! higher D_C to surpress supershear rupture at free surface
+                  DISC%DynRup%D_C(iBndGP,i) = DISC%DynRup%D_C_ini+0.6D0*(1.0D0+COS(4.0D0*ATAN(1.0D0) * abs(z)/4000.0D0))
+                  ELSEIF (z.LT.-12000.0D0) THEN
+                  !higher D_C in depth mimic brittle ductile transition
+                  DISC%DynRup%D_C(iBndGP,i) = DISC%DynRup%D_C_ini+1.0D0*(1.0D0+COS(4.0D0*ATAN(1.0D0) * abs(z)/4000.0D0))
+              ENDIF
           ENDIF
 
           ! overwrite positive z area

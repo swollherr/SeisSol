@@ -1232,6 +1232,7 @@ MODULE TypesDef
      REAL, allocatable                      :: IniShearYZ(:,:)                  !< Initial shear stress at fault
      REAL, allocatable                      :: IniShearXZ(:,:)                  !< Initial shear stress at fault
      REAL                                   :: Ini_depth                        !< depth for Landers stress gradient
+     INTEGER                                :: changeDc                         !< change D_c towards depth and surface
      real, allocatable                      :: InitialStressInFaultCS(:,:,:)
      REAL, allocatable                      :: IniMu(:,:)                       !< Initial friction coefficient at fault
      REAL, allocatable                      :: IniStateVar(:,:)                 !< Initial state variable value at fault
