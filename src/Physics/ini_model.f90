@@ -767,7 +767,7 @@ CONTAINS
         ENDDO
       ENDIF !Plasticity
       !
-      CASE(62)! new velocity model for Landers after Graves/Pitarka 2010 with average over the first layers respecting
+      CASE(62, 63)! new velocity model for Landers after Graves/Pitarka 2010 with average over the first layers respecting
               ! the thickness of the layer, added more layers in depth
 
          ! Layer                   depth    rho     mu          lambda
@@ -827,18 +827,38 @@ CONTAINS
                     EQN%IniStress(6,iElem)  =  0.0D0
                 ENDIF   !
 
+                SELECT CASE(EQN%LinType)
                 ! depth dependent plastic cohesion
                 !EQN%PlastCo(iElem) = MaterialVal(iElem,2)/10000.0D0 !very weak rock, dependent of mu, Roten et al. 2014
+
+                CASE(62) !original cohesion model, used in paper, based on Roten et al. 2015 for granite
+                !aligned with velocity structure
                 IF (z.GE. 1200.0) THEN !first layer until -300+1500
                    EQN%PlastCo(iElem) = 2.0e+06
                 ELSEIF ((z.LT. 1200.0).AND.(z.GE.500.0)) THEN !second layer between -300+1500 and -1000+1500
                    EQN%PlastCo(iElem) = 6.0e+06
-                ELSEIF ((z.LT. 500.0).AND.(z.GE.-1500.0)) THEN !second layer between -1000+1500 and -3000+1500
+                ELSEIF ((z.LT. 500.0).AND.(z.GE.-1500.0)) THEN !between -1000+1500 and -3000+1500
                    EQN%PlastCo(iElem) = 10.0e+06
                 ELSE
                    EQN%PlastCo(iElem) = 12.0e+06
                 ENDIF !cohesion
                 
+                CASE(63) !modified, weaker cohesion model, used in paper, based on Roten et al. 2015 for granite, but weaker
+                !aligned with velocity structure
+                IF (z.GE. 1200.0) THEN !first layer until -300+1500
+                   EQN%PlastCo(iElem) = 2.0e+06
+                ELSEIF ((z.LT. 1200.0).AND.(z.GE.500.0)) THEN !between -300+1500 and -1000+1500
+                   EQN%PlastCo(iElem) = 2.0e+06
+                ELSEIF ((z.LT. 500.0).AND.(z.GE.-1500.0)) THEN !between -1000+1500 and -3000+1500
+                   EQN%PlastCo(iElem) = 6.0e+06
+                ELSEIF ((z.LT. -1500.0).AND.(z.GE.-9500.0)) THEN !between -3000+1500 and -11000+1500
+                   EQN%PlastCo(iElem) = 12.0e+06
+                ELSE
+                   EQN%PlastCo(iElem) = 20.0e+06
+                ENDIF !cohesion
+
+                END SELECT
+
             ENDIF !Plasticity
 
        ENDDO
