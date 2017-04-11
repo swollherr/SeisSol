@@ -3055,6 +3055,15 @@ MODULE ini_model_DR_mod
               ENDIF
           ENDIF
 
+          !manage mu_s towards the end of the fault
+          IF (EQN%incrMus.EQ.1) THEN
+              IF (z.LT.-10000.0D0) THEN
+                  DISC%DynRup%Mu_S(iBndGP,i) = DISC%DynRup%Mu_S_ini + 0.2D0*(abs(z)-10000.0D0)/1000.0D0
+              ELSE
+                  DISC%DynRup%Mu_S(iBndGP,i) = DISC%DynRup%Mu_S_ini
+              ENDIF
+          ENDIF
+
           ! overwrite positive z area
           IF(z .GT. 0.0) THEN
               !EQN%IniBulk_xx(i,iBndGP)  =  0.0D0

@@ -1536,7 +1536,7 @@ CONTAINS
     TYPE (tBoundary)                       :: BND
     TYPE (tInitialCondition)               :: IC
     INTENT(INOUT)                          :: IO, EQN, DISC, BND
-    INTEGER                                :: FL, BackgroundType, Nucleation, inst_healing, RF_output_on, DS_output_on, changeDc, &
+    INTEGER                                :: FL, BackgroundType, Nucleation, inst_healing, RF_output_on, DS_output_on, changeDc, incrMus, &
                                               OutputPointType, magnitude_output_on,  energy_rate_output_on, read_fault_file,refPointMethod, SlipRateOutputType
 
     CHARACTER(600)                         :: FileName_BackgroundStress
@@ -1552,7 +1552,7 @@ CONTAINS
 
     !------------------------------------------------------------------------
     NAMELIST                              /DynamicRupture/ FL, BackgroundType, Bulk_xx_0, Bulk_yy_0, &
-                                                Bulk_zz_0, ShearXY_0, ShearYZ_0, ShearXZ_0, Ini_depth, changeDc, &
+                                                Bulk_zz_0, ShearXY_0, ShearYZ_0, ShearXZ_0, Ini_depth, changeDc, incrMus, &
                                                 RS_sv0, XRef, YRef, ZRef,refPointMethod, FileName_BackgroundStress, &
                                                 GPwise, inst_healing, Rupspeed, &
                                                 Mu_D_ini, Mu_S_ini,Mu_SNuc_ini, H_Length, D_C_ini, RS_f0, &
@@ -1584,6 +1584,7 @@ CONTAINS
     ShearXZ_0 = 0
     Ini_depth = 2000.0 !for Landers
     changeDc = 1 !for Landers only
+    incrMus = 0
     RS_sv0 = 0
     XRef = 0
     YRef = 0
@@ -1655,6 +1656,7 @@ CONTAINS
              EQN%ShearXZ_0 = ShearXZ_0
              EQN%Ini_depth = Ini_depth
              EQN%changeDc = changeDc
+             EQN%incrMus = incrMus
              EQN%RS_sv0 = RS_sv0
              EQN%XRef = XRef
              EQN%YRef = YRef
