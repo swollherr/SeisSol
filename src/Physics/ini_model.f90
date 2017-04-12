@@ -810,6 +810,9 @@ CONTAINS
              !Plasticity initializations
              IF (EQN%Plasticity.EQ.1) THEN
                 stress_depth = EQN%Ini_depth
+
+                SELECT CASE(EQN%LinType)
+                CASE(62,63)
                 !stress tensor for the whole domain
                 IF (z.LT. 1500.0D0) THEN
                     EQN%IniStress(1,iElem)  = EQN%Bulk_xx_0*(abs(z-stress_depth))/1000.0D0
@@ -826,6 +829,10 @@ CONTAINS
                     EQN%IniStress(5,iElem)  =  0.0D0
                     EQN%IniStress(6,iElem)  =  0.0D0
                 ENDIF   !
+
+                CASE(65) ! new stress calcuations for backgroundtype 65
+                ! TODO
+                END SELECT
 
                 SELECT CASE(EQN%LinType)
                 ! depth dependent plastic cohesion
