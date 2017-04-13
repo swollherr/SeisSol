@@ -287,7 +287,6 @@ CONTAINS
        ENDIF
     ENDIF
     EQN%SumatraRegions(1:7) = SumatraRegions(1:7)
-
     !
     SELECT CASE(Anisotropy)
     CASE(0)
@@ -573,7 +572,7 @@ CONTAINS
         logInfo(*) '| ERROR: This material type is only used when plasticity is on.'
       ENDIF
       !
-  CASE(60,61,62) ! special case of 1D landers example
+  CASE(60,61,62, 63) ! special case of 1D landers example
       !
       logInfo0(*) 'Material property zones are defined by SeisSol. '
   CASE(33) ! special case of TPV33, T Ulrich 14.01.2016
@@ -1537,12 +1536,12 @@ CONTAINS
     TYPE (tBoundary)                       :: BND
     TYPE (tInitialCondition)               :: IC
     INTENT(INOUT)                          :: IO, EQN, DISC, BND
-    INTEGER                                :: FL, BackgroundType, Nucleation, inst_healing, RF_output_on, DS_output_on, &
+    INTEGER                                :: FL, BackgroundType, Nucleation, inst_healing, RF_output_on, DS_output_on, changeDc, incrMus, &
                                               OutputPointType, magnitude_output_on,  energy_rate_output_on, read_fault_file,refPointMethod, SlipRateOutputType
 
     CHARACTER(600)                         :: FileName_BackgroundStress
     REAL                                   :: Bulk_xx_0, Bulk_yy_0, &
-                                              Bulk_zz_0, ShearXY_0, ShearYZ_0, ShearXZ_0, &
+                                              Bulk_zz_0, ShearXY_0, ShearYZ_0, ShearXZ_0, Ini_depth, StressAngle, RValue, &
                                               RS_sv0, XRef, YRef, ZRef, GPwise, Rupspeed, &
                                               Mu_D_ini, Mu_S_ini, Mu_SNuc_ini, H_Length, D_C_ini, RS_f0, &
                                               RS_sr0, RS_a, RS_b, RS_sl0, RS_iniSlipRate1, &
@@ -1553,7 +1552,7 @@ CONTAINS
 
     !------------------------------------------------------------------------
     NAMELIST                              /DynamicRupture/ FL, BackgroundType, Bulk_xx_0, Bulk_yy_0, &
-                                                Bulk_zz_0, ShearXY_0, ShearYZ_0, ShearXZ_0, &
+                                                Bulk_zz_0, ShearXY_0, ShearYZ_0, ShearXZ_0, Ini_depth, changeDc, incrMus, StressAngle, Rvalue, &
                                                 RS_sv0, XRef, YRef, ZRef,refPointMethod, FileName_BackgroundStress, &
                                                 GPwise, inst_healing, Rupspeed, &
                                                 Mu_D_ini, Mu_S_ini,Mu_SNuc_ini, H_Length, D_C_ini, RS_f0, &
@@ -1583,6 +1582,11 @@ CONTAINS
     ShearXY_0 = 0
     ShearYZ_0 = 0
     ShearXZ_0 = 0
+    Ini_depth = 2000.0 !for Landers
+    changeDc = 1 !for Landers only
+    StressAngle = 21.5
+    Rvalue = 0.7
+    incrMus = 0
     RS_sv0 = 0
     XRef = 0
     YRef = 0
@@ -1645,13 +1649,18 @@ CONTAINS
            !BACKGROUND VALUES
            DISC%DynRup%BackgroundType = BackgroundType
            SELECT CASE(DISC%DynRup%BackgroundType)
-           CASE(0,1,2,3,4,5,7,10,11,12,13,14,15,26,33,50,60,61,62,70,100,101,103,119,120,1201,1202,121)
+           CASE(0,1,2,3,4,5,7,10,11,12,13,14,15,26,33,50,60,61,62,65,70,100,101,103,119,120,1201,1202,121)
              EQN%Bulk_xx_0 = Bulk_xx_0
              EQN%Bulk_yy_0 = Bulk_yy_0
              EQN%Bulk_zz_0 = Bulk_zz_0
              EQN%ShearXY_0 = ShearXY_0
              EQN%ShearYZ_0 = ShearYZ_0
              EQN%ShearXZ_0 = ShearXZ_0
+             EQN%Ini_depth = Ini_depth
+             EQN%changeDc = changeDc
+             EQN%StressAngle = StressAngle
+             EQN%Rvalue = RValue
+             EQN%incrMus = incrMus
              EQN%RS_sv0 = RS_sv0
              EQN%XRef = XRef
              EQN%YRef = YRef

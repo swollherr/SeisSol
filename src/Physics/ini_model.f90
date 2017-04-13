@@ -117,7 +117,7 @@ CONTAINS
     REAL                            :: posx_max,posx_min,posy_max,posy_min,posz_max,posz_min
     REAL                            :: pert_max, pert_min
     REAL, allocatable, dimension(:) :: BaryDist
-    REAL                            :: omega
+    REAL                            :: omega, stress_depth
     REAL                            :: circ
     REAL                            :: QPLocVal,QSLocVal
     REAL                            :: Theta(EQN%nMechanisms,3)
@@ -767,7 +767,7 @@ CONTAINS
         ENDDO
       ENDIF !Plasticity
       !
-      CASE(62)! new velocity model for Landers after Graves/Pitarka 2010 with average over the first layers respecting
+      CASE(62, 63)! new velocity model for Landers after Graves/Pitarka 2010 with average over the first layers respecting
               ! the thickness of the layer, added more layers in depth
 
          ! Layer                   depth    rho     mu          lambda
@@ -809,36 +809,63 @@ CONTAINS
 
              !Plasticity initializations
              IF (EQN%Plasticity.EQ.1) THEN
+                stress_depth = EQN%Ini_depth
 
+                SELECT CASE(EQN%LinType)
+                CASE(62,63)
                 !stress tensor for the whole domain
                 IF (z.LT. 1500.0D0) THEN
-                    EQN%IniStress(1,iElem)  = EQN%Bulk_xx_0*(abs(z-2000.0D0))/1000.0D0
-                    EQN%IniStress(2,iElem)  = EQN%Bulk_yy_0*(abs(z-2000.0D0))/1000.0D0
-                    EQN%IniStress(3,iElem)  = EQN%Bulk_zz_0*(abs(z-2000.0D0))/1000.0D0
-                    EQN%IniStress(4,iElem)  = EQN%ShearXY_0*(abs(z-2000.0D0))/1000.0D0
+                    EQN%IniStress(1,iElem)  = EQN%Bulk_xx_0*(abs(z-stress_depth))/1000.0D0
+                    EQN%IniStress(2,iElem)  = EQN%Bulk_yy_0*(abs(z-stress_depth))/1000.0D0
+                    EQN%IniStress(3,iElem)  = EQN%Bulk_zz_0*(abs(z-stress_depth))/1000.0D0
+                    EQN%IniStress(4,iElem)  = EQN%ShearXY_0*(abs(z-stress_depth))/1000.0D0
                     EQN%IniStress(5,iElem)  =  0.0D0
                     EQN%IniStress(6,iElem)  =  0.0D0
                 ELSE ! constant stress tensor for everything higher or equal than 1500m ~ fault height
-                    EQN%IniStress(1,iElem)  = EQN%Bulk_xx_0*(abs(-500.0D0))/1000.0D0
-                    EQN%IniStress(2,iElem)  = EQN%Bulk_yy_0*(abs(-500.0D0))/1000.0D0
-                    EQN%IniStress(3,iElem)  = EQN%Bulk_zz_0*(abs(-500.0D0))/1000.0D0
-                    EQN%IniStress(4,iElem)  = EQN%ShearXY_0*(abs(-500.0D0))/1000.0D0
+                    EQN%IniStress(1,iElem)  = EQN%Bulk_xx_0*(abs(stress_depth-1500.0D0))/1000.0D0
+                    EQN%IniStress(2,iElem)  = EQN%Bulk_yy_0*(abs(stress_depth-1500.0D0))/1000.0D0
+                    EQN%IniStress(3,iElem)  = EQN%Bulk_zz_0*(abs(stress_depth-1500.0D0))/1000.0D0
+                    EQN%IniStress(4,iElem)  = EQN%ShearXY_0*(abs(stress_depth-1500.0D0))/1000.0D0
                     EQN%IniStress(5,iElem)  =  0.0D0
                     EQN%IniStress(6,iElem)  =  0.0D0
                 ENDIF   !
 
+                CASE(65) ! new stress calcuations for backgroundtype 65
+                ! TODO
+                END SELECT
+
+                SELECT CASE(EQN%LinType)
                 ! depth dependent plastic cohesion
                 !EQN%PlastCo(iElem) = MaterialVal(iElem,2)/10000.0D0 !very weak rock, dependent of mu, Roten et al. 2014
+
+                CASE(62) !original cohesion model, used in paper, based on Roten et al. 2015 for granite
+                !aligned with velocity structure
                 IF (z.GE. 1200.0) THEN !first layer until -300+1500
                    EQN%PlastCo(iElem) = 2.0e+06
                 ELSEIF ((z.LT. 1200.0).AND.(z.GE.500.0)) THEN !second layer between -300+1500 and -1000+1500
                    EQN%PlastCo(iElem) = 6.0e+06
-                ELSEIF ((z.LT. 500.0).AND.(z.GE.-1500.0)) THEN !second layer between -1000+1500 and -3000+1500
+                ELSEIF ((z.LT. 500.0).AND.(z.GE.-1500.0)) THEN !between -1000+1500 and -3000+1500
                    EQN%PlastCo(iElem) = 10.0e+06
-                ELSE !below -3000+1500
+                ELSE
                    EQN%PlastCo(iElem) = 12.0e+06
                 ENDIF !cohesion
                 
+                CASE(63) !modified, weaker cohesion model, used in paper, based on Roten et al. 2015 for granite, but weaker
+                !aligned with velocity structure
+                IF (z.GE. 1200.0) THEN !first layer until -300+1500
+                   EQN%PlastCo(iElem) = 2.0e+06
+                ELSEIF ((z.LT. 1200.0).AND.(z.GE.500.0)) THEN !between -300+1500 and -1000+1500
+                   EQN%PlastCo(iElem) = 2.0e+06
+                ELSEIF ((z.LT. 500.0).AND.(z.GE.-1500.0)) THEN !between -1000+1500 and -3000+1500
+                   EQN%PlastCo(iElem) = 6.0e+06
+                ELSEIF ((z.LT. -1500.0).AND.(z.GE.-9500.0)) THEN !between -3000+1500 and -11000+1500
+                   EQN%PlastCo(iElem) = 12.0e+06
+                ELSE
+                   EQN%PlastCo(iElem) = 20.0e+06
+                ENDIF !cohesion
+
+                END SELECT
+
             ENDIF !Plasticity
 
        ENDDO
@@ -1158,18 +1185,18 @@ CONTAINS
 
                IF ((y-yS1).LT.(x-XS1)) THEN
                    ! strike, dip, sigmazz,cohesion,R
-                   CALL STRESS_DIP_SLIP_AM(DISC,309.0, 8.0, 555562000.0, 0.4e6, 0.7, bii)
+                   CALL STRESS_STR_DIP_SLIP_AM(DISC,309.0, 8.0, 555562000.0, 0.4e6, 0.7, .True., bii)
                    b11=bii(1);b22=bii(2);b12=bii(4);b23=bii(5);b13=bii(6)
 
                ELSE IF ((y-yS2).LT.(x-XS2)) THEN
                    alpha = ((y-x)-(yS1-xS1))/((yS2-xS2)-(yS1-xS1))
                    ! strike, dip, sigmazz,cohesion,R
-                   CALL STRESS_DIP_SLIP_AM(DISC,(1.0-alpha)*309.0+alpha*330.0, 8.0, 555562000.0, 0.4e6, 0.7, bii)
+                   CALL STRESS_STR_DIP_SLIP_AM(DISC,(1.0-alpha)*309.0+alpha*330.0, 8.0, 555562000.0, 0.4e6, 0.7, .True., bii)
                    b11=bii(1);b22=bii(2);b12=bii(4);b23=bii(5);b13=bii(6)
 
                ELSE
                    ! strike, dip, sigmazz,cohesion,R
-                   CALL STRESS_DIP_SLIP_AM(DISC,330.0, 8.0, 555562000.0, 0.4e6, 0.7, bii)
+                   CALL STRESS_STR_DIP_SLIP_AM(DISC,330.0, 8.0, 555562000.0, 0.4e6, 0.7, .True., bii)
                    b11=bii(1);b22=bii(2);b12=bii(4);b23=bii(5);b13=bii(6)
                ENDIF
 
