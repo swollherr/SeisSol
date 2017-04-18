@@ -767,7 +767,7 @@ CONTAINS
         ENDDO
       ENDIF !Plasticity
       !
-      CASE(62, 63)! new velocity model for Landers after Graves/Pitarka 2010 with average over the first layers respecting
+      CASE(62, 63, 64, 65)! new velocity model for Landers after Graves/Pitarka 2010 with average over the first layers respecting
               ! the thickness of the layer, added more layers in depth
 
          ! Layer                   depth    rho     mu          lambda
@@ -812,7 +812,7 @@ CONTAINS
                 stress_depth = EQN%Ini_depth
 
                 SELECT CASE(EQN%LinType)
-                CASE(62,63)
+                CASE(62,63, 64, 65)
                 !stress tensor for the whole domain
                 IF (z.LT. 1500.0D0) THEN
                     EQN%IniStress(1,iElem)  = EQN%Bulk_xx_0*(abs(z-stress_depth))/1000.0D0
@@ -852,14 +852,23 @@ CONTAINS
                 
                 CASE(63) !linear model, based on Roten et al. 2015 for granite, but weaker zone is 1.4km instead of 1km deep
                 !linear decrease from 2 to 14 mPa
-                IF (z.GE. 1200.0) THEN !first layer until -300+1500
+                IF (z.GE. 1400.0) THEN !first layer until -300+1500
                    EQN%PlastCo(iElem) = 2.0e+06
-                IF (z.LT. 1200.0) .AND. (z.GE. 0.0) THEN !first layer until -300+1500
-                   EQN%PlastCo(iElem) = 2.0e+06 +10.0D0*abs(z-1200.0D0)/1000.0D0
-                ELSEIF ((z.LT. 00.0).AND.(z.GE.-1000.0)) THEN !between -3000+1500 and -11000+1500
-                   EQN%PlastCo(iElem) = 14.0e+06
+                ELSEIF ((z.LT. 1400.0) .AND. (z.GE. 0.0)) THEN !first layer until -300+1500
+                   EQN%PlastCo(iElem) = 2.0e+06 + 10.0e+06*abs(z-1400.0D0)/1000.0D0
+                ELSEIF ((z.LT. 0.0).AND.(z.GE.-10000.0)) THEN !between -3000+1500 and -11000+1500
+                   EQN%PlastCo(iElem) = 16.0e+06 + 1.0e+06*abs(z)/1000.0D0
                 ELSE
-                   EQN%PlastCo(iElem) = 25.0e+06
+                   EQN%PlastCo(iElem) = 26.0e+06
+                ENDIF !cohesion
+
+                CASE(64) !closer to failure near the surface
+                IF (z.GE. 0.0) THEN
+                   EQN%PlastCo(iElem) = 1.0e+06 + 10.0e+06*abs(z-1400.0D0)/1000.0D0
+                ELSEIF ((z.LT. 0.0).AND.(z.GE.-10000.0)) THEN !between -3000+1500 and -11000+1500
+                   EQN%PlastCo(iElem) = 16.0e+06 + 1.0e+06*abs(z)/1000.0D0
+                ELSE
+                   EQN%PlastCo(iElem) = 26.0e+06
                 ENDIF !cohesion
 
                 END SELECT
