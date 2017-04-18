@@ -812,7 +812,7 @@ CONTAINS
                 stress_depth = EQN%Ini_depth
 
                 SELECT CASE(EQN%LinType)
-                CASE(62,63, 64, 65)
+                CASE(62, 63, 64)
                 !stress tensor for the whole domain
                 IF (z.LT. 1500.0D0) THEN
                     EQN%IniStress(1,iElem)  = EQN%Bulk_xx_0*(abs(z-stress_depth))/1000.0D0
