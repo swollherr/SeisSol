@@ -3057,12 +3057,17 @@ MODULE ini_model_DR_mod
               ENDIF
           ENDIF
 
-          !manage mu_s towards the end of the fault
-          IF (EQN%incrMus.EQ.1) THEN
-              IF (zGP.LT.-10000.0D0) THEN
-                  DISC%DynRup%Mu_S(iBndGP,i) = DISC%DynRup%Mu_S_ini + 0.2D0*(abs(zGP)-10000.0D0)/1000.0D0
+          !manage mu_s/mu_d towards the end of the fault
+          IF (EQN%incrMus.GE.1) THEN
+              IF (zGP.LT.-13000.0D0) THEN
+                  IF (EQN%incrMus.EQ.1) THEN !increase mu_s = higher strength
+                      DISC%DynRup%Mu_S(iBndGP,i) = DISC%DynRup%Mu_S_ini + 0.5D0*(abs(zGP)-13000.0D0)/1000.0D0
+                  ELSEIF (EQN%incrMus.EQ.2) THEN !increase mu_d = no breakdown stress, no stress release
+                      DISC%DynRup%Mu_D(iBndGP,i) = DISC%DynRup%Mu_D_ini + 0.5D0*(DISC%DynRup%Mu_S_ini-DISC%DynRup%Mu_D_ini)*(abs(zGP)-13000.0D0)/1000.0D0
+                  ENDIF
               ELSE
                   DISC%DynRup%Mu_S(iBndGP,i) = DISC%DynRup%Mu_S_ini
+                  DISC%DynRup%Mu_D(iBndGP,i) = DISC%DynRup%Mu_D_ini
               ENDIF
           ENDIF
 
