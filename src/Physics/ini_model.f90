@@ -838,7 +838,7 @@ CONTAINS
                 ! depth dependent plastic cohesion
                 !EQN%PlastCo(iElem) = MaterialVal(iElem,2)/10000.0D0 !very weak rock, dependent of mu, Roten et al. 2014
 
-                CASE(62) !original cohesion model, used in paper, based on Roten et al. 2015 for granite
+                CASE(62) !original cohesion model, used in plasticity paper, based on Roten et al. 2015 for granite
                 !aligned with velocity structure
                 IF (z.GE. 1200.0) THEN !first layer until -300+1500
                    EQN%PlastCo(iElem) = 2.0e+06
@@ -850,18 +850,16 @@ CONTAINS
                    EQN%PlastCo(iElem) = 12.0e+06
                 ENDIF !cohesion
                 
-                CASE(63) !modified, weaker cohesion model, used in paper, based on Roten et al. 2015 for granite, but weaker
-                !aligned with velocity structure
+                CASE(63) !linear model, based on Roten et al. 2015 for granite, but weaker zone is 1.4km instead of 1km deep
+                !linear decrease from 2 to 14 mPa
                 IF (z.GE. 1200.0) THEN !first layer until -300+1500
                    EQN%PlastCo(iElem) = 2.0e+06
-                ELSEIF ((z.LT. 1200.0).AND.(z.GE.500.0)) THEN !between -300+1500 and -1000+1500
-                   EQN%PlastCo(iElem) = 2.0e+06
-                ELSEIF ((z.LT. 500.0).AND.(z.GE.-1500.0)) THEN !between -1000+1500 and -3000+1500
-                   EQN%PlastCo(iElem) = 6.0e+06
-                ELSEIF ((z.LT. -1500.0).AND.(z.GE.-9500.0)) THEN !between -3000+1500 and -11000+1500
-                   EQN%PlastCo(iElem) = 12.0e+06
+                IF (z.LT. 1200.0) .AND. (z.GE. 0.0) THEN !first layer until -300+1500
+                   EQN%PlastCo(iElem) = 2.0e+06 +10.0D0*abs(z-1200.0D0)/1000.0D0
+                ELSEIF ((z.LT. 00.0).AND.(z.GE.-1000.0)) THEN !between -3000+1500 and -11000+1500
+                   EQN%PlastCo(iElem) = 14.0e+06
                 ELSE
-                   EQN%PlastCo(iElem) = 20.0e+06
+                   EQN%PlastCo(iElem) = 25.0e+06
                 ENDIF !cohesion
 
                 END SELECT
