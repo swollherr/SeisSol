@@ -2022,8 +2022,8 @@ MODULE ini_model_DR_mod
       sii(3)= P - ds
 
       !stress in the cartesian coordinate system
-      !pi/2- comes from the awkward convention on strike
-      phi_xyz=-pi/2+ strike_rad + Phi
+      !pi/2 because we rotate from x to North
+      phi_xyz=(pi/2- strike_rad) + Phi
       c=cos(phi_xyz);
       s=sin(phi_xyz);
       R2= transpose(reshape((/ c, -s, 0.0, s, c, 0.0, 0.0, 0.0, 1.0 /), shape(R2)))
@@ -3688,7 +3688,7 @@ MODULE ini_model_DR_mod
   ! NOTE: z negative is depth, free surface is at z=0
 
   ! strike, dip, sigmazz,cohesion,R
-  CALL STRESS_STR_DIP_SLIP_AM(DISC, EQN%StressAngle, 90.0, 215407038.0d0, 2.0e6, EQN%Rvalue, .False., bii)
+  CALL STRESS_STR_DIP_SLIP_AM(DISC, EQN%StressAngle, 90.0, 215407038.0d0, DISC%DynRup%cohesion_0, EQN%Rvalue, .False., bii)
   b11=bii(1);b22=bii(2);b12=bii(4);b23=bii(5);b13=bii(6)
 
   g = 9.8D0
@@ -3758,8 +3758,8 @@ MODULE ini_model_DR_mod
           ENDDO
 
           !for smoothly stopping rupture at depth
-          IF (zGP.LT.-12000D0) THEN
-             Rz = 1.0D0 - (15000D0-abs(zGP))/3e3
+          IF (zGP.LT.-DISC%DynRup%cohesion_depth) THEN
+             Rz = 1.0D0 - (15000D0-abs(zGP))/(15000.0D0-DISC%DynRup%cohesion_depth)
           ELSE
              Rz = 0.D0
           ENDIF

@@ -852,14 +852,14 @@ CONTAINS
                 
                 CASE(63) !linear model, based on Roten et al. 2015 for granite, but weaker zone is 1.4km instead of 1km deep
                 !linear decrease from 2 to 14 mPa
-                IF (z.GE. 1400.0) THEN !first layer until -300+1500
-                   EQN%PlastCo(iElem) = 2.0e+06
-                ELSEIF ((z.LT. 1400.0) .AND. (z.GE. 0.0)) THEN !first layer until -300+1500
-                   EQN%PlastCo(iElem) = 2.0e+06 + 10.0e+06*abs(z-1400.0D0)/1000.0D0
-                ELSEIF ((z.LT. 0.0).AND.(z.GE.-10000.0)) THEN !between -3000+1500 and -11000+1500
-                   EQN%PlastCo(iElem) = 16.0e+06 + 1.0e+06*abs(z)/1000.0D0
-                ELSE
-                   EQN%PlastCo(iElem) = 26.0e+06
+                IF (z.GE. 0.0) THEN !
+                   EQN%PlastCo(iElem) = 1.0e+06
+                ELSEIF ((z.LT. 0.0) .AND. (z.GE. -2500.0)) THEN !first layer until -300+1500
+                   EQN%PlastCo(iElem) = 1.0e+06 + 6.4e+06*abs(z)/1000.0D0
+                ELSEIF ((z.LT. -2500.0).AND.(z.GE.-10000.0)) THEN !between -3000+1500 and -11000+1500
+                   EQN%PlastCo(iElem) = 17.0e+06 + 10.0e+06*(abs(z)-2500.0D0)/10000.0D0
+                ELSEIF (z.LT.-10000.0D0) THEN
+                   EQN%PlastCo(iElem) = 24.5e+06
                 ENDIF !cohesion
 
                 CASE(64) !closer to failure near the surface
@@ -867,7 +867,7 @@ CONTAINS
                    EQN%PlastCo(iElem) = 1.0e+06 + 10.0e+06*abs(z-1400.0D0)/1000.0D0
                 ELSEIF ((z.LT. 0.0).AND.(z.GE.-10000.0)) THEN !between -3000+1500 and -11000+1500
                    EQN%PlastCo(iElem) = 16.0e+06 + 1.0e+06*abs(z)/1000.0D0
-                ELSE
+                ELSEIF (z.LT.-10000.0D0) THEN
                    EQN%PlastCo(iElem) = 26.0e+06
                 ENDIF !cohesion
 
