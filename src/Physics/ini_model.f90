@@ -829,13 +829,11 @@ CONTAINS
                     EQN%IniStress(5,iElem)  =  0.0D0
                     EQN%IniStress(6,iElem)  =  0.0D0
                 ENDIF   !
-
-                CASE(65) ! new stress calcuations for backgroundtype 65
-                ! TODO
                 END SELECT
 
+                ! assign depth dependent plastic cohesion
                 SELECT CASE(EQN%LinType)
-                ! depth dependent plastic cohesion
+
                 !EQN%PlastCo(iElem) = MaterialVal(iElem,2)/10000.0D0 !very weak rock, dependent of mu, Roten et al. 2014
 
                 CASE(62) !original cohesion model, used in plasticity paper, based on Roten et al. 2015 for granite
@@ -850,7 +848,7 @@ CONTAINS
                    EQN%PlastCo(iElem) = 12.0e+06
                 ENDIF !cohesion
                 
-                CASE(63) !linear model, based on Roten et al. 2015 for granite, but weaker zone is 1.4km instead of 1km deep
+                CASE(63,65) !linear model, based on Roten et al. 2015 for granite, but weaker zone is 1.4km instead of 1km deep
                 !linear decrease from 2 to 14 mPa
                 IF (z.GE. 0.0) THEN !
                    EQN%PlastCo(iElem) = 1.0e+06
@@ -875,8 +873,79 @@ CONTAINS
 
             ENDIF !Plasticity
 
-       ENDDO
+       ENDDO !ielem
 
+       !assign new stresses from Aochi stress routine outside ielem routine
+       IF (EQN%Plasticity.EQ.1) THEN
+           IF (EQN%LinType.EQ.65) THEN
+           ! strike, dip, sigmazz,cohesion,R
+           CALL STRESS_STR_DIP_SLIP_AM(DISC, EQN%StressAngle, 90.0, 215407038.0d0, DISC%DynRup%cohesion_0, EQN%Rvalue, .False., bii)
+           b11=bii(1);b22=bii(2);b12=bii(4);b23=bii(5);b13=bii(6)
+
+           g = 9.8D0
+           !zIncreasingCohesion = -10000.
+           ! Loop over every mesh element
+           DO iElem = 1, MESH%nElem
+              ztest = MESH%ELEM%xyBary(3,iElem) !average depth inside an element
+              y = MESH%ELEM%xyBary(2,iElem) !average y coordinate inside an element
+              x = MESH%ELEM%xyBary(1,iElem) !average x coordinate inside an element
+
+              ! To be used with the right 1d velocity structure
+              !free surface assumed at z=1500m
+              nLayers = 7
+              zLayers (1:7) = (/ -300d0+1500d0,-1000d0+1500d0, -3000d0+1500d0, -5000d0+1500d0, -6000d0+1500d0,-11000d0+1500d0, -16000.d0+1500d0 /)
+              rhoLayers (1:7) = (/ 2349.3d0, 2592.9d0, 2700d0, 2750.0d0, 2800.0d0, 2825.0d0, 2850.0d0 /)
+              sigzz = 0d0
+
+
+              DO k=2,nLayers
+                 !handle case when z is higher than the highest layer
+                 IF (ztest .GT. zLayers(1)) THEN
+                     sigzz = 0.0
+                     EXIT
+                 ENDIF
+
+                 IF (ztest.GT.zLayers(k)) THEN
+                     sigzz = sigzz + rhoLayers(k-1)*(ztest-zLayers(k-1))*g
+                     EXIT
+                 ELSE
+                     sigzz = sigzz + rhoLayers(k-1)*(zLayers(k)-zLayers(k-1))*g
+                ENDIF
+             ENDDO
+
+             !for smoothly stopping rupture at depth
+             IF (ztest.LT.-DISC%DynRup%cohesion_depth) THEN
+                Rz = 1.0D0 - ((15000D0)-abs(ztest))/(15000.0D0-DISC%DynRup%cohesion_depth)
+             ELSE
+                Rz = 0.D0
+             ENDIF
+
+             Omega = max(0D0,min(1d0, 1D0-Rz))
+             ! handle pore pressure above 0
+             
+             Pf = -1000D0 * g * MIN(0.0,ztest) * 1d0
+          ! stress tensor for plasticity, elementwise assignement
+
+             !sigma_zz
+             EQN%IniStress(3,iElem)  = sigzz
+             !sigma_xx
+             EQN%IniStress(1,iElem)  = Omega*(b11*(sigzz + Pf)-Pf)+(1d0-Omega)*sigzz
+             !sigma_yy
+             EQN%IniStress(2,iElem)  = Omega*(b22*(sigzz + Pf)-Pf)+(1d0-Omega)*sigzz
+             !sigma_xy
+             EQN%IniStress(4,iElem)  = Omega*(b12*(sigzz + Pf))
+             !sigma_yz
+             EQN%IniStress(5,iElem)  = Omega*(b23*(sigzz + Pf))
+             !sigma_xz
+             EQN%IniStress(6,iElem)  = Omega*(b13*(sigzz + Pf))
+             !add fluid pressure
+             EQN%IniStress(1,iElem)  = EQN%IniStress(1,iElem) + Pf
+             EQN%IniStress(2,iElem)  = EQN%IniStress(2,iElem) + Pf
+             EQN%IniStress(3,iElem)  = EQN%IniStress(3,iElem) + Pf
+
+          ENDDO ! iElem
+        ENDIF !case 65
+      ENDIF! plasticity
 
       CASE(99) ! special case of 1D layered medium, imposed without meshed layers
       ! Northridge regional 1D velocity structure for sediments sites after Wald et al. 1996

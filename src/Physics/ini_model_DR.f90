@@ -3688,7 +3688,7 @@ MODULE ini_model_DR_mod
   ! NOTE: z negative is depth, free surface is at z=0
 
   ! strike, dip, sigmazz,cohesion,R
-  CALL STRESS_STR_DIP_SLIP_AM(DISC, EQN%StressAngle, 90.0, 215407038.0d0, DISC%DynRup%cohesion_0, EQN%Rvalue, .False., bii)
+  CALL STRESS_STR_DIP_SLIP_AM(DISC, EQN%StressAngle, 90.0, 387413000.0d0, DISC%DynRup%cohesion_0, EQN%Rvalue, .False., bii)
   b11=bii(1);b22=bii(2);b12=bii(4);b23=bii(5);b13=bii(6)
 
   g = 9.8D0
@@ -3749,6 +3749,12 @@ MODULE ini_model_DR_mod
 
 
           DO k=2,nLayers
+             ! handle values above the first layer
+             IF (zGP.GT.zLayers(1)) THEN
+                sigzz = 0.0
+                EXIT
+             ENDIF
+
              IF (zGP.GT.zLayers(k)) THEN
                 sigzz = sigzz + rhoLayers(k-1)*(zGP-zLayers(k-1))*g
                 EXIT
@@ -3759,13 +3765,18 @@ MODULE ini_model_DR_mod
 
           !for smoothly stopping rupture at depth
           IF (zGP.LT.-DISC%DynRup%cohesion_depth) THEN
-             Rz = 1.0D0 - (15000D0-abs(zGP))/(15000.0D0-DISC%DynRup%cohesion_depth)
+             Rz = 1.0D0 - ((15000D0)-abs(zGP))/(15000.0D0-DISC%DynRup%cohesion_depth)
           ELSE
              Rz = 0.D0
           ENDIF
 
           Omega = max(0D0,min(1d0, 1D0-Rz))
-          Pf = -1000D0 * g * zGP * 1d0
+          !be careful: z might become positive and than the sign switches!
+          IF (zGP .GT. 0.0) THEN
+             Pf = 0.0
+          ELSE
+             Pf = -1000D0 * g * zGP * 1d0
+          ENDIF
 
           !ensure that Pf does not exceed sigmazz
           !IF (zGP.GE.-5e3) THEN
