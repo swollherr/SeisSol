@@ -767,7 +767,7 @@ CONTAINS
         ENDDO
       ENDIF !Plasticity
       !
-      CASE(62, 63, 64, 65)! new velocity model for Landers after Graves/Pitarka 2010 with average over the first layers respecting
+      CASE(62, 63, 64, 65, 102)! new velocity model for Landers after Graves/Pitarka 2010 with average over the first layers respecting
               ! the thickness of the layer, added more layers in depth
 
          ! Layer                   depth    rho     mu          lambda
@@ -784,6 +784,7 @@ CONTAINS
          !
 
          DO iElem = 1, MESH%nElem
+             IF (EQN%LinType .LT. 100) THEN !not used for Asagi based models
              z = MESH%ELEM%xyBary(3,iElem)
              IF (z.GE.BedrockVelModel(1,1)+1500) THEN
                  MaterialVal(iElem,1:3) =   BedrockVelModel(1,2:4)
@@ -806,6 +807,7 @@ CONTAINS
              ELSE
                  MaterialVal(iElem,1:3) =   BedrockVelModel(10,2:4)
              ENDIF
+             ENDIF !asagi case
 
              !Plasticity initializations
              IF (EQN%Plasticity.EQ.1) THEN
@@ -848,7 +850,7 @@ CONTAINS
                    EQN%PlastCo(iElem) = 12.0e+06
                 ENDIF !cohesion
                 
-                CASE(63,65) !linear model, based on Roten et al. 2015 for granite, but weaker zone is 1.4km instead of 1km deep
+                CASE(63,65, 102) !linear model, based on Roten et al. 2015 for granite, but weaker zone is 1.4km instead of 1km deep
                 !linear decrease from 2 to 14 mPa
                 IF (z.GE. 0.0) THEN !
                    EQN%PlastCo(iElem) = 1.0e+06
@@ -877,9 +879,9 @@ CONTAINS
 
        !assign new stresses from Aochi stress routine outside ielem routine
        IF (EQN%Plasticity.EQ.1) THEN
-           IF (EQN%LinType.EQ.65) THEN
+           IF ((EQN%LinType.EQ.65) .OR. (EQN%LinType.EQ.102)) THEN
            ! strike, dip, sigmazz,cohesion,R
-           CALL STRESS_STR_DIP_SLIP_AM(DISC, EQN%StressAngle, 90.0, 215407038.0d0, DISC%DynRup%cohesion_0, EQN%Rvalue, .False., bii)
+           CALL STRESS_STR_DIP_SLIP_AM(DISC, EQN%StressAngle, 90.0, 387413000.0d0, DISC%DynRup%cohesion_0, EQN%Rvalue, .False., bii)
            b11=bii(1);b22=bii(2);b12=bii(4);b23=bii(5);b13=bii(6)
 
            g = 9.8D0
@@ -891,7 +893,7 @@ CONTAINS
               x = MESH%ELEM%xyBary(1,iElem) !average x coordinate inside an element
 
               ! To be used with the right 1d velocity structure
-              !free surface assumed at z=1500m
+              !free surface assumed at z=1200m
               nLayers = 7
               zLayers (1:7) = (/ -300d0+1500d0,-1000d0+1500d0, -3000d0+1500d0, -5000d0+1500d0, -6000d0+1500d0,-11000d0+1500d0, -16000.d0+1500d0 /)
               rhoLayers (1:7) = (/ 2349.3d0, 2592.9d0, 2700d0, 2750.0d0, 2800.0d0, 2825.0d0, 2850.0d0 /)

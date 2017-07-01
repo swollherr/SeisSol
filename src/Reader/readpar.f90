@@ -582,7 +582,7 @@ CONTAINS
       !
       logInfo0(*) 'Material property zones are defined by SeisSol. '
 
-  CASE(101) ! special case of 3D complex medium, imposed without meshed layers
+  CASE(101, 102) ! special case of 3D complex medium, imposed without meshed layers
       ! e.g. SCEC 3D velocity model surrounding the Northridge fault
       !
       logInfo0(*) 'No material property zones are defined. '

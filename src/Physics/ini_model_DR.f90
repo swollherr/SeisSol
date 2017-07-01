@@ -3741,7 +3741,7 @@ MODULE ini_model_DR_mod
           !
 
           ! TO BE USED WITH 1d Layered medium
-          !free surface assumed at z=3000m
+          !free surface assumed at z=1200m
           nLayers = 7
           zLayers (1:7) = (/ -300d0+1500d0,-1000d0+1500d0, -3000d0+1500d0, -5000d0+1500d0, -6000d0+1500d0,-11000d0+1500d0, -16000.d0+1500d0 /)
           rhoLayers (1:7) = (/ 2349.3d0, 2592.9d0, 2700d0, 2750.0d0, 2800.0d0, 2825.0d0, 2850.0d0 /)
