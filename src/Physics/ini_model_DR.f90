@@ -3764,8 +3764,8 @@ MODULE ini_model_DR_mod
           ENDDO
 
           !for smoothly stopping rupture at depth
-          IF (zGP.LT.-DISC%DynRup%cohesion_depth) THEN
-             Rz = 1.0D0 - ((15000D0)-abs(zGP))/(15000.0D0-DISC%DynRup%cohesion_depth)
+          IF (zGP.LT.-DISC%DynRup%stopping_depth) THEN
+             Rz = 1.0D0 - ((15000D0)-abs(zGP))/(15000.0D0-DISC%DynRup%stopping_depth)
           ELSE
              Rz = 0.D0
           ENDIF

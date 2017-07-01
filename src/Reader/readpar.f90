@@ -1548,7 +1548,9 @@ CONTAINS
                                               RS_iniSlipRate2, v_star, L, XHypo, YHypo, ZHypo, R_crit, t_0, Vs_nucl, Mu_W, RS_srW,  &
                                               NucDirX, NucXmin, NucXmax, NucDirY, NucYmin, NucYmax, &
                                               NucBulk_xx_0, NucBulk_yy_0, NucBulk_zz_0, NucShearXY_0, &
-                                              NucShearYZ_0, NucShearXZ_0, NucRS_sv0, r_s, cohesion_0, cohesion_max, cohesion_depth, energy_rate_printtimeinterval
+                                              NucShearYZ_0, NucShearXZ_0, NucRS_sv0, r_s, cohesion_0, cohesion_max, cohesion_depth, stopping_depth, &
+                                              energy_rate_printtimeinterval
+
 
     !------------------------------------------------------------------------
     NAMELIST                              /DynamicRupture/ FL, BackgroundType, Bulk_xx_0, Bulk_yy_0, &
@@ -1562,7 +1564,7 @@ CONTAINS
                                                 NucBulk_xx_0, NucBulk_yy_0, NucBulk_zz_0, NucShearXY_0, &
                                                 NucShearYZ_0, NucShearXZ_0, NucRS_sv0, r_s, RF_output_on, DS_output_on, &
                                                 OutputPointType, magnitude_output_on, energy_rate_output_on, energy_rate_printtimeinterval, cohesion_0, &
-                                                cohesion_max, cohesion_depth, read_fault_file, SlipRateOutputType
+                                                cohesion_max, cohesion_depth, stopping_depth, read_fault_file, SlipRateOutputType
     !------------------------------------------------------------------------
 
     ! Setting default values
@@ -1631,6 +1633,7 @@ CONTAINS
     cohesion_0 = 0
     cohesion_max = 0
     cohesion_depth = 0
+    stopping_depth = 0
 
     read_fault_file = 0
 
@@ -1669,6 +1672,7 @@ CONTAINS
              DISC%DynRup%cohesion_0 = cohesion_0
              DISC%DynRup%cohesion_max = cohesion_max
              DISC%DynRup%cohesion_depth = cohesion_depth
+             DISC%DynRup%stopping_depth = stopping_depth
 
              EQN%GPwise = GPwise
              IF (EQN%GPwise .EQ.1) THEN
