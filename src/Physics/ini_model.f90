@@ -770,6 +770,11 @@ CONTAINS
       CASE(62, 63, 64, 65, 102)! new velocity model for Landers after Graves/Pitarka 2010 with average over the first layers respecting
               ! the thickness of the layer, added more layers in depth
 
+         !read in data from asagi
+         IF ((EQN%LinType .EQ. 102) THEN
+               call readVelocityField(eqn, mesh, materialVal(:,1:3))
+         ENDIF
+
          ! Layer                   depth    rho     mu          lambda
          BedrockVelModel(1,:) = (/ -300.0, 2349.3, 0.5868e10, 1.1728e10/) 
          BedrockVelModel(2,:) = (/ -1000.0, 2592.9, 1.3885e10, 1.8817e10/)
@@ -784,8 +789,9 @@ CONTAINS
          !
 
          DO iElem = 1, MESH%nElem
-             IF (EQN%LinType .LT. 100) THEN !not used for Asagi based models
              z = MESH%ELEM%xyBary(3,iElem)
+
+             IF (EQN%LinType .LT. 100) THEN !not used for Asagi based models
              IF (z.GE.BedrockVelModel(1,1)+1500) THEN
                  MaterialVal(iElem,1:3) =   BedrockVelModel(1,2:4)
              ELSEIF ((z.LT.BedrockVelModel(1,1)+1500).AND.(z.GE.BedrockVelModel(2,1)+1500)) THEN
@@ -807,7 +813,7 @@ CONTAINS
              ELSE
                  MaterialVal(iElem,1:3) =   BedrockVelModel(10,2:4)
              ENDIF
-             ENDIF !asagi case
+             ENDIF !is not asagi case
 
              !Plasticity initializations
              IF (EQN%Plasticity.EQ.1) THEN
@@ -850,7 +856,7 @@ CONTAINS
                    EQN%PlastCo(iElem) = 12.0e+06
                 ENDIF !cohesion
                 
-                CASE(63,65, 102) !linear model, based on Roten et al. 2015 for granite, but weaker zone is 1.4km instead of 1km deep
+                CASE(63,65,102) !linear model, based on Roten et al. 2015 for granite, but weaker zone is 1.4km instead of 1km deep
                 !linear decrease from 2 to 14 mPa
                 IF (z.GE. 0.0) THEN !
                    EQN%PlastCo(iElem) = 1.0e+06
