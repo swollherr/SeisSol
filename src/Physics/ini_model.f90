@@ -771,7 +771,7 @@ CONTAINS
               ! the thickness of the layer, added more layers in depth
 
          !read in data from asagi
-         IF ((EQN%LinType .EQ. 102) THEN
+         IF (EQN%LinType .EQ. 102) THEN
                call readVelocityField(eqn, mesh, materialVal(:,1:3))
          ENDIF
 
@@ -929,6 +929,7 @@ CONTAINS
              ENDIF
 
              Omega = max(0D0,min(1d0, 1D0-Rz))
+
              ! handle pore pressure above 0
              
              Pf = -1000D0 * g * MIN(0.0,ztest) * 1d0
