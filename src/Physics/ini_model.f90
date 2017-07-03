@@ -767,11 +767,11 @@ CONTAINS
         ENDDO
       ENDIF !Plasticity
       !
-      CASE(62, 63, 64, 65, 102)! new velocity model for Landers after Graves/Pitarka 2010 with average over the first layers respecting
+      CASE(62, 63, 64, 65, 102, 103)! new velocity model for Landers after Graves/Pitarka 2010 with average over the first layers respecting
               ! the thickness of the layer, added more layers in depth
 
          !read in data from asagi
-         IF (EQN%LinType .EQ. 102) THEN
+         IF (EQN%LinType .GE. 102) THEN
                call readVelocityField(eqn, mesh, materialVal(:,1:3))
          ENDIF
 
@@ -877,6 +877,17 @@ CONTAINS
                    EQN%PlastCo(iElem) = 26.0e+06
                 ENDIF !cohesion
 
+                CASE(103) !linear model, based on Roten et al. 2015 for granite, but weaker zone is 1.4km instead of 1km deep
+                !linear decrease from 2 to 14 mPa
+                IF (z.GE. 1200.0) THEN !
+                   EQN%PlastCo(iElem) = 2.0e+06
+                ELSEIF ((z.LT. 1200.0) .AND. (z.GE. -2500.0)) THEN !first layer until -300+1500
+                   EQN%PlastCo(iElem) = 2.0e+06 + 2.702e+06*(abs(z-1200))/1000.0D0
+                ELSEIF ((z.LT. -2500.0).AND.(z.GE.-10000.0)) THEN !between -3000+1500 and -11000+1500
+                   EQN%PlastCo(iElem) = 12.0e+06 + 16.0e+06*(abs(z)-2500.0D0)/10000.0D0
+                ELSEIF (z.LT.-10000.0D0) THEN
+                   EQN%PlastCo(iElem) = 24.0e+06
+                ENDIF !cohesion
                 END SELECT
 
             ENDIF !Plasticity
@@ -885,7 +896,7 @@ CONTAINS
 
        !assign new stresses from Aochi stress routine outside ielem routine
        IF (EQN%Plasticity.EQ.1) THEN
-           IF ((EQN%LinType.EQ.65) .OR. (EQN%LinType.EQ.102)) THEN
+           IF ((EQN%LinType.EQ.65) .OR. (EQN%LinType.GE.102)) THEN
            ! strike, dip, sigmazz,cohesion,R
            CALL STRESS_STR_DIP_SLIP_AM(DISC, EQN%StressAngle, 90.0, 387413000.0d0, DISC%DynRup%cohesion_0, EQN%Rvalue, .False., bii)
            b11=bii(1);b22=bii(2);b12=bii(4);b23=bii(5);b13=bii(6)
