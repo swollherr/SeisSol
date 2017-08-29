@@ -909,6 +909,7 @@ MODULE TypesDef
      REAL                                   :: cohesion_max                    !< maximum added cohesion for linear increasing cohesion
      REAL                                   :: cohesion_depth                  !< depth at which cohesion is increased
      REAL                                   :: stopping_depth                  !< depth at which stresses are reduced
+     REAL                                   :: weaker                          !< gives by how much the friction coefficient is reduced for a specific area
      REAL, allocatable                      :: forced_rupture_time(:,:)        !< forced rupture time at given fault node
      REAL, allocatable                      :: rupture_time(:,:)               !< rupture time at given fault node> used for VR ouput calculation
      REAL, allocatable                      :: dynStress_time(:,:)             !< time at which the shear stress is equal the dynamic stress

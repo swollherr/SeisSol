@@ -3748,20 +3748,25 @@ MODULE ini_model_DR_mod
           sigzz = 0d0
 
 
-          DO k=2,nLayers
+         ! DO k=2,nLayers
              ! handle values above the first layer
-             IF (zGP.GT.zLayers(1)) THEN
-                sigzz = 0.0
-                EXIT
-             ENDIF
+             !IF (zGP.GT.zLayers(1)) THEN
+                !sigzz = 0.0
+                !EXIT
+             !ENDIF
 
-             IF (zGP.GT.zLayers(k)) THEN
-                sigzz = sigzz + rhoLayers(k-1)*(zGP-zLayers(k-1))*g
-                EXIT
-             ELSE
-                sigzz = sigzz + rhoLayers(k-1)*(zLayers(k)-zLayers(k-1))*g
-             ENDIF
-          ENDDO
+             !IF (zGP.GT.zLayers(k)) THEN
+                !sigzz = sigzz + rhoLayers(k-1)*(zGP-zLayers(k-1))*g
+                !EXIT
+             !ELSE
+                !sigzz = sigzz + rhoLayers(k-1)*(zLayers(k)-zLayers(k-1))*g
+             !ENDIF
+          !ENDDO
+
+          !set vertical force
+          sigzz = 2700.0d0*g*(MIN(zGP-1400,0.0))
+          !constant when higher than 80MPa
+          sigzz = max(-EQN%Ini_depth, sigzz)
 
           !for smoothly stopping rupture at depth
           IF (zGP.LT.-DISC%DynRup%stopping_depth) THEN
@@ -3770,13 +3775,15 @@ MODULE ini_model_DR_mod
              Rz = 0.D0
           ENDIF
 
+          
           Omega = max(0D0,min(1d0, 1D0-Rz))
+          
           !be careful: z might become positive and than the sign switches!
-          IF (zGP .GT. 0.0) THEN
+          !IF (zGP .GT. 0.0) THEN
              Pf = 0.0
-          ELSE
-             Pf = -1000D0 * g * zGP * 1d0
-          ENDIF
+          !ELSE
+             !Pf = -1000D0 * g * zGP * 1d0
+          !ENDIF
 
           !ensure that Pf does not exceed sigmazz
           !IF (zGP.GE.-5e3) THEN
@@ -3805,6 +3812,14 @@ MODULE ini_model_DR_mod
               DISC%DynRup%cohesion(iBndGP,i) =  DISC%DynRup%cohesion_0 - DISC%DynRup%cohesion_max*(DISC%DynRup%cohesion_depth+zGP)/(DISC%DynRup%cohesion_depth+1500.0)
           ELSE
               DISC%DynRup%cohesion(iBndGP,i) = DISC%DynRup%cohesion_0
+          ENDIF
+
+          !set weaker last segment
+          IF (DISC%DynRup%weaker.NE.0) THEN
+             IF (yGP .GE. 3822649.0) THEN
+                EQN%IniMu(iBndGP,i) = DISC%DynRup%Mu_S_ini - DISC%DynRup%weaker
+                DISC%DynRup%Mu_S(iBndGP,i) = DISC%DynRup%Mu_S_ini - DISC%DynRup%weaker
+             ENDIF
           ENDIF
 
       ENDDO ! iBndGP

@@ -1549,7 +1549,7 @@ CONTAINS
                                               NucDirX, NucXmin, NucXmax, NucDirY, NucYmin, NucYmax, &
                                               NucBulk_xx_0, NucBulk_yy_0, NucBulk_zz_0, NucShearXY_0, &
                                               NucShearYZ_0, NucShearXZ_0, NucRS_sv0, r_s, cohesion_0, cohesion_max, cohesion_depth, stopping_depth, &
-                                              energy_rate_printtimeinterval
+                                              weaker, energy_rate_printtimeinterval
 
 
     !------------------------------------------------------------------------
@@ -1564,7 +1564,7 @@ CONTAINS
                                                 NucBulk_xx_0, NucBulk_yy_0, NucBulk_zz_0, NucShearXY_0, &
                                                 NucShearYZ_0, NucShearXZ_0, NucRS_sv0, r_s, RF_output_on, DS_output_on, &
                                                 OutputPointType, magnitude_output_on, energy_rate_output_on, energy_rate_printtimeinterval, cohesion_0, &
-                                                cohesion_max, cohesion_depth, stopping_depth, read_fault_file, SlipRateOutputType
+                                                cohesion_max, cohesion_depth, stopping_depth, weaker, read_fault_file, SlipRateOutputType
     !------------------------------------------------------------------------
 
     ! Setting default values
@@ -1634,7 +1634,7 @@ CONTAINS
     cohesion_max = 0
     cohesion_depth = 0
     stopping_depth = 0
-
+    weaker = 0 
     read_fault_file = 0
 
     !FileName_BackgroundStress = 'tpv16_input_file.txt'
@@ -1652,7 +1652,7 @@ CONTAINS
            !BACKGROUND VALUES
            DISC%DynRup%BackgroundType = BackgroundType
            SELECT CASE(DISC%DynRup%BackgroundType)
-           CASE(0,1,2,3,4,5,7,10,11,12,13,14,15,26,33,50,60,61,62,65,70,100,101,103,119,120,1201,1202,121)
+           CASE(0,1,2,3,4,5,7,10,11,12,13,14,15,26,33,50,60,61,62,65,66,70,100,101,103,119,120,1201,1202,121)
              EQN%Bulk_xx_0 = Bulk_xx_0
              EQN%Bulk_yy_0 = Bulk_yy_0
              EQN%Bulk_zz_0 = Bulk_zz_0
@@ -1673,7 +1673,7 @@ CONTAINS
              DISC%DynRup%cohesion_max = cohesion_max
              DISC%DynRup%cohesion_depth = cohesion_depth
              DISC%DynRup%stopping_depth = stopping_depth
-
+             DISC%DynRup%weaker = weaker 
              EQN%GPwise = GPwise
              IF (EQN%GPwise .EQ.1) THEN
                  logInfo0(*) 'GPwise initialization. '

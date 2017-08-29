@@ -917,20 +917,26 @@ CONTAINS
               sigzz = 0d0
 
 
-              DO k=2,nLayers
+              !DO k=2,nLayers
                  !handle case when z is higher than the highest layer
-                 IF (ztest .GT. zLayers(1)) THEN
-                     sigzz = 0.0
-                     EXIT
-                 ENDIF
+                 !IF (ztest .GT. zLayers(1)) THEN
+                     !sigzz = 0.0
+                     !EXIT
+                 !ENDIF
 
-                 IF (ztest.GT.zLayers(k)) THEN
-                     sigzz = sigzz + rhoLayers(k-1)*(ztest-zLayers(k-1))*g
-                     EXIT
-                 ELSE
-                     sigzz = sigzz + rhoLayers(k-1)*(zLayers(k)-zLayers(k-1))*g
-                ENDIF
-             ENDDO
+                 !IF (ztest.GT.zLayers(k)) THEN
+                     !sigzz = sigzz + rhoLayers(k-1)*(ztest-zLayers(k-1))*g
+                     !EXIT
+                 !ELSE
+                     !sigzz = sigzz + rhoLayers(k-1)*(zLayers(k)-zLayers(k-1))*g
+                !ENDIF
+             !ENDDO
+
+             !set vertical force
+             sigzz = 2700.0*g*(MIN(ztest-1400,0.0))
+             !constant when higher than 80MPa
+             sigzz = max(-EQN%Ini_depth, sigzz)
+
 
              !for smoothly stopping rupture at depth
              IF (ztest.LT.-DISC%DynRup%cohesion_depth) THEN
@@ -943,7 +949,7 @@ CONTAINS
 
              ! handle pore pressure above 0
              
-             Pf = -1000D0 * g * MIN(0.0,ztest) * 1d0
+             Pf = 0D0 !-1000D0 * g * MIN(0.0,ztest) * 1d0
           ! stress tensor for plasticity, elementwise assignement
 
              !sigma_zz
