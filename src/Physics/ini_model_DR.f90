@@ -200,7 +200,7 @@ MODULE ini_model_DR_mod
     CASE(62)
        ! Landers segmented fault system 2
        CALL background_LAN3(DISC,EQN,MESH,BND)
-    CASE(65)
+    CASE(65,66)
        ! Landers background stress model using Aochis calculation method
      CALL background_LANDERS (DISC,EQN,MESH,BND)
     CASE(70)
@@ -3686,10 +3686,12 @@ MODULE ini_model_DR_mod
   !-------------------------------------------------------------------------!
   ! depth dependent stress function (gravity)
   ! NOTE: z negative is depth, free surface is at z=0
-
-  ! strike, dip, sigmazz,cohesion,R
-  CALL STRESS_STR_DIP_SLIP_AM(DISC, EQN%StressAngle, 90.0, 387413000.0d0, DISC%DynRup%cohesion_0, EQN%Rvalue, .False., bii)
-  b11=bii(1);b22=bii(2);b12=bii(4);b23=bii(5);b13=bii(6)
+  Laterally_homogenous_Stress = 0
+  IF (DISC%DynRup%BackgroundType.EQ.65) THEN
+      ! strike, dip, sigmazz,cohesion,R
+      CALL STRESS_STR_DIP_SLIP_AM(DISC, EQN%StressAngle, 90.0, 387413000.0d0, DISC%DynRup%cohesion_0, EQN%Rvalue, .False., bii)
+      b11=bii(1);b22=bii(2);b12=bii(4);b23=bii(5);b13=bii(6)
+  ENDIF
 
   g = 9.8D0
   !zIncreasingCohesion = -10000.
@@ -3794,6 +3796,17 @@ MODULE ini_model_DR_mod
           !ELSE
              !Pf = -1000D0 * g * zGP * 2d0
           !ENDIF
+          IF (DISC%DynRup%BackgroundType.EQ.66) THEN
+             IF (yGP .LT. 3822649.0) THEN
+                 ! strike, dip, sigmazz,cohesion,R
+                 CALL STRESS_STR_DIP_SLIP_AM(DISC, EQN%StressAngle, 90.0, 387413000.0d0, DISC%DynRup%cohesion_0, EQN%Rvalue, .False., bii)
+                 b11=bii(1);b22=bii(2);b12=bii(4);b23=bii(5);b13=bii(6)
+             ELSE
+                 ! strike, dip, sigmazz,cohesion,R
+                 CALL STRESS_STR_DIP_SLIP_AM(DISC, EQN%StressAngle-11.0, 90.0, 387413000.0d0, DISC%DynRup%cohesion_0, EQN%Rvalue, .False., bii)
+                 b11=bii(1);b22=bii(2);b12=bii(4);b23=bii(5);b13=bii(6)
+             ENDIF
+          ENDIF
 
           EQN%IniBulk_zz(i,iBndGP)  =  sigzz
           EQN%IniBulk_xx(i,iBndGP)  =  Omega*(b11*(EQN%IniBulk_zz(i,iBndGP)+Pf)-Pf)+(1d0-Omega)*EQN%IniBulk_zz(i,iBndGP)

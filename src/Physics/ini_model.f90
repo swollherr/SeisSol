@@ -898,8 +898,8 @@ CONTAINS
        IF (EQN%Plasticity.EQ.1) THEN
            IF ((EQN%LinType.EQ.65) .OR. (EQN%LinType.GE.102)) THEN
            ! strike, dip, sigmazz,cohesion,R
-           CALL STRESS_STR_DIP_SLIP_AM(DISC, EQN%StressAngle, 90.0, 387413000.0d0, DISC%DynRup%cohesion_0, EQN%Rvalue, .False., bii)
-           b11=bii(1);b22=bii(2);b12=bii(4);b23=bii(5);b13=bii(6)
+           !CALL STRESS_STR_DIP_SLIP_AM(DISC, EQN%StressAngle, 90.0, 387413000.0d0, DISC%DynRup%cohesion_0, EQN%Rvalue, .False., bii)
+           !b11=bii(1);b22=bii(2);b12=bii(4);b23=bii(5);b13=bii(6)
 
            g = 9.8D0
            !zIncreasingCohesion = -10000.
@@ -915,7 +915,24 @@ CONTAINS
               zLayers (1:7) = (/ -300d0+1500d0,-1000d0+1500d0, -3000d0+1500d0, -5000d0+1500d0, -6000d0+1500d0,-11000d0+1500d0, -16000.d0+1500d0 /)
               rhoLayers (1:7) = (/ 2349.3d0, 2592.9d0, 2700d0, 2750.0d0, 2800.0d0, 2825.0d0, 2850.0d0 /)
               sigzz = 0d0
-
+              IF (DISC%DynRup%BackgroundType.EQ.66) THEN
+                 !Rotate the stress field for the last segment by 11 degrees
+                 IF (y .LT. 3822649.0) THEN
+                    ! strike, dip, sigmazz,cohesion,R
+                    CALL STRESS_STR_DIP_SLIP_AM(DISC, EQN%StressAngle, 90.0, 387413000.0d0, DISC%DynRup%cohesion_0, EQN%Rvalue, .False., bii)
+                    b11=bii(1);b22=bii(2);b12=bii(4);b23=bii(5);b13=bii(6)
+                 ELSE
+                    ! strike, dip, sigmazz,cohesion,R
+                    CALL STRESS_STR_DIP_SLIP_AM(DISC, EQN%StressAngle-11.0, 90.0, 387413000.0d0, DISC%DynRup%cohesion_0, EQN%Rvalue, .False., bii)
+                    b11=bii(1);b22=bii(2);b12=bii(4);b23=bii(5);b13=bii(6)
+                 ENDIF
+              ELSEIF (DISC%DynRup%BackgroundType.EQ.65) THEN
+                    CALL STRESS_STR_DIP_SLIP_AM(DISC, EQN%StressAngle, 90.0, 387413000.0d0, DISC%DynRup%cohesion_0, EQN%Rvalue, .False., bii)
+                    b11=bii(1);b22=bii(2);b12=bii(4);b23=bii(5);b13=bii(6)
+              ELSE
+                   logError(*) 'model 103 needs backgroundfield 65 or 66'
+                   STOP
+              ENDIF
 
               !DO k=2,nLayers
                  !handle case when z is higher than the highest layer
