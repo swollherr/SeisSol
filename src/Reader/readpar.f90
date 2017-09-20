@@ -163,6 +163,20 @@ CONTAINS
     !                                                                        !
   END SUBROUTINE readpar                                                     !
 
+  SUBROUTINE RaiseErrorNml(FID, NMLname)
+    INTEGER                    :: FID
+    CHARACTER(LEN=*)         :: NMLname
+    CHARACTER(LEN=600)         :: line
+    INTENT(IN)                 :: FID, NMLname
+
+    backspace(FID)
+    read(FID,fmt='(A)') line
+    logError(*) 'invalid line in namelist '//trim(NMLname)//': '//trim(line)
+    stop
+    RETURN
+
+  END SUBROUTINE
+
   !============================================================================
   ! H E A D E R
   !============================================================================
@@ -221,6 +235,7 @@ CONTAINS
     REAL                       :: relDummy
     INTEGER                    :: label                                      ! Used in READ statement
     INTEGER                    :: lines, ix,iy,iz
+    INTEGER                    :: readStat
     !------------------------------------------------------------------------
     INTENT(INOUT)              :: EQN, IC, IO, SOURCE
     !------------------------------------------------------------------------
@@ -275,7 +290,10 @@ CONTAINS
     !big box continental LVZ above L1 L2 L3 L4
     SumatraRegions = (/0,0,0,0,0,0,0/)
     !
-    READ(IO%UNIT%FileIn, nml = Equations)
+    READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Equations)
+    IF (readStat.NE.0) THEN
+        CALL RaiseErrorNml(IO%UNIT%FileIn, "Equations")
+    ENDIF
     !
     IF ((MaterialType.GE.1220).AND.(MaterialType.LE.1230)) THEN
     ! Sumatra setup
@@ -322,6 +340,13 @@ CONTAINS
        stop
 #else
        logInfo0(*) '(Drucker-Prager) plasticity assumed .'
+
+#if defined(USE_PLASTIC_IP)
+       logInfo0(*) 'Integration Points approach used for plasticity.'
+#elif defined(USE_PLASTIC_NB)
+       logInfo0(*) 'Nodal Basis approach used for plasticity.'
+
+#endif
 
 #endif
         EQN%Plasticity = Plasticity
@@ -651,12 +676,16 @@ CONTAINS
     TYPE (tInputOutput)                               :: IO
     INTENT(INOUT)                                     :: IO
     INTEGER                                           :: number
+    INTEGER                                           :: readStat
     CHARACTER(600), DIMENSION(:), ALLOCATABLE         :: RF_Files
     NAMELIST                                         /RFFile/ RF_Files
     !------------------------------------------------------------------------
     ALLOCATE(RF_Files(number))
-    READ(IO%UNIT%FileIn, nml = RFFile)      ! Write in namelistfile RF_File(1) = ... and in the next line RF_Files(2) = ...
+    READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = RFFile)      ! Write in namelistfile RF_File(1) = ... and in the next line RF_Files(2) = ...
                                             ! according to the number of Random Fields
+    IF (readStat.NE.0) THEN
+        CALL RaiseErrorNml(IO%UNIT%FileIn, "RFFile")
+    ENDIF
   END SUBROUTINE
     !------------------------------------------------------------------------
      !Adjoint set to yes
@@ -886,6 +915,7 @@ CONTAINS
     CHARACTER(Len=600)         :: cICType, IniConditionFile
     REAL                       :: xc(3), amplitude, hwidth(3)
     INTEGER                    :: nZones, variable
+    INTEGER                    :: readStat
     NAMELIST                   /IniCondition/ cICType, variable, xc, amplitude, hwidth, &
                                               IniConditionFile, nZones
     !------------------------------------------------------------------------
@@ -903,7 +933,10 @@ CONTAINS
     amplitude = 0.0
     hwidth(:) = 5.0e3           ! in inputfile you can choose different values for x,y,z
     !
-    READ(IO%UNIT%FileIn, nml = IniCondition)
+    READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = IniCondition)
+    IF (readStat.NE.0) THEN
+        CALL RaiseErrorNml(IO%UNIT%FileIn, "IniCondition")
+    ENDIF
 
     ! Renaming all variables in the beginning
      IC%cICType = cICType
@@ -1230,6 +1263,7 @@ CONTAINS
     INTEGER                    :: allocStat, OutputMask(5), i
     INTEGER                    :: printtimeinterval
     INTEGER                    :: nOutPoints
+    INTEGER                    :: readStat
     REAL, DIMENSION(:), ALLOCATABLE ::X, Y, Z
     CHARACTER(LEN=600)         :: PPFileName
     !------------------------------------------------------------------------
@@ -1244,7 +1278,10 @@ CONTAINS
     OutputMask(1:3) = 1
     OutputMask(4:5) = 0
     !
-    READ(IO%UNIT%FileIn, nml = Pickpoint)
+    READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Pickpoint)
+    IF (readStat.NE.0) THEN
+        CALL RaiseErrorNml(IO%UNIT%FileIn, "Pickpoint")
+    ENDIF
     !
      DISC%DynRup%DynRup_out_atPickpoint%printtimeinterval = printtimeinterval   ! read time interval at which output will be written
      DISC%DynRup%DynRup_out_atPickpoint%OutputMask(1:5) =  OutputMask(1:5)      ! read info of desired output 1/ yes, 0/ no
@@ -1308,6 +1345,7 @@ CONTAINS
     INTEGER                    :: printtimeinterval
     INTEGER                    :: printIntervalCriterion
     INTEGER                    :: refinement_strategy, refinement
+    INTEGER                    :: readStat
     REAL                       :: printtimeinterval_sec
     !-----------------------------------------------------------------------
     INTENT(INOUT)              :: EQN, IO, DISC
@@ -1323,7 +1361,10 @@ CONTAINS
     refinement_strategy = 2
     refinement = 2
     !
-    READ(IO%UNIT%FileIn, nml = Elementwise)
+    READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Elementwise)
+    IF (readStat.NE.0) THEN
+        CALL RaiseErrorNml(IO%UNIT%FileIn, "Elementwise")
+    ENDIF
     !
     DISC%DynRup%DynRup_out_elementwise%printIntervalCriterion = printIntervalCriterion
     if (printIntervalCriterion.EQ.1) THEN
@@ -1401,6 +1442,7 @@ CONTAINS
     INTEGER                    :: stat
     INTEGER                    :: allocStat
     INTEGER                    :: BC_fs, BC_nc, BC_dr, BC_if, BC_of, BC_pe
+    INTEGER                    :: readStat
     !------------------------------------------------------------------------
     INTENT(INOUT)              :: EQN, IO, DISC
     INTENT(INOUT)              :: BND
@@ -1422,7 +1464,10 @@ CONTAINS
     BC_of = 0
     BC_pe = 0
     !
-    READ (IO%UNIT%FileIn, nml = Boundaries)
+    READ (IO%UNIT%FileIn, IOSTAT=readStat, nml = Boundaries)
+    IF (readStat.NE.0) THEN
+        CALL RaiseErrorNml(IO%UNIT%FileIn, "Boundaries")
+    ENDIF
     !
       !
       BND%NoBndObjects(:) = 0
@@ -1536,8 +1581,9 @@ CONTAINS
     TYPE (tBoundary)                       :: BND
     TYPE (tInitialCondition)               :: IC
     INTENT(INOUT)                          :: IO, EQN, DISC, BND
-    INTEGER                                :: FL, BackgroundType, Nucleation, inst_healing, RF_output_on, DS_output_on, changeDc, incrMus, &
+    INTEGER                                :: FL, BackgroundType, Nucleation, inst_healing, RF_output_on, DS_output_on, incrMus, &
                                               OutputPointType, magnitude_output_on,  energy_rate_output_on, read_fault_file,refPointMethod, SlipRateOutputType
+    INTEGER                                :: readStat, change_D_c
 
     CHARACTER(600)                         :: FileName_BackgroundStress
     REAL                                   :: Bulk_xx_0, Bulk_yy_0, &
@@ -1551,20 +1597,19 @@ CONTAINS
                                               NucShearYZ_0, NucShearXZ_0, NucRS_sv0, r_s, cohesion_0, cohesion_max, cohesion_depth, stopping_depth, &
                                               weaker, energy_rate_printtimeinterval
 
-
     !------------------------------------------------------------------------
     NAMELIST                              /DynamicRupture/ FL, BackgroundType, Bulk_xx_0, Bulk_yy_0, &
-                                                Bulk_zz_0, ShearXY_0, ShearYZ_0, ShearXZ_0, Ini_depth, changeDc, incrMus, StressAngle, Rvalue, &
+                                                Bulk_zz_0, ShearXY_0, ShearYZ_0, ShearXZ_0, Ini_depth, incrMus, StressAngle, Rvalue, &
                                                 RS_sv0, XRef, YRef, ZRef,refPointMethod, FileName_BackgroundStress, &
                                                 GPwise, inst_healing, Rupspeed, &
                                                 Mu_D_ini, Mu_S_ini,Mu_SNuc_ini, H_Length, D_C_ini, RS_f0, &
                                                 RS_sr0, RS_a, RS_b, RS_sl0, RS_iniSlipRate1, &
-                                                RS_iniSlipRate2, v_star, L, XHypo, YHypo, ZHypo, R_crit, t_0, Vs_nucl, Mu_W, RS_srW, Nucleation, &
-                                                NucDirX, NucXmin, NucXmax, NucDirY, NucYmin, NucYmax, &
+                                                RS_iniSlipRate2, v_star, L, XHypo, YHypo, ZHypo, R_crit, t_0, Vs_nucl, Mu_W, RS_srW, &
+                                                Nucleation, NucDirX, NucXmin, NucXmax, NucDirY, NucYmin, NucYmax, &
                                                 NucBulk_xx_0, NucBulk_yy_0, NucBulk_zz_0, NucShearXY_0, &
                                                 NucShearYZ_0, NucShearXZ_0, NucRS_sv0, r_s, RF_output_on, DS_output_on, &
                                                 OutputPointType, magnitude_output_on, energy_rate_output_on, energy_rate_printtimeinterval, cohesion_0, &
-                                                cohesion_max, cohesion_depth, stopping_depth, weaker, read_fault_file, SlipRateOutputType
+                                                cohesion_max, cohesion_depth, change_D_c, stopping_depth, weaker, read_fault_file, SlipRateOutputType
     !------------------------------------------------------------------------
 
     ! Setting default values
@@ -1585,7 +1630,6 @@ CONTAINS
     ShearYZ_0 = 0
     ShearXZ_0 = 0
     Ini_depth = 2000.0 !for Landers
-    changeDc = 1 !for Landers only
     StressAngle = 21.5
     Rvalue = 0.7
     incrMus = 0
@@ -1635,12 +1679,16 @@ CONTAINS
     cohesion_depth = 0
     stopping_depth = 0
     weaker = 0 
+    change_D_c = 0
     read_fault_file = 0
 
     !FileName_BackgroundStress = 'tpv16_input_file.txt'
 
            ! Read-in dynamic rupture parameters
-           READ(IO%UNIT%FileIn, nml = DynamicRupture)
+           READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = DynamicRupture)
+    IF (readStat.NE.0) THEN
+        CALL RaiseErrorNml(IO%UNIT%FileIn, "DynamicRupture")
+    ENDIF
            logInfo(*) 'Beginning dynamic rupture initialization. '
 
            ! Read fault parameters from Par_file_faults?
@@ -1660,7 +1708,6 @@ CONTAINS
              EQN%ShearYZ_0 = ShearYZ_0
              EQN%ShearXZ_0 = ShearXZ_0
              EQN%Ini_depth = Ini_depth
-             EQN%changeDc = changeDc
              EQN%StressAngle = StressAngle
              EQN%Rvalue = RValue
              EQN%incrMus = incrMus
@@ -1674,6 +1721,8 @@ CONTAINS
              DISC%DynRup%cohesion_depth = cohesion_depth
              DISC%DynRup%stopping_depth = stopping_depth
              DISC%DynRup%weaker = weaker 
+             DISC%DynRup%change_D_c =  change_D_c
+
              EQN%GPwise = GPwise
              IF (EQN%GPwise .EQ.1) THEN
                  logInfo0(*) 'GPwise initialization. '
@@ -1681,13 +1730,28 @@ CONTAINS
                  logInfo0(*) 'elementwise initialization. '
              ENDIF
 
-           CASE(16,17,1500) ! 1500 = ASAGI
+           CASE(16,17)
              IO%FileName_BackgroundStress = FileName_BackgroundStress
              EQN%GPwise = GPwise
              EQN%XRef = XRef
              EQN%YRef = YRef
              EQN%ZRef = ZRef
              EQN%refPointMethod = refPointMethod
+           case(1500,1501) ! ASAGI
+             ! TODO We also have FL parameter, maybe can reduce this case to a single one
+             ! and select the correct ASAGI initialization from FL.
+             IO%FileName_BackgroundStress = FileName_BackgroundStress
+             EQN%GPwise = GPwise
+             EQN%XRef = XRef
+             EQN%YRef = YRef
+             EQN%ZRef = ZRef
+             EQN%refPointMethod = refPointMethod
+             DISC%DynRup%RS_srW = RS_srW
+             DISC%DynRup%RS_a = RS_a
+             DISC%DynRup%cohesion_0 = cohesion_0
+             DISC%DynRup%D_C_ini = D_C_ini
+             DISC%DynRup%Mu_S_ini = Mu_S_ini
+             DISC%DynRup%Mu_D_ini = Mu_D_ini
            CASE DEFAULT
              logError(*) 'Unknown Stress Background Type: ',DISC%DynRup%BackgroundType
              STOP
@@ -1884,7 +1948,10 @@ CONTAINS
     NAMELIST                               /InflowBound/ setvar, char_option, &
                                                          PWFileName
     !------------------------------------------------------------------------
-    READ(IO%UNIT%FileIn, nml = InflowBound)
+    READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = InflowBound)
+    IF (readStat.NE.0) THEN
+        CALL RaiseErrorNml(IO%UNIT%FileIn, "InflowBound")
+    ENDIF
 
       DO i=1,n4
          j = 1
@@ -2016,12 +2083,16 @@ CONTAINS
     TYPE (tInputOutput)                    :: IO
     INTENT(INOUT)                          :: IO
     INTEGER                                :: number
+    INTEGER                                :: readStat
     REAL, DIMENSION(:), ALLOCATABLE        :: varfield
     NAMELIST                               /InflowBoundPWFile/ varfield
     !-----------------------------------------------------------------------
     ALLOCATE(varfield(number))
-    READ(IO%UNIT%FileIn, nml = InflowBoundPWFile) ! Write in namelistfile varfield(1) = ... and in the next line varfield(2) = ...
+    READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = InflowBoundPWFile) ! Write in namelistfile varfield(1) = ... and in the next line varfield(2) = ...
                                                   ! and the same for u0_in
+    IF (readStat.NE.0) THEN
+        CALL RaiseErrorNml(IO%UNIT%FileIn, "InflowBoundPWFile")
+    ENDIF
   END SUBROUTINE
     !------------------------------------------------------------------------
      !Reading u0_in
@@ -2032,11 +2103,15 @@ CONTAINS
     TYPE (tEquations)                      :: EQN
     INTENT(INOUT)                          :: IO, EQN
     REAL, DIMENSION(:), ALLOCATABLE        :: u0_in
+    INTEGER                                :: readStat
     NAMELIST                               /InflowBounduin/u0_in
     !-----------------------------------------------------------------------
     ALLOCATE(u0_in(EQN%nVar))
 
-    READ(IO%UNIT%FileIn, nml = InflowBounduin) ! Write in namelistfile u0_in(1) = ... and in the next line u0_in(2) = ...
+    READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = InflowBounduin) ! Write in namelistfile u0_in(1) = ... and in the next line u0_in(2) = ...
+    IF (readStat.NE.0) THEN
+        CALL RaiseErrorNml(IO%UNIT%FileIn, "InflowBounduin")
+    ENDIF
 
   END SUBROUTINE
 
@@ -2073,6 +2148,7 @@ CONTAINS
                                        l2, T, t0, Width, A0
    REAL,DIMENSION(:),ALLOCATABLE    :: SpacePositionx, SpacePositiony, SpacePositionz
    CHARACTER(Len=600)               :: FileName
+   INTEGER                          :: readStat
    NAMELIST                        /SourceType/ Type, Rtype, nDirac, nPulseSource, FileName, nRicker
 
    !------------------------------------------------------------------------
@@ -2086,7 +2162,10 @@ CONTAINS
     ! Setting default values
     Type = 0
     !
-    READ(IO%UNIT%FileIn, nml = SourceType)
+    READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = SourceType)
+    IF (readStat.NE.0) THEN
+        CALL RaiseErrorNml(IO%UNIT%FileIn, "SourceType")
+    ENDIF
     SOURCE%Type = Type
    SELECT CASE(SOURCE%Type)                                                 !
 
@@ -2535,10 +2614,6 @@ CONTAINS
     case(42) ! Netcdf rupture format
       logInfo(*) 'Netcdf rupture format chosen.'
       SOURCE%NRFFileName = FileName
-#ifndef GENERATEDKERNELS
-      logError(*) 'NRF unsupported in classic.'
-      stop
-#endif
 #ifndef USE_NETCDF
       logError(*) 'NRF sources require netcdf support.'
       stop
@@ -2691,11 +2766,15 @@ CONTAINS
     TYPE (tInputOutput)                    :: IO
     INTENT(IN)                             :: IO
     REAL                                   :: U0(3), l1(3)
+    INTEGER                                :: readStat
     NAMELIST                               /Source110/ U0, l1
     !-----------------------------------------------------------------------
 
-    READ(IO%UNIT%FileIn, nml = Source110) ! Write in namelistfile U0(1) = ... and in the next line U0(2) = ...
+    READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Source110) ! Write in namelistfile U0(1) = ... and in the next line U0(2) = ...
                                                   ! and the same for l1
+    IF (readStat.NE.0) THEN
+        CALL RaiseErrorNml(IO%UNIT%FileIn, "Source110")
+    ENDIF
   END SUBROUTINE
 
  SUBROUTINE readsource15(IO, nDirac, SpacePositionx, SpacePositiony, SpacePositionz, TimePosition, Intensity, EqnNr)
@@ -2703,6 +2782,7 @@ CONTAINS
     TYPE (tInputOutput)                    :: IO
     INTENT(IN)                             :: IO
     INTEGER                                :: nDirac
+    INTEGER                                :: readStat
     REAL, DIMENSION(:), ALLOCATABLE        :: SpacePositionx, SpacePositiony, SpacePositionz, TimePosition, &
                                               Intensity, EqnNr
     NAMELIST                               /Source15/SpacePositionx, SpacePositiony, SpacePositionz, &
@@ -2715,8 +2795,11 @@ ALLOCATE( SpacePositionx(nDirac), &
           Intensity(nDirac),       &
           EqnNr(nDirac))
 
-    READ(IO%UNIT%FileIn, nml = Source15) ! Write in namelistfile SpacePositionx(1) = ... and in the next line SpacePositionx(2) = ...
+    READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Source15) ! Write in namelistfile SpacePositionx(1) = ... and in the next line SpacePositionx(2) = ...
                                                   ! and the same for SpacePositiony, SpacePositionz,...
+    IF (readStat.NE.0) THEN
+        CALL RaiseErrorNml(IO%UNIT%FileIn, "Source15")
+    ENDIF
   END SUBROUTINE
 
  SUBROUTINE readsource1618(IO, nRicker, SpacePositionx, SpacePositiony, SpacePositionz, Delay, a1, f, EqnNr)
@@ -2724,6 +2807,7 @@ ALLOCATE( SpacePositionx(nDirac), &
     TYPE (tInputOutput)                    :: IO
     INTENT(IN)                             :: IO
     INTEGER                                :: nRicker
+    INTEGER                                :: readStat
     REAL, DIMENSION(:), ALLOCATABLE        :: SpacePositionx, SpacePositiony, SpacePositionz, Delay, &
                                               a1, f, EqnNr
     NAMELIST                               /Source1618/ SpacePositionx, SpacePositiony, SpacePositionz, Delay, &
@@ -2737,8 +2821,11 @@ ALLOCATE( SpacePositionx(nDirac), &
                f(nRicker),               &
                EqnNr(nRicker))
 
-    READ(IO%UNIT%FileIn, nml = Source1618) ! Write in namelistfile SpacePositionx(1) = ... and in the next line SpacePositionx(2) = ...
+    READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Source1618) ! Write in namelistfile SpacePositionx(1) = ... and in the next line SpacePositionx(2) = ...
                                                   ! and the same for SpacePositiony, ...
+    IF (readStat.NE.0) THEN
+        CALL RaiseErrorNml(IO%UNIT%FileIn, "Source1618")
+    ENDIF
   END SUBROUTINE
 
  SUBROUTINE readsource17(EQN, IO, U0, l1, l2, T)
@@ -2748,6 +2835,7 @@ ALLOCATE( SpacePositionx(nDirac), &
     INTENT(INOUT)                          :: EQN
     INTENT(IN)                             :: IO
     REAL, DIMENSION(:), ALLOCATABLE        :: U0, l1, l2, T
+    INTEGER                                :: readStat
     NAMELIST                               /Source17/ U0, l1, l2, T
     !-----------------------------------------------------------------------
     ALLOCATE(U0(EQN%nVar), &
@@ -2755,8 +2843,11 @@ ALLOCATE( SpacePositionx(nDirac), &
              l2(EQN%nVar), &
              T(EQN%nVar))
 
-    READ(IO%UNIT%FileIn, nml = Source17) ! Write in namelistfile U0(1) = ... and in the next line U0(2) = ...
+    READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Source17) ! Write in namelistfile U0(1) = ... and in the next line U0(2) = ...
                                                   ! and the same for l1, l2, ...
+    IF (readStat.NE.0) THEN
+        CALL RaiseErrorNml(IO%UNIT%FileIn, "Source17")
+    ENDIF
   END SUBROUTINE
 
  SUBROUTINE readsource19(IO, nPulseSource, EqnNr, SpacePositionx, SpacePositiony, SpacePositionz, t0, Width, A0)
@@ -2764,6 +2855,7 @@ ALLOCATE( SpacePositionx(nDirac), &
     TYPE (tInputOutput)                    :: IO
     INTENT(IN)                          :: IO
     INTEGER                                :: nPulseSource
+    INTEGER                                :: readStat
     REAL, DIMENSION(:), ALLOCATABLE        :: EqnNr, SpacePositionx, SpacePositiony, SpacePositionz, t0, Width, A0
     NAMELIST                               /Source19/ SpacePositionx, SpacePositiony, SpacePositionz, t0, Width, A0
     !----------------------------------------------------------------------
@@ -2775,8 +2867,11 @@ ALLOCATE( SpacePositionx(nDirac), &
              Width(nPulseSource), &
              A0(nPulseSource))
 
-    READ(IO%UNIT%FileIn, nml = Source19) ! Write in namelistfile EqnNr(1) = ... and in the next line EqnNr(2) = ...
+    READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Source19) ! Write in namelistfile EqnNr(1) = ... and in the next line EqnNr(2) = ...
                                                   ! and the same for Spacepositionx, ...
+    IF (readStat.NE.0) THEN
+        CALL RaiseErrorNml(IO%UNIT%FileIn, "Source19")
+    ENDIF
   END SUBROUTINE
   !
   !============================================================================
@@ -2795,6 +2890,7 @@ ALLOCATE( SpacePositionx(nDirac), &
     TYPE (tInputOutput)        :: IO
     INTEGER                    :: iSponge
     INTEGER                    :: intDummy
+    INTEGER                    :: readStat
     !--------------------------------------------------------------------------
     INTENT(INOUT)              :: SOURCE, DISC,EQN
     INTENT(IN)                 :: IO
@@ -2815,7 +2911,10 @@ ALLOCATE( SpacePositionx(nDirac), &
     !Setting default values
     enabled = 0
     !
-    READ (IO%UNIT%FileIn, nml = SpongeLayer)
+    READ (IO%UNIT%FileIn, IOSTAT=readStat, nml = SpongeLayer)
+    IF (readStat.NE.0) THEN
+        CALL RaiseErrorNml(IO%UNIT%FileIn, "SpongeLayer")
+    ENDIF
     SOURCE%Sponge%enabled = enabled
 
     SELECT CASE(SOURCE%Sponge%enabled)
@@ -2867,6 +2966,7 @@ ALLOCATE( SpacePositionx(nDirac), &
     TYPE (tInputOutput)                    :: IO
     INTENT(IN)                             :: IO
     INTEGER                                :: nDGSponge
+    INTEGER                                :: readStat
     REAL, DIMENSION(:), ALLOCATABLE        :: SpongeDelta, SpongePower, SigmaMax
     NAMELIST                               /Sponges/ SpongeDelta, SpongePower, SigmaMax
     !----------------------------------------------------------------------
@@ -2874,8 +2974,11 @@ ALLOCATE( SpacePositionx(nDirac), &
                 SpongePower(nDGSponge), &
                 SigmaMax(nDGSponge))
 
-    READ(IO%UNIT%FileIn, nml = Sponges) ! Write in namelistfile SpongeDelta(1) = ... and in the next line SpongeDelta(2) = ...
+    READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Sponges) ! Write in namelistfile SpongeDelta(1) = ... and in the next line SpongeDelta(2) = ...
                                                   ! and the same for SpongePower, ...
+    IF (readStat.NE.0) THEN
+        CALL RaiseErrorNml(IO%UNIT%FileIn, "Sponges")
+    ENDIF
    END SUBROUTINE
   !
   !============================================================================
@@ -2898,6 +3001,7 @@ ALLOCATE( SpacePositionx(nDirac), &
     REAL                       :: periodic_direction(3)
     INTEGER                    :: j ,k
     INTEGER                    :: i, stat
+    INTEGER                    :: readStat
     CHARACTER(LEN=600)          :: Name
     LOGICAL                    :: file_exits
     !------------------------------------------------------------------------
@@ -2924,7 +3028,7 @@ ALLOCATE( SpacePositionx(nDirac), &
 
     ! Setting default values
     MeshFile = 'LOH1'
-    meshgenerator = 'Gambit3D'
+    meshgenerator = 'Gambit3D-fast'
     displacement(:) = 0.
     ScalingMatrixX(:) = 0.0
     ScalingMatrixX(1) = 1.0
@@ -2935,7 +3039,10 @@ ALLOCATE( SpacePositionx(nDirac), &
     periodic = 0
     periodic_direction(:) = 0
     !
-    READ(IO%UNIT%FileIn, nml = MeshNml)
+    READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = MeshNml)
+    IF (readStat.NE.0) THEN
+        CALL RaiseErrorNml(IO%UNIT%FileIn, "MeshNml")
+    ENDIF
 
     IO%MeshFile = MeshFile                               ! mesh input (mesh file name, no_file)
 
@@ -2945,23 +3052,23 @@ ALLOCATE( SpacePositionx(nDirac), &
     MESH%iniSquareMesh = .FALSE.
     MESH%iniDiscMesh   = .FALSE.
 
-    IO%meshgenerator = meshgenerator
+    IO%meshgenerator = trim(meshgenerator)
 
        EQN%HexaDimension = 3
-       SELECT CASE(TRIM(IO%meshgenerator))
-       CASE('Gambit3D')
-            IO%meshgenerator = TRIM('Gambit3D-Tetra')
-       CASE('Gambit3D-Mixed')
-            IO%meshgenerator = TRIM('Gambit3D-Mixed')
-       END SELECT
-
        SELECT CASE(IO%meshgenerator)
-       CASE('Gambit3D-Tetra','Gambit3D-Mixed','Gambit3D-fast','Netcdf')
+       CASE('Gambit3D-fast','Netcdf','PUML')
           if (IO%meshgenerator .eq. 'Netcdf') then
-            logInfo(*) 'Read a netCDF mesh ...'
+            logInfo0(*) 'Read a netCDF mesh ...'
             Name = trim(IO%MeshFile) // '.nc'
+          elseif (IO%meshgenerator .eq. 'PUML') then
+#if defined(USE_METIS) && defined(USE_HDF) && defined(USE_MPI)
+            Name = trim(IO%MeshFile)
+            logInfo0(*) 'Read a PUML mesh file'
+#else
+            logError(*) 'PUML requires METIS and HDF5'
+#endif
           else
-            logInfo(*) 'Read a Gambit 3-D neutral mesh ... '
+            logInfo0(*) 'Read a Gambit 3-D neutral mesh ... '
             Name = TRIM(IO%MeshFile)//'.neu'
           endif
 
@@ -3000,64 +3107,18 @@ ALLOCATE( SpacePositionx(nDirac), &
             logInfo(*) 'Periodic boundary in z-direction. '
           ENDIF
 
-       CASE('ICEMCFD3D-Tetra')
-          !
-          logInfo(*) 'Read an ICEM CFD 3-D neutral mesh ... '
-          !
-          Name = TRIM(IO%MeshFile)//'.neu'
-          IO%MeshFile=Name(1:35)
-          !
-          logInfo(*) 'Mesh is READ from file      ',    IO%MeshFile
-          !
-          BND%periodic = periodic
-          !
-          IF(BND%periodic.EQ.0) THEN
-             BND%DirPeriodic(:) = .FALSE.
-             logInfo(*) 'No periodic boundary conditions specified.    '
-          ELSE
-             WHERE(periodic_direction(:).EQ.1)
-                BND%DirPeriodic(:) = .TRUE.
-             ELSEWHERE
-                BND%DirPeriodic(:) = .FALSE.
-             ENDWHERE
-             BND%Periodic = SUM(periodic_direction)
-          ENDIF
-          !
-          IF(BND%DirPeriodic(1)) THEN
-            logInfo(*) 'Periodic boundary in x-direction. '
-          ENDIF
-          IF(BND%DirPeriodic(2)) THEN
-            logInfo(*) 'Periodic boundary in y-direction. '
-          ENDIF
-          IF(BND%DirPeriodic(3)) THEN
-            logInfo(*) 'Periodic boundary in z-direction. '
-          ENDIF
-
-
        CASE DEFAULT
           logError(*) 'Meshgenerator ', TRIM(IO%meshgenerator), ' is unknown!'
           STOP
        END SELECT
     ! specify element type (3-d = tetrahedrons)
 
-      IF(IO%meshgenerator.EQ.'Gambit3D-Tetra' .or. IO%meshgenerator.eq.'Gambit3D-fast' .or. IO%meshgenerator.eq.'Netcdf')THEN
+      IF(IO%meshgenerator.eq.'Gambit3D-fast' .or. IO%meshgenerator.eq.'Netcdf' .or. IO%meshgenerator.eq.'PUML') THEN
           MESH%GlobalElemType = 4
           MESH%GlobalSideType = 3
           MESH%GlobalVrtxType = 4
           MESH%nVertexMax = 4
           MESH%nSideMax = 4
-       ELSEIF(IO%meshgenerator.EQ.'ICEMCFD3D-Tetra')THEN
-          MESH%GlobalElemType = 4
-          MESH%GlobalSideType = 3
-          MESH%GlobalVrtxType = 4
-          MESH%nVertexMax = 4
-          MESH%nSideMax = 4
-       ELSEIF(IO%meshgenerator.EQ.'Gambit3D-Mixed')THEN
-          MESH%GlobalElemType = 7
-          MESH%nVertexMax = 8
-          MESH%nSideMax = 6
-          MESH%GlobalVrtxType = 8 ! should be removed later
-          MESH%GlobalSideType = 4 ! should be removed later
        ELSE
           logError(*) 'Wrong definition of meshgenerator.'
           STOP
@@ -3066,9 +3127,6 @@ ALLOCATE( SpacePositionx(nDirac), &
        SELECT CASE (MESH%GlobalElemType)
        CASE(4)
           logInfo(*) 'Mesh consits of TETRAHEDRAL elements.'
-          logInfo(*) 'Mesh type is', MESH%GlobalElemType
-       CASE(7)
-          logInfo(*) 'Mesh consits of HEXAHEDRAL or/and TETRAHEDRAL elements.'
           logInfo(*) 'Mesh type is', MESH%GlobalElemType
        CASE DEFAULT
           logError(*) 'MESH%GlobalElemType must be {4}, {6} or {7} '
@@ -3111,6 +3169,7 @@ ALLOCATE( SpacePositionx(nDirac), &
     TYPE (tInputOutput)        :: IO
     ! localVariables
     INTEGER                    :: intDummy, stat, i
+    INTEGER                    :: readStat
     CHARACTER(LEN=5)           :: cInput
     CHARACTER(LEN=300)         :: cDummy
 
@@ -3150,7 +3209,10 @@ ALLOCATE( SpacePositionx(nDirac), &
     Material = 1
     FixTimeStep = 5000
     !                                                              ! DGM :
-    READ(IO%UNIT%FileIn, nml = Discretization)
+    READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Discretization)
+    IF (readStat.NE.0) THEN
+        CALL RaiseErrorNml(IO%UNIT%FileIn, "Discretization")
+    ENDIF
     DISC%Galerkin%DGFineOut1D = DGFineOut1D                        ! No. of red-refinements
     !                                                              ! for 2-D fine output
     IF(DISC%Galerkin%DGFineOut1D.GT.0) THEN
@@ -3287,6 +3349,7 @@ ALLOCATE( SpacePositionx(nDirac), &
       INTEGER                       :: allocstat
       INTEGER                       :: iOutputMask(29)
       INTEGER                       :: idimensionMask(3)
+      INTEGER                       :: readStat
       CHARACTER(LEN=620)            :: Name
       REAL,DIMENSION(:),ALLOCATABLE :: X, Y, Z
       !------------------------------------------------------------------------
@@ -3306,7 +3369,7 @@ ALLOCATE( SpacePositionx(nDirac), &
       !! @warning When using an asynchronous back-end (mpio_async), you might lose
       !!  2 * checkPointInterval of your computation.
       !! @more_info https://github.com/SeisSol/SeisSol/wiki/Parameter-File
-      !! 
+      !!
       character(LEN=64)                :: checkPointBackend
       NAMELIST                         /Output/ OutputFile, Rotation, iOutputMask, iOutputMaskMaterial, &
                                                 Format, Interval, TimeInterval, printIntervalCriterion, Refinement, &
@@ -3345,11 +3408,14 @@ ALLOCATE( SpacePositionx(nDirac), &
       SurfaceOutputRefinement = 0
       SurfaceOutputInterval = 1.0e99
       !
-      READ(IO%UNIT%FileIn, nml = Output)
+      READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Output)
+    IF (readStat.NE.0) THEN
+        CALL RaiseErrorNml(IO%UNIT%FileIn, "Output")
+    ENDIF
       IO%OutputFile = OutputFile                                                   ! read output field file
 
       IO%OutputFile  = TRIM(IO%OutputFile)
-      
+
       IO%SurfaceOutput = SurfaceOutput
       IO%SurfaceOutputRefinement = SurfaceOutputRefinement
       IO%SurfaceOutputInterval = SurfaceOutputInterval
@@ -3787,13 +3853,6 @@ ALLOCATE( SpacePositionx(nDirac), &
       io%checkpoint%filename = checkPointFile
       io%checkpoint%backend = checkPointBackend
 
-#ifndef GENERATEDKERNELS
-      if (io%checkpoint%interval .gt. 0) then
-        logError(*) 'This version does not support checkpoints'
-        stop
-      endif
-#endif
-
       IO%Refinement = Refinement
       SELECT CASE(Refinement)
          CASE(0)
@@ -3872,6 +3931,7 @@ ALLOCATE( SpacePositionx(nDirac), &
     INTENT(INOUT)              :: DISC,IO
     !------------------------------------------------------------------------
     INTEGER                          :: MaxIteration
+    INTEGER                          :: readStat
     REAL                             :: EndTime, MaxTolerance, MaxTolCriterion, WallTime_h, Delay_h
     NAMELIST                         /AbortCriteria/ EndTime, MaxIteration, MaxTolerance, &
                                                       MaxTolCriterion, WallTime_h, Delay_h
@@ -3889,7 +3949,10 @@ ALLOCATE( SpacePositionx(nDirac), &
     WallTime_h = 1e20
     Delay_h = 0.
 
-   READ(IO%UNIT%FileIn, nml = AbortCriteria)
+   READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = AbortCriteria)
+    IF (readStat.NE.0) THEN
+        CALL RaiseErrorNml(IO%UNIT%FileIn, "AbortCriteria")
+    ENDIF
 
     DISC%EndTime =  EndTime                                         ! time required
 
@@ -3934,6 +3997,7 @@ ALLOCATE( SpacePositionx(nDirac), &
     COMPLEX                    :: IU
     REAL                       :: Im, Re
     INTEGER                    :: I,J,allocStat
+    INTEGER                    :: readStat
     !------------------------------------------------------------------------
     INTENT(IN)                 :: EQN,IO
     INTENT(OUT)                :: ANALYSE
@@ -3952,7 +4016,10 @@ ALLOCATE( SpacePositionx(nDirac), &
     !Setting default values
     typ = 0                                                                   !Read which variables are to be analyzed
 
-   READ(IO%UNIT%FileIn, nml = Analysis)
+   READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = Analysis)
+    IF (readStat.NE.0) THEN
+        CALL RaiseErrorNml(IO%UNIT%FileIn, "Analysis")
+    ENDIF
     ANALYSE%typ = typ
 
    ANALYSE%AnalyseDataPerIteration = .FALSE.
@@ -4059,6 +4126,7 @@ ALLOCATE( SpacePositionx(nDirac), &
     TYPE (tInputOutput)                    :: IO
     INTENT(IN)                             :: IO
     INTEGER                                :: setvar
+    INTEGER                                :: readStat
     REAL, DIMENSION(:), ALLOCATABLE        :: varfield, ampfield
     CHARACTER(LEN=600)                     :: EigenVecValName
     NAMELIST                               /AnalysisFields/ varfield, ampfield, EigenVecValName
@@ -4066,8 +4134,11 @@ ALLOCATE( SpacePositionx(nDirac), &
        ALLOCATE(varfield(setvar), &
                 ampfield(setvar))
 
-    READ(IO%UNIT%FileIn, nml = AnalysisFields) ! Write in namelistfile varfield(1) = ... and in the next line varfield(2) = ...
+    READ(IO%UNIT%FileIn, IOSTAT=readStat, nml = AnalysisFields) ! Write in namelistfile varfield(1) = ... and in the next line varfield(2) = ...
                                                   ! and the same for ampfield, ...
+    IF (readStat.NE.0) THEN
+        CALL RaiseErrorNml(IO%UNIT%FileIn, "AnalysisFields")
+    ENDIF
    END SUBROUTINE
 
   !============================================================================

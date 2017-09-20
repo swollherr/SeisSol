@@ -47,6 +47,7 @@
 #include <Geometry/MeshDefinition.h>
 #include <Geometry/MeshReader.h>
 
+#include <array>
 #include <limits>
 #include <cassert>
 
@@ -68,7 +69,7 @@ class seissol::initializers::time_stepping::LtsLayout {
 
     //! cells in the local domain
     std::vector<Element> m_cells;
-    
+
     //! fault in the local domain
     std::vector<Fault> m_fault;
 
@@ -120,10 +121,10 @@ class seissol::initializers::time_stepping::LtsLayout {
 
     //! cluster ids of the cells in the ghost layer
     unsigned int **m_plainGhostCellClusterIds;
-    
+
     //! face ids of interior dr faces
     std::vector< std::vector<int> > m_dynamicRupturePlainInterior;
-    
+
     //! face ids of copy dr faces
     std::vector< std::vector<int> > m_dynamicRupturePlainCopy;
 
@@ -165,7 +166,7 @@ class seissol::initializers::time_stepping::LtsLayout {
      * first[2]: number of derivatives cells communicated
      * second  : cluster cells in the copy region
      **/
-    typedef std::pair< unsigned int[3], std::vector< clusterCell > > clusterCopyRegion;
+    typedef std::pair< std::array<unsigned int, 3>, std::vector< clusterCell > > clusterCopyRegion;
 
     /**
      * per cluster copy layer.
@@ -229,7 +230,7 @@ class seissol::initializers::time_stepping::LtsLayout {
      * Derives plain ghost regions.
      **/
     void derivePlainGhost();
-    
+
     /**
      * Derives plain copy and interior regions for dynamic rupture.
      **/
@@ -242,12 +243,12 @@ class seissol::initializers::time_stepping::LtsLayout {
      *   vector containing the cell ids in the neighboring computational domain is derived.
      **/
     void normalizeMpiIndices();
-    
+
     /**
      * Helper function for synchronization.
      */
     void synchronizePlainGhostData(unsigned* cellData, unsigned** plainGhostData);
- 
+
     /**
      * Synchronizes the cluster ids of the cells in the plain ghost layer.
      **/

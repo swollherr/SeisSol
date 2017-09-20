@@ -114,7 +114,9 @@ void seissol::time_stepping::TimeManager::addClusters( struct TimeStepping&     
                                            &i_memoryManager.getLtsTree()->child(l_cluster),
                                            &i_memoryManager.getDynamicRuptureTree()->child(l_cluster),
                                            i_memoryManager.getLts(),
-                                           i_memoryManager.getDynamicRupture() )
+                                           i_memoryManager.getDynamicRupture(),
+                                           &m_stopwatch,
+                                           &m_stopwatchDR )
                         );
   }
 }
@@ -369,6 +371,19 @@ void seissol::time_stepping::TimeManager::advanceInTime( const double &i_synchro
                          << " @ "                  << m_clusters[m_timeStepping.numberOfLocalClusters-1]->m_fullUpdateTime;
     }
   }
+}
+
+void seissol::time_stepping::TimeManager::printComputationTime()
+{
+  char const text[] = "Computation time:";
+  char const textDR[] = "Comp. time (only DR):";
+#ifdef USE_MPI
+  m_stopwatch.printTime(text, MPI::mpi.comm());
+  m_stopwatchDR.printTime(textDR, MPI::mpi.comm());
+#else
+  m_stopwatch.printTime(text);
+  m_stopwatchDR.printTime(textDR);
+#endif
 }
 
 double seissol::time_stepping::TimeManager::getTimeTolerance() {

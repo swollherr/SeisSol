@@ -116,8 +116,6 @@ vars.AddVariables(
                 allowed_values=('none', 'omp', 'mpi', 'hybrid')
               ),
 
-  BoolVariable( 'generatedKernels', 'use generated kernels', False ),
-
   BoolVariable( 'vecReport', 'print verbose vectorization report when using Intel Compiler suite', False ),
 
   BoolVariable( 'hdf5', 'use hdf5 library for data output', False ),
@@ -125,6 +123,8 @@ vars.AddVariables(
   EnumVariable( 'netcdf', 'use netcdf library for mesh input',
 	        'no',
 	        allowed_values=('yes', 'no', 'passive') ),
+
+  BoolVariable( 'metis', 'use Metis for partitioning', False ),
 
   BoolVariable( 'sionlib', 'use sion library for checkpointing', False ),
 
@@ -165,6 +165,12 @@ vars.AddVariables(
                 'Use quadrature here, cellaverage is EXPERIMENTAL.',
                 'quadrature',
                 allowed_values=('quadrature', 'cellaverage')
+              ),
+
+  EnumVariable( 'PlasticityMethod',
+                'choose between two plasticity methods, nodal one in general faster',
+                'nb',
+                allowed_values=('ip', 'nb')
               )
 )
 
@@ -187,6 +193,11 @@ vars.AddVariables(
 
   PathVariable( 'zlibDir',
                 'zlib installation directory',
+                None,
+                PathVariable.PathAccept ),
+
+  PathVariable( 'metisDir',
+                '(Par)Metis installation directory',
                 None,
                 PathVariable.PathAccept ),
 
@@ -254,9 +265,6 @@ if env['equations'] in ['elastic', 'viscoelastic2']:
 # check for architecture
 if env['arch'] == 'snoarch' or env['arch'] == 'dnoarch':
   print "*** Warning: Using fallback code for unknown architecture. Performance will suffer greatly if used by mistake and an architecture-specific implementation is available."
-
-if not env['generatedKernels'] and ( env['parallelization'] == 'omp' or env['parallelization'] == 'hybrid' ):
-  ConfigurationError("*** Classic version does not support hybrid parallelization")
 
 if not env.has_key('memLayout'):
   env['memLayout'] = memlayout.guessMemoryLayout(env)
@@ -444,6 +452,9 @@ if env['compileMode'] in ['relWithDebInfo', 'release']:
     if env['compiler'] == 'intel':
         env.Append(F90FLAGS = ['-fno-alias'])
 
+# C++ Standard
+env.Append(CXXFLAGS=['-std=c++11'])
+
 #
 # Basic preprocessor defines
 #
@@ -471,13 +482,16 @@ if env['parallelization'] in ['omp', 'hybrid']:
 
 if( env['plasticity'] ):
   env.Append(CPPDEFINES=['USE_PLASTICITY'])
+  if env['PlasticityMethod'] == 'ip':
+     env.Append(CPPDEFINES=['USE_PLASTIC_IP'])
+  elif env['PlasticityMethod'] == 'nb':
+     env.Append(CPPDEFINES=['USE_PLASTIC_NB'])
 
 if( env['integrateQuants'] ):
   env.Append(CPPDEFINES=['INTEGRATE_QUANTITIES'])
 
 # set pre compiler flags for matrix optimizations
-if env['generatedKernels']:
-  env.Append(CPPDEFINES=['GENERATEDKERNELS', 'CLUSTERED_LTS'])
+env.Append(CPPDEFINES=['GENERATEDKERNELS', 'CLUSTERED_LTS'])
 
 # set pre compiler flags commuincation thread
 # pthread is linked after the other libraries
@@ -529,8 +543,8 @@ env.Tool('LibxsmmTool', required=True)
 env.Tool('DirTool', fortran=True)
 
 # GLM
-# Workaround for wrong C++11 detection
-env.Append(CPPDEFINES=['GLM_FORCE_COMPILER_UNKNOWN'])
+# Some C++ GLM features are not working with the Intel Compiler
+env.Append(CPPDEFINES=['GLM_FORCE_CXX98'])
 
 # HDF5
 if env['hdf5']:
@@ -548,6 +562,11 @@ if env['netcdf'] == 'yes':
     env.Append(CPPDEFINES=['USE_NETCDF'])
 elif env['netcdf'] == 'passive':
     env.Append(CPPDEFINES=['USE_NETCDF', 'NETCDF_PASSIVE'])
+
+# Metis
+if env['metis'] and env['parallelization'] in ['hybrid', 'mpi']:
+	libs.find(env, 'metis', required=(not helpMode), parallel=True)
+	env.Append(CPPDEFINES=['USE_METIS'])
 
 # sionlib still need to create a Tool for autoconfiguration
 if env['sionlib']:
@@ -582,7 +601,7 @@ env.Append(F90PATH=['#/src/Equations/' + env['equations'] + '/generated_code'])
 if env['programName'] == 'none':
   program_suffix = '%s_%s_%s_%s_%s_%s_%s' %(
     env['compileMode'],
-    'generatedKernels' if env['generatedKernels'] else 'classic',
+    'generatedKernels',
     env['arch'],
     env['parallelization'],
     'scalasca' if env['scalasca'] != 'none' else 'none',

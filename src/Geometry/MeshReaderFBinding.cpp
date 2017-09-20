@@ -5,7 +5,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2013-2016, SeisSol Group
+ * Copyright (c) 2013-2017, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -48,12 +48,16 @@
 #ifdef USE_NETCDF
 #include "NetcdfReader.h"
 #endif // USE_NETCDF
+#if defined(USE_METIS) && defined(USE_HDF) && defined(USE_MPI)
+#include "PUMLReader.h"
+#endif // defined(USE_METIS) && defined(USE_HDF) && defined(USE_MPI)
 #include "Modules/Modules.h"
 #include "Monitoring/instrumentation.fpp"
+#include "Monitoring/Stopwatch.h"
 
 void read_mesh(int rank, MeshReader &meshReader, bool hasFault, double const displacement[3], double const scalingMatrix[3][3])
 {
-	logInfo(rank) << "Mesh reading done.";
+	logInfo(rank) << "Reading mesh. Done.";
 
 	meshReader.displaceMesh(displacement);
 	meshReader.scaleMesh(scalingMatrix);
@@ -226,12 +230,8 @@ void read_mesh(int rank, MeshReader &meshReader, bool hasFault, double const dis
 		}
 	}
 
-	logInfo(rank) << "Fortran mesh data structures initialized.";
-
 #ifdef GENERATEDKERNELS
 	seissol::SeisSol::main.getLtsLayout().setMesh(meshReader);
-
-	logInfo(rank) << "C++ mesh data structures initialized.";
 #endif // GENERATEDKERNELS
 
 	// Setup the communicator for dynamic rupture
@@ -250,9 +250,15 @@ void read_mesh_gambitfast_c(int rank, const char* meshfile, const char* partitio
 	logInfo(rank) << "Reading Gambit mesh using fast reader";
 	logInfo(rank) << "Parsing mesh and partition file:" << meshfile << ';' << partitionfile;
 
+	Stopwatch watch;
+	watch.start();
+
 	seissol::SeisSol::main.setMeshReader(new GambitReader(rank, meshfile, partitionfile));
 
 	read_mesh(rank, seissol::SeisSol::main.meshReader(), hasFault, displacement, scalingMatrix);
+
+	watch.pause();
+	watch.printTime("Mesh initialized in:");
 }
 
 void read_mesh_netcdf_c(int rank, int nProcs, const char* meshfile, bool hasFault, double const displacement[3], double const scalingMatrix[3][3])
@@ -262,12 +268,44 @@ void read_mesh_netcdf_c(int rank, int nProcs, const char* meshfile, bool hasFaul
 #ifdef USE_NETCDF
 	logInfo(rank) << "Reading netCDF mesh" << meshfile;
 
+	Stopwatch watch;
+	watch.start();
+
 	seissol::SeisSol::main.setMeshReader(new NetcdfReader(rank, nProcs, meshfile));
 
 	read_mesh(rank, seissol::SeisSol::main.meshReader(), hasFault, displacement, scalingMatrix);
+
+	watch.pause();
+	watch.printTime("Mesh initialized in:");
+
 #else // USE_NETCDF
 	logError() << "netCDF not supported";
 #endif // USE_NETCDF
+}
+
+
+void read_mesh_puml_c(const char* meshfile, bool hasFault, double const displacement[3], double const scalingMatrix[3][3])
+{
+	SCOREP_USER_REGION("read_mesh", SCOREP_USER_REGION_TYPE_FUNCTION);
+
+#if defined(USE_METIS) && defined(USE_HDF) && defined(USE_MPI)
+	const int rank = seissol::MPI::mpi.rank();
+
+	logInfo(rank) << "Reading PUML mesh" << meshfile;
+
+	Stopwatch watch;
+	watch.start();
+
+	seissol::SeisSol::main.setMeshReader(new seissol::PUMLReader(meshfile));
+
+	read_mesh(rank, seissol::SeisSol::main.meshReader(), hasFault, displacement, scalingMatrix);
+
+	watch.pause();
+	watch.printTime("Mesh initialized in:");
+
+#else // defined(USE_METIS) && defined(USE_HDF) && defined(USE_MPI)
+	logError() << "PUML is currently only supported for MPI";
+#endif // defined(USE_METIS) && defined(USE_HDF) && defined(USE_MPI)
 }
 
 }

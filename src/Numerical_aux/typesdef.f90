@@ -421,8 +421,6 @@ MODULE TypesDef
     !              "Because its elements do not need to be contiguous in memory, a Fortran pointer target or assumed-shape array cannot be passed to C.
     !               However, you can pass an allocated allocatable array to C, and you can associate an array allocated in C with a Fortran pointer."
     real*8, allocatable   :: dgvar(:,:,:,:)                     !< storage of all unknowns (solution).
-#else
-    REAL, POINTER         :: dgvar(:,:,:,:)  => NULL()          !< Data-array for expansion
 #endif
     REAL, POINTER         :: DOFStress(:,:,:) => NULL()         !< DOF's for the initial stress loading for the plastic calculations
     REAL, POINTER         :: plasticParameters(:,:) => NULL()
@@ -432,8 +430,6 @@ MODULE TypesDef
 !    integer              :: nSourceTermElems !< number of elemens having a source term
 !    real*8, allocatable  :: dgsourceterms(:,:,:)            !< storage of source terms
 !    integer, allocatable :: indicesOfSourceTermsElems(:) !< indices of elements having a source term
-#else
-    REAL, POINTER     :: DGwork(:,:,:) => NULL()     !< Work array for DG method
 #endif
     REAL, POINTER     :: DGTaylor(:,:,:,:) => NULL() !< Work array for local dt DG
     real              :: totcputime
@@ -891,7 +887,7 @@ MODULE TypesDef
      real, allocatable                      :: output_Slip2(:,:)
      real, allocatable                      :: output_rupture_time(:,:)
      real, allocatable                      :: output_PeakSR(:,:)
-     real, allocatable                      :: output_dynStress_time(:,:)  
+     real, allocatable                      :: output_dynStress_time(:,:)
      REAL, allocatable                      :: Slip(:,:)               !< Slip path at given fault node
      REAL, allocatable                      :: Slip1(:,:)                      !< Slip at given fault node along loc dir 1
      REAL, allocatable                      :: Slip2(:,:)                      !< Slip at given fault node along loc dir 2
@@ -910,6 +906,7 @@ MODULE TypesDef
      REAL                                   :: cohesion_depth                  !< depth at which cohesion is increased
      REAL                                   :: stopping_depth                  !< depth at which stresses are reduced
      REAL                                   :: weaker                          !< gives by how much the friction coefficient is reduced for a specific area
+     INTEGER                                :: change_D_C                       !< changes Dc in ini_model if defined there., otherwise value from Parameterfile
      REAL, allocatable                      :: forced_rupture_time(:,:)        !< forced rupture time at given fault node
      REAL, allocatable                      :: rupture_time(:,:)               !< rupture time at given fault node> used for VR ouput calculation
      REAL, allocatable                      :: dynStress_time(:,:)             !< time at which the shear stress is equal the dynamic stress
@@ -938,7 +935,7 @@ MODULE TypesDef
      REAL                                   :: Mu_SNuc_ini                      !< Static friction coefficient inside the nucleation zone ini scalar value
      REAL                                   :: Mu_D_ini                         !< Dynamic friction coefficient ini scalar value
      REAL                                   :: D_C_ini                          !< Critical slip read-in variable for constant value over the entire fault
-     REAL, POINTER                          :: D_C(:,:) => NULL()                         !< Critical slip at given fault node
+     REAL, allocatable                      :: D_C(:,:)                         !< Critical slip at given fault node
      INTEGER                                :: Nucleation                       !< Nucleation
      INTEGER                                :: NucDirX                          !< Axis for locating nucleation patch (1: x, 2: y)
      INTEGER                                :: NucDirY                          !< Axis for locating nucleation patch (1: x, 2: y)
@@ -983,18 +980,6 @@ MODULE TypesDef
      TYPE(tDynRup_output)                   :: DynRup_out_elementwise           !< Output data at all elements for Dynamic Rupture processes
 #ifdef HDF
      TYPE(thd_fault_receiver)           , POINTER :: hd_rec  => NULL()                         !< HDF5 file handle for fault hdf5 outpu
-#endif
-
-#ifndef GENERATEDKERNELS
-    integer              :: nDRElems !< number of DR Elems
-    real*8, allocatable  :: DRupdates(:,:,:)            !< shadow storage of receiver elemes
-    integer, allocatable :: indicesOfDRElems(:) !< indices of elements having a pickpoint
-    integer, allocatable :: DRupdatesPosition(:,:) !< helper array to determine the position inside DRupdates in friction routine
-
-    integer              :: nDRElemsMIC !< number of DR Elems
-    real*8, allocatable  :: DRupdatesMIC(:,:,:)            !< shadow storage of receiver elemes
-    integer, allocatable :: indicesOfDRElemsMIC(:) !< indices of elements having a pickpoint
-    integer, allocatable :: indicesOfDRElemsInCPUupdates(:) !< indices of elements having a pickpoint
 #endif
 
      type(tDynRun_constants),pointer         :: DynRup_Constants(:), DynRup_Constants_globInd(:) => NULL()
@@ -1234,11 +1219,11 @@ MODULE TypesDef
      REAL, allocatable                      :: IniShearYZ(:,:)                  !< Initial shear stress at fault
      REAL, allocatable                      :: IniShearXZ(:,:)                  !< Initial shear stress at fault
      REAL                                   :: Ini_depth                        !< depth for Landers stress gradient
-     INTEGER                                :: changeDc                         !< change D_c towards depth and surface
      INTEGER                                :: incrMus                          !< increase Mu_s towards the end of the fault to stop rupture
      REAL                                   :: StressAngle
      REAL                                   :: Rvalue
      real, allocatable                      :: InitialStressInFaultCS(:,:,:)
+     real, allocatable                      :: NucleationStressInFaultCS(:,:,:)
      REAL, allocatable                      :: IniMu(:,:)                       !< Initial friction coefficient at fault
      REAL, allocatable                      :: IniStateVar(:,:)                 !< Initial state variable value at fault
      REAL                                   :: IniSlipRate1                     !< Initial slip rate value at fault

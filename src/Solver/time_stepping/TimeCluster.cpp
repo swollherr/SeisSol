@@ -36,7 +36,7 @@
  * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
- * Copyright (c) 2013-2016, SeisSol Group
+ * Copyright (c) 2013-2017, SeisSol Group
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -107,7 +107,9 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                  
                                                   seissol::initializers::TimeCluster* i_clusterData,
                                                   seissol::initializers::TimeCluster* i_dynRupClusterData,
                                                   seissol::initializers::LTS*         i_lts,
-                                                  seissol::initializers::DynamicRupture* i_dynRup ):
+                                                  seissol::initializers::DynamicRupture* i_dynRup,
+                                                  Stopwatch*                             i_stopwatch,
+                                                  Stopwatch*                             i_stopwatchDR ):
  // cluster ids
  m_clusterId(               i_clusterId                ),
  m_globalClusterId(         i_globalClusterId          ),
@@ -130,7 +132,10 @@ seissol::time_stepping::TimeCluster::TimeCluster( unsigned int                  
  // cells
  m_cellToPointSources(      NULL                       ),
  m_numberOfCellToPointSourcesMappings(0                ),
- m_pointSources(            NULL                       )
+ m_pointSources(            NULL                       ),
+
+ m_stopwatch(               i_stopwatch                ),
+ m_stopwatchDR(             i_stopwatchDR              )
 {
     // assert all pointers are valid
     assert( m_meshStructure                            != NULL );
@@ -249,6 +254,9 @@ void seissol::time_stepping::TimeCluster::computeSources() {
 void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initializers::Layer&  layerData ) {
   SCOREP_USER_REGION( "computeDynamicRupture", SCOREP_USER_REGION_TYPE_FUNCTION )
 
+  m_stopwatch->start();
+  m_stopwatchDR->start();
+
   DRFaceInformation*                    faceInformation                                                   = layerData.var(m_dynRup->faceInformation);
   DRGodunovData*                        godunovData                                                       = layerData.var(m_dynRup->godunovData);
   real**                                timeDerivativePlus                                                = layerData.var(m_dynRup->timeDerivativePlus);
@@ -283,6 +291,9 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
                                             waveSpeedsPlus[face],
                                             waveSpeedsMinus[face] );
   }
+
+  m_stopwatchDR->pause();
+  m_stopwatch->pause();
 }
 
 
@@ -435,6 +446,8 @@ void seissol::time_stepping::TimeCluster::waitForInits() {
 void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::initializers::Layer&  i_layerData ) {
   SCOREP_USER_REGION( "computeLocalIntegration", SCOREP_USER_REGION_TYPE_FUNCTION )
 
+  m_stopwatch->start();
+
   // local integration buffer
   real l_integrationBuffer[NUMBER_OF_ALIGNED_DOFS] __attribute__((aligned(ALIGNMENT)));
 
@@ -498,10 +511,14 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration( seissol::init
       }
     }
   }
+
+  m_stopwatch->pause();
 }
 
 void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol::initializers::Layer&  i_layerData ) {
   SCOREP_USER_REGION( "computeNeighboringIntegration", SCOREP_USER_REGION_TYPE_FUNCTION )
+
+  m_stopwatch->start();
 
   real                      (*dofs)[NUMBER_OF_ALIGNED_DOFS] = i_layerData.var(m_lts->dofs);
   real*                     (*faceNeighbors)[4]             = i_layerData.var(m_lts->faceNeighbors);
@@ -584,11 +601,13 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegration( seissol
                                                               dofs[l_cell] );
 #endif // INTEGRATE_QUANTITIES
   }
-  
+
   #ifdef USE_PLASTICITY
   g_SeisSolNonZeroFlopsPlasticity += i_layerData.getNumberOfCells() * m_flops_nonZero[PlasticityCheck] + numberOTetsWithPlasticYielding * m_flops_nonZero[PlasticityYield];
   g_SeisSolHardwareFlopsPlasticity += i_layerData.getNumberOfCells() * m_flops_hardware[PlasticityCheck] + numberOTetsWithPlasticYielding * m_flops_hardware[PlasticityYield];
   #endif
+
+  m_stopwatch->pause();
 }
 
 #ifdef USE_MPI
@@ -613,8 +632,8 @@ bool seissol::time_stepping::TimeCluster::computeLocalCopy(){
 #endif
 
   // MPI checks for receiver writes receivers either in the copy layer or interior
-  if( m_updatable.localInterior ) {  
-    writeReceivers();  
+  if( m_updatable.localInterior ) {
+    writeReceivers();
   }
 
   // integrate copy layer locally
@@ -665,7 +684,7 @@ void seissol::time_stepping::TimeCluster::computeLocalInterior(){
   // MPI checks for receiver writes receivers either in the copy layer or interior
 #ifdef USE_MPI
   if( m_updatable.localCopy ) {
-    writeReceivers();    
+    writeReceivers();
   }
 #else
   // non-MPI checks for write in the interior
@@ -784,7 +803,7 @@ void seissol::time_stepping::TimeCluster::computeNeighboringInterior() {
   g_SeisSolHardwareFlopsDynamicRupture += m_flops_hardware[DRNeighborInterior];
 
   // compute dynamic rupture, update simulation time and statistics
-  if( !m_updatable.neighboringCopy ) {    
+  if( !m_updatable.neighboringCopy ) {
     // First cluster calls fault receiver output
     // TODO: Change from iteration based to time based
     if (m_clusterId == 0) {
@@ -883,7 +902,7 @@ void seissol::time_stepping::TimeCluster::computeFlops()
 
   computeDynamicRuptureFlops( m_dynRupClusterData->child<Copy>(), m_flops_nonZero[DRFrictionLawCopy], m_flops_hardware[DRFrictionLawCopy] );
   computeDynamicRuptureFlops( m_dynRupClusterData->child<Interior>(), m_flops_nonZero[DRFrictionLawInterior], m_flops_hardware[DRFrictionLawInterior] );
-  
+
   seissol::kernels::Plasticity::flopsPlasticity(  m_flops_nonZero[PlasticityCheck],
                                                   m_flops_hardware[PlasticityCheck],
                                                   m_flops_nonZero[PlasticityYield],

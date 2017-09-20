@@ -53,6 +53,7 @@
 #include <Initializer/time_stepping/LtsLayout.h>
 #include <Solver/FreeSurfaceIntegrator.h>
 #include "TimeCluster.h"
+#include "Monitoring/Stopwatch.h"
 
 // some check for correct functionality
 #ifdef NUMBER_OF_THREADS_PER_GLOBALDATA_COPY
@@ -113,6 +114,12 @@ class seissol::time_stepping::TimeManager {
 
     //! queue of clusters which are allowed to update their interior with the neighboring cells contribution
     std::priority_queue< TimeCluster*, std::vector<TimeCluster*>, clusterCompare > m_neighboringInteriorQueue;
+    
+    //! Stopwatch
+    Stopwatch m_stopwatch;
+
+    //! Stopwatch dynamic rupture
+    Stopwatch m_stopwatchDR;
 
     /**
      * Checks if the time stepping restrictions for this cluster and its neighbors changed.
@@ -227,6 +234,8 @@ class seissol::time_stepping::TimeManager {
       return NULL;
     }
 #endif
+
+    void printComputationTime();
 };
 
 #endif
