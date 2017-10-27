@@ -87,6 +87,7 @@ MODULE ini_model_DR_mod
   PRIVATE :: background_LAN2
   PRIVATE :: background_LAN3
   PRIVATE :: background_LANDERS
+  PRIVAT  :: background_LANDERS_R
   PRIVATE :: background_ALA
   PRIVATE :: background_NORTH
   PRIVATE :: background_TPV101
@@ -203,6 +204,9 @@ MODULE ini_model_DR_mod
     CASE(65,66)
        ! Landers background stress model using Aochis calculation method
      CALL background_LANDERS (DISC,EQN,MESH,BND)
+    CASE(67)
+       ! Landers background stress model using Aochis calculation method + varying R
+     CALL background_LANDERS_R (DISC,EQN,MESH,BND)
     CASE(70)
        ! Alaska background stress model
        CALL background_ALA(DISC,EQN,MESH,BND)
@@ -3840,6 +3844,194 @@ MODULE ini_model_DR_mod
   ENDDO !    MESH%Fault%nSide
 
   END SUBROUTINE background_LANDERS
+
+  SUBROUTINE background_LANDERS_R (DISC,EQN,MESH,BND)
+  !-------------------------------------------------------------------------!
+  USE DGBasis_mod
+  !-------------------------------------------------------------------------!
+  IMPLICIT NONE
+  !-------------------------------------------------------------------------!
+  TYPE(tDiscretization), target  :: DISC
+  TYPE(tEquations)               :: EQN
+  TYPE(tUnstructMesh)            :: MESH
+  TYPE (tBoundary)               :: BND
+  !-------------------------------------------------------------------------!
+  ! Local variable declaration
+  INTEGER                        :: i,j
+  INTEGER                        :: iSide,iElem,iBndGP
+  INTEGER                        :: iLocalNeighborSide,iNeighbor
+  INTEGER                        :: MPIIndex, iObject
+  INTEGER                        :: k, nLayers, Laterally_homogenous_Stress
+  REAL                           :: xV(MESH%GlobalVrtxType),yV(MESH%GlobalVrtxType),zV(MESH%GlobalVrtxType)
+  REAL                           :: chi,tau
+  REAL                           :: xi, eta, zeta, XGp, YGp, ZGp
+  REAL                           :: b11, b22, b12, b13, b23, Omega, g, Pf, zIncreasingCohesion
+  REAL                           :: b11_N, b22_N, b12_N, b13_N, b23_N
+  REAL                           :: b11_C, b22_C, b12_C, b13_C, b23_C
+  REAL                           :: b11_S, b22_S, b12_S, b13_S, b23_S
+  REAL                           :: yN1, yN2, yS1, yS2, xS1, xS2, alpha
+  REAL                           :: sigzz, Rz, zLayers(20), rhoLayers(20)
+  REAL                           :: bii(6)
+  !-------------------------------------------------------------------------!
+  INTENT(IN)    :: MESH, BND
+  INTENT(INOUT) :: DISC,EQN
+  !-------------------------------------------------------------------------!
+  ! depth dependent stress function (gravity)
+  ! NOTE: z negative is depth, free surface is at z=0
+
+  g = 9.8D0
+  !zIncreasingCohesion = -10000.
+  ! Loop over every mesh element
+  DO i = 1, MESH%Fault%nSide
+
+      ! element ID
+      iElem = MESH%Fault%Face(i,1,1)
+      iSide = MESH%Fault%Face(i,2,1)
+
+      EQN%IniBulk_xx(i,:)  =  EQN%Bulk_xx_0
+      EQN%IniBulk_yy(i,:)  =  EQN%Bulk_yy_0
+      EQN%IniBulk_zz(i,:)  =  EQN%Bulk_zz_0
+      EQN%IniShearXY(i,:)  =  EQN%ShearXY_0
+      EQN%IniShearYZ(i,:)  =  EQN%ShearYZ_0
+      EQN%IniShearXZ(i,:)  =  EQN%ShearXZ_0
+
+      ! ini frictional parameters
+      !EQN%IniStateVar(i,:) =  EQN%RS_sv0
+
+      ! Gauss node coordinate definition and stress assignment
+      ! get vertices of complete tet
+      IF (MESH%Fault%Face(i,1,1) == 0) THEN
+          ! iElem is in the neighbor domain
+          ! The neighbor element belongs to a different MPI domain
+          iNeighbor           = MESH%Fault%Face(i,1,2)          ! iNeighbor denotes "-" side
+          iLocalNeighborSide  = MESH%Fault%Face(i,2,2)
+          iObject  = MESH%ELEM%BoundaryToObject(iLocalNeighborSide,iNeighbor)
+          MPIIndex = MESH%ELEM%MPINumber(iLocalNeighborSide,iNeighbor)
+          !
+          xV(1:4) = BND%ObjMPI(iObject)%NeighborCoords(1,1:4,MPIIndex)
+          yV(1:4) = BND%ObjMPI(iObject)%NeighborCoords(2,1:4,MPIIndex)
+          zV(1:4) = BND%ObjMPI(iObject)%NeighborCoords(3,1:4,MPIIndex)
+      ELSE
+          !
+          ! get vertices
+          xV(1:4) = MESH%VRTX%xyNode(1,MESH%ELEM%Vertex(1:4,iElem))
+          yV(1:4) = MESH%VRTX%xyNode(2,MESH%ELEM%Vertex(1:4,iElem))
+          zV(1:4) = MESH%VRTX%xyNode(3,MESH%ELEM%Vertex(1:4,iElem))
+      ENDIF
+
+      DO iBndGP = 1,DISC%Galerkin%nBndGP
+          !
+          ! Transformation of boundary GP's into XYZ coordinate system
+          chi  = MESH%ELEM%BndGP_Tri(1,iBndGP)
+          tau  = MESH%ELEM%BndGP_Tri(2,iBndGP)
+          CALL TrafoChiTau2XiEtaZeta(xi,eta,zeta,chi,tau,iSide,0)
+          CALL TetraTrafoXiEtaZeta2XYZ(xGP,yGP,zGP,xi,eta,zeta,xV,yV,zV)
+          !
+
+          ! TO BE USED WITH 1d Layered medium
+          !free surface assumed at z=1200m
+          !nLayers = 7
+          !zLayers (1:7) = (/ -300d0+1500d0,-1000d0+1500d0, -3000d0+1500d0, -5000d0+1500d0, -6000d0+1500d0,-11000d0+1500d0, -16000.d0+1500d0 /)
+          !rhoLayers (1:7) = (/ 2349.3d0, 2592.9d0, 2700d0, 2750.0d0, 2800.0d0, 2825.0d0, 2850.0d0 /)
+          !sigzz = 0d0
+
+
+         ! DO k=2,nLayers
+             ! handle values above the first layer
+             !IF (zGP.GT.zLayers(1)) THEN
+                !sigzz = 0.0
+                !EXIT
+             !ENDIF
+
+             !IF (zGP.GT.zLayers(k)) THEN
+                !sigzz = sigzz + rhoLayers(k-1)*(zGP-zLayers(k-1))*g
+                !EXIT
+             !ELSE
+                !sigzz = sigzz + rhoLayers(k-1)*(zLayers(k)-zLayers(k-1))*g
+             !ENDIF
+          !ENDDO
+
+          !set vertical force
+          sigzz = 2700.0d0*g*(MIN(zGP-1400,0.0))
+          !constant when higher than 80MPa
+          !sigzz = max(-EQN%Ini_depth, sigzz)
+
+
+
+          !see Smoothstep function order 1 (e.g. wikipedia)
+          IF (zGP.GE.zStressIncreaseStart) THEN
+              Rz = ratioRtopo
+          ELSEIF ((zGP.LT.zStressIncreaseStart).AND.(zGP.GE.zStressIncreaseStop)) THEN
+               x = 1-(zGP-zStressIncreaseStop)/zStressIncreaseWidth
+             Sx = (3d0*x**2-2d0*x**3)
+             Rz = ratioRtopo + (1d0-ratioRtopo)*Sx
+          ELSEIF (zGP.GE.zStressDecreaseStart) THEN
+             Rz = 1d0
+          ELSEIF (zGP.GE.zStressDecreaseStop) THEN
+             x = 1d0-(zGP-zStressDecreaseStop)/zStressDecreaseWidth
+             Sx = (3d0*x**2-2d0*x**3)
+             Rz = 1d0-Sx
+          ELSE
+             Rz=0d0
+          ENDIF
+
+          CALL STRESS_STR_DIP_SLIP_AM(DISC, EQN%StressAngle, 90.0 , sigmazz, DISC%DynRup%cohesion_0, Rz, .False., bii)
+          bii = bii/bii(3)
+          b11=bii(1);b22=bii(2);b33=bii(3);b12=bii(4);b23=bii(5);b13=bii(6)
+
+
+
+          Omega = 1.0 !max(0D0,min(1d0, 1D0-Rz))
+
+          !be careful: z might become positive and than the sign switches!
+          IF (zGP .GT. 0.0) THEN
+             Pf = 0.0
+          ELSE
+             Pf = -1000D0 * g * zGP * 1d0
+          ENDIF
+
+          !ensure that Pf does not exceed sigmazz
+          !IF (zGP.GE.-5e3) THEN
+             !Pf = -1000D0 * g * zGP * 1d0
+          !ELSEIF (zGP.GE.-10e3) THEN
+             !alpha = (-5e3-zGP)/5e3
+             !Pf = -1000D0 * g * zGP * (1d0+alpha)
+          !ELSE
+             !Pf = -1000D0 * g * zGP * 2d0
+          !ENDIF
+
+          EQN%IniBulk_zz(i,iBndGP)  =  sigzz*b33
+          EQN%IniBulk_xx(i,iBndGP)  =  Omega*(b11*(EQN%IniBulk_zz(i,iBndGP)+Pf)-Pf)+(1d0-Omega)*EQN%IniBulk_zz(i,iBndGP)
+          EQN%IniBulk_yy(i,iBndGP)  =  Omega*(b22*(EQN%IniBulk_zz(i,iBndGP)+Pf)-Pf)+(1d0-Omega)*EQN%IniBulk_zz(i,iBndGP)
+          EQN%IniShearXY(i,iBndGP)  =  Omega*(b12*(EQN%IniBulk_zz(i,iBndGP)+Pf))
+          EQN%IniShearXZ(i,iBndGP)  =  Omega*(b13*(EQN%IniBulk_zz(i,iBndGP)+Pf))
+          EQN%IniShearYZ(i,iBndGP)  =  Omega*(b23*(EQN%IniBulk_zz(i,iBndGP)+Pf))
+          EQN%IniBulk_xx(i,iBndGP)  =  EQN%IniBulk_xx(i,iBndGP) + Pf
+          EQN%IniBulk_yy(i,iBndGP)  =  EQN%IniBulk_yy(i,iBndGP) + Pf
+          EQN%IniBulk_zz(i,iBndGP)  =  EQN%IniBulk_zz(i,iBndGP) + Pf
+
+
+          ! manage cohesion
+          ! depth dependent, constant for cohesion_max = 0 (is 0 if not otherwise declared in the parameter file)
+          IF (zGP.GT.-DISC%DynRup%cohesion_depth) THEN
+              DISC%DynRup%cohesion(iBndGP,i) =  DISC%DynRup%cohesion_0 - DISC%DynRup%cohesion_max*(DISC%DynRup%cohesion_depth+zGP)/(DISC%DynRup%cohesion_depth+1500.0)
+          ELSE
+              DISC%DynRup%cohesion(iBndGP,i) = DISC%DynRup%cohesion_0
+          ENDIF
+
+          !set weaker last segment
+          IF (DISC%DynRup%weaker.NE.0) THEN
+             IF (yGP .GE. 3822649.0) THEN
+                EQN%IniMu(iBndGP,i) = DISC%DynRup%Mu_S_ini - DISC%DynRup%weaker
+                DISC%DynRup%Mu_S(iBndGP,i) = DISC%DynRup%Mu_S_ini - DISC%DynRup%weaker
+             ENDIF
+          ENDIF
+
+      ENDDO ! iBndGP
+
+  ENDDO !    MESH%Fault%nSide
+
+  END SUBROUTINE background_LANDERS_R
 
 
   !> Alaska dipping fault backround stress model
