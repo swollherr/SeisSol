@@ -87,7 +87,7 @@ MODULE ini_model_DR_mod
   PRIVATE :: background_LAN2
   PRIVATE :: background_LAN3
   PRIVATE :: background_LANDERS
-  PRIVAT  :: background_LANDERS_R
+  PRIVATE  :: background_LANDERS_R
   PRIVATE :: background_ALA
   PRIVATE :: background_NORTH
   PRIVATE :: background_TPV101
@@ -3678,9 +3678,6 @@ MODULE ini_model_DR_mod
   REAL                           :: chi,tau
   REAL                           :: xi, eta, zeta, XGp, YGp, ZGp
   REAL                           :: b11, b22, b12, b13, b23, Omega, g, Pf, zIncreasingCohesion
-  REAL                           :: b11_N, b22_N, b12_N, b13_N, b23_N
-  REAL                           :: b11_C, b22_C, b12_C, b13_C, b23_C
-  REAL                           :: b11_S, b22_S, b12_S, b13_S, b23_S
   REAL                           :: yN1, yN2, yS1, yS2, xS1, xS2, alpha
   REAL                           :: sigzz, Rz, zLayers(20), rhoLayers(20)
   REAL                           :: bii(6)
@@ -3865,13 +3862,16 @@ MODULE ini_model_DR_mod
   REAL                           :: xV(MESH%GlobalVrtxType),yV(MESH%GlobalVrtxType),zV(MESH%GlobalVrtxType)
   REAL                           :: chi,tau
   REAL                           :: xi, eta, zeta, XGp, YGp, ZGp
-  REAL                           :: b11, b22, b12, b13, b23, Omega, g, Pf, zIncreasingCohesion
-  REAL                           :: b11_N, b22_N, b12_N, b13_N, b23_N
-  REAL                           :: b11_C, b22_C, b12_C, b13_C, b23_C
-  REAL                           :: b11_S, b22_S, b12_S, b13_S, b23_S
+  REAL                           :: b11, b22, b33, b12, b13, b23, Omega, g, Pf, zIncreasingCohesion
+  !REAL                           :: b11_N, b22_N, b12_N, b13_N, b23_N
+  !REAL                           :: b11_C, b22_C, b12_C, b13_C, b23_C
+  !REAL                           :: b11_S, b22_S, b12_S, b13_S, b23_S
   REAL                           :: yN1, yN2, yS1, yS2, xS1, xS2, alpha
   REAL                           :: sigzz, Rz, zLayers(20), rhoLayers(20)
   REAL                           :: bii(6)
+  REAL                           :: zStressIncreaseStart, zStressIncreaseStop, zStressIncreaseWidth
+  REAL                           :: ratioRtopo, Sx, x 
+  REAL                           :: zStressDecreaseStart, zStressDecreaseWidth, zStressDecreaseStop 
   !-------------------------------------------------------------------------!
   INTENT(IN)    :: MESH, BND
   INTENT(INOUT) :: DISC,EQN
@@ -3880,6 +3880,13 @@ MODULE ini_model_DR_mod
   ! NOTE: z negative is depth, free surface is at z=0
 
   g = 9.8D0
+  ratioRtopo = 0.6
+  zStressIncreaseStart = -2500.0
+  zStressIncreaseStop = -4500.0
+  zStressIncreaseWidth = zStressIncreaseStart - zStressIncreaseStop
+  zStressDecreaseStart = -7000.0
+  zStressDecreaseStop = -11000.0
+  zStressDecreaseWidth = zStressDecreaseStart - zStressDecreaseStop
   !zIncreasingCohesion = -10000.
   ! Loop over every mesh element
   DO i = 1, MESH%Fault%nSide
@@ -3975,7 +3982,7 @@ MODULE ini_model_DR_mod
              Rz=0d0
           ENDIF
 
-          CALL STRESS_STR_DIP_SLIP_AM(DISC, EQN%StressAngle, 90.0 , sigmazz, DISC%DynRup%cohesion_0, Rz, .False., bii)
+          CALL STRESS_STR_DIP_SLIP_AM(DISC, EQN%StressAngle, 90.0 , sigzz, DISC%DynRup%cohesion_0, Rz*EQN%Rvalue, .False., bii)
           bii = bii/bii(3)
           b11=bii(1);b22=bii(2);b33=bii(3);b12=bii(4);b23=bii(5);b13=bii(6)
 
@@ -3987,7 +3994,7 @@ MODULE ini_model_DR_mod
           IF (zGP .GT. 0.0) THEN
              Pf = 0.0
           ELSE
-             Pf = -1000D0 * g * zGP * 1d0
+             Pf = -1000D0 * g * MIN(zGP-1400,0.0) * 1d0
           ENDIF
 
           !ensure that Pf does not exceed sigmazz
