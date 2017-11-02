@@ -107,6 +107,7 @@ CONTAINS
     INTEGER                         :: NX, NY, NZ, zoneNum, nPert, counter
     INTEGER, POINTER                :: PertMaterial(:)
     INTEGER, POINTER                :: ElemID(:)
+    INTEGER                         :: cohesionType
     REAL                            :: Mat_Vert(MESH%nVertexMax,EQN%nBackgroundVar), Mat_Sum(EQN%nBackgroundVar), MaterialTmp(EQN%nAneMaterialVar)
     REAL                            :: x, y, z, ztest, r, rBary, cp, cs, rho, mu, lambda, depths(4), radius, radius_ref
     REAL, POINTER                   :: xrf(:), yrf(:), zrf(:), pertrf(:,:,:,:)
@@ -132,6 +133,9 @@ CONTAINS
     REAL                            :: nLayers, zLayers(20), rhoLayers(20)
     REAL                            :: sigzz, Rz, g
     REAL                            :: bii(6)
+    REAL                            :: zStressIncreaseStart, zStressIncreaseStop, zStressIncreaseWidth
+    REAL                            :: ratioRtopo, Sx, xx
+    REAL                            :: zStressDecreaseStart, zStressDecreaseWidth, zStressDecreaseStop
     INTEGER         :: nTens3GP
     REAL,POINTER    :: Tens3GaussP(:,:)
     REAL,POINTER    :: Tens3GaussW(:)
@@ -937,21 +941,6 @@ CONTAINS
                    STOP
               ENDIF
 
-              !DO k=2,nLayers
-                 !handle case when z is higher than the highest layer
-                 !IF (ztest .GT. zLayers(1)) THEN
-                     !sigzz = 0.0
-                     !EXIT
-                 !ENDIF
-
-                 !IF (ztest.GT.zLayers(k)) THEN
-                     !sigzz = sigzz + rhoLayers(k-1)*(ztest-zLayers(k-1))*g
-                     !EXIT
-                 !ELSE
-                     !sigzz = sigzz + rhoLayers(k-1)*(zLayers(k)-zLayers(k-1))*g
-                !ENDIF
-             !ENDDO
-
              !set vertical force
              sigzz = 2700.0*g*(MIN(ztest-1400,0.0))
              !constant when higher than 80MPa
@@ -992,6 +981,125 @@ CONTAINS
           ENDDO ! iElem
         ENDIF !case 65
       ENDIF! plasticity
+
+      CASE(104)! varying R and asagi+Landers
+
+         cohesiontype = 3
+         ratioRtopo = 0.6
+         zStressIncreaseStart = -2500.0
+         zStressIncreaseStop = -4500.0
+         zStressIncreaseWidth = zStressIncreaseStart - zStressIncreaseStop
+         zStressDecreaseStart = -7000.0
+         zStressDecreaseStop = -11000.0
+         zStressDecreaseWidth = zStressDecreaseStart - zStressDecreaseStop
+         !read in data from asagi
+         call readVelocityField(eqn, mesh, materialVal(:,1:3))
+         !
+         ! shift it up because the fault is at 1390m above NN
+         DO iElem = 1, MESH%nElem
+             z = MESH%ELEM%xyBary(3,iElem)
+             y = MESH%ELEM%xyBary(2,iElem) !average y coordinate inside an element
+             x = MESH%ELEM%xyBary(1,iElem) !average x coordinate inside an element
+             !Plasticity initializations
+             IF (EQN%Plasticity.EQ.1) THEN
+                !stress_depth = EQN%Ini_depth
+
+                ! assign depth dependent plastic cohesion
+                SELECT CASE(cohesionType)
+
+                CASE(1) !original cohesion model, used in plasticity paper, based on Roten et al. 2015 for granite
+                !aligned with velocity structure
+                IF (z.GE. 1200.0) THEN !first layer until -300+1500
+                   EQN%PlastCo(iElem) = 2.0e+06
+                ELSEIF ((z.LT. 1200.0).AND.(z.GE.500.0)) THEN !second layer between -300+1500 and -1000+1500
+                   EQN%PlastCo(iElem) = 6.0e+06
+                ELSEIF ((z.LT. 500.0).AND.(z.GE.-1500.0)) THEN !between -1000+1500 and -3000+1500
+                   EQN%PlastCo(iElem) = 10.0e+06
+                ELSE
+                   EQN%PlastCo(iElem) = 12.0e+06
+                ENDIF !cohesion
+
+                CASE(2) !linear model, based on Roten et al. 2015 for granite, but weaker zone is 1.4km instead of 1km deep
+                !linear decrease from 2 to 14 mPa
+                IF (z.GE. 0.0) THEN !
+                   EQN%PlastCo(iElem) = 1.0e+06
+                ELSEIF ((z.LT. 0.0) .AND. (z.GE. -2500.0)) THEN !first layer until -300+1500
+                   EQN%PlastCo(iElem) = 1.0e+06 + 6.4e+06*abs(z)/1000.0D0
+                ELSEIF ((z.LT. -2500.0).AND.(z.GE.-10000.0)) THEN !between -3000+1500 and -11000+1500
+                   EQN%PlastCo(iElem) = 17.0e+06 + 10.0e+06*(abs(z)-2500.0D0)/10000.0D0
+                ELSEIF (z.LT.-10000.0D0) THEN
+                   EQN%PlastCo(iElem) = 24.5e+06
+                ENDIF !cohesion
+
+
+                CASE(3) !linear model, based on Roten et al. 2015 for granite, but weaker zone is 1.4km instead of 1km deep
+                !linear decrease from 2 to 14 mPa
+                IF (z.GE. 1200.0) THEN !
+                   EQN%PlastCo(iElem) = 2.0e+06
+                ELSEIF ((z.LT. 1200.0) .AND. (z.GE. -2500.0)) THEN !first layer until -300+1500
+                   EQN%PlastCo(iElem) = 2.0e+06 + 2.702e+06*(abs(z-1200))/1000.0D0
+                ELSEIF ((z.LT. -2500.0).AND.(z.GE.-10000.0)) THEN !between -3000+1500 and -11000+1500
+                   EQN%PlastCo(iElem) = 12.0e+06 + 16.0e+06*(abs(z)-2500.0D0)/10000.0D0
+                ELSEIF (z.LT.-10000.0D0) THEN
+                   EQN%PlastCo(iElem) = 24.0e+06
+                ENDIF !cohesion
+                END SELECT
+
+                !assign new stresses with varying R value
+                g = 9.8D0
+                !set vertical force
+                sigzz = 2700.0*g*(MIN(z-1400,0.0))
+
+
+                Omega = 1.0 !max(0D0,min(1d0, 1D0-Rz))
+
+
+                !see Smoothstep function order 1 (e.g. wikipedia)
+                IF (z.GE.zStressIncreaseStart) THEN
+                   Rz = ratioRtopo
+                ELSEIF ((z.LT.zStressIncreaseStart).AND.(z.GE.zStressIncreaseStop)) THEN
+                   xx = 1-(z-zStressIncreaseStop)/zStressIncreaseWidth
+                   Sx = (3d0*x**2-2d0*x**3)
+                   Rz = ratioRtopo + (1d0-ratioRtopo)*Sx
+                ELSEIF (z.GE.zStressDecreaseStart) THEN
+                   Rz = 1d0
+                ELSEIF (z.GE.zStressDecreaseStop) THEN
+                   xx = 1d0-(z-zStressDecreaseStop)/zStressDecreaseWidth
+                   Sx = (3d0*x**2-2d0*x**3)
+                   Rz = 1d0-Sx
+                ELSE
+                   Rz=0d0
+                ENDIF
+
+                CALL STRESS_STR_DIP_SLIP_AM(DISC, EQN%StressAngle, 90.0 , sigzz, DISC%DynRup%cohesion_0, Rz*EQN%Rvalue, .False., bii)
+                bii = bii/bii(3)
+                b11=bii(1);b22=bii(2);b33=bii(3);b12=bii(4);b23=bii(5);b13=bii(6)
+
+
+                !be careful: z might become positive and than the sign switches!
+                 Pf = -1000D0 * g * MIN(z-1400,0.0) * 1d0
+
+             ! stress tensor for plasticity, elementwise assignement
+             !sigma_zz
+             EQN%IniStress(3,iElem)  = sigzz*b33
+             !sigma_xx
+             EQN%IniStress(1,iElem)  = Omega*(b11*(sigzz + Pf)-Pf)+(1d0-Omega)*sigzz
+             !sigma_yy
+             EQN%IniStress(2,iElem)  = Omega*(b22*(sigzz + Pf)-Pf)+(1d0-Omega)*sigzz
+             !sigma_xy
+             EQN%IniStress(4,iElem)  = Omega*(b12*(sigzz + Pf))
+             !sigma_yz
+             EQN%IniStress(5,iElem)  = Omega*(b23*(sigzz + Pf))
+             !sigma_xz
+             EQN%IniStress(6,iElem)  = Omega*(b13*(sigzz + Pf))
+             !add fluid pressure
+             EQN%IniStress(1,iElem)  = EQN%IniStress(1,iElem) + Pf
+             EQN%IniStress(2,iElem)  = EQN%IniStress(2,iElem) + Pf
+             EQN%IniStress(3,iElem)  = EQN%IniStress(3,iElem) + Pf
+
+        ENDIF! plasticity
+       ENDDO ! iElem
+
 
       CASE(99) ! special case of 1D layered medium, imposed without meshed layers
       ! Northridge regional 1D velocity structure for sediments sites after Wald et al. 1996
