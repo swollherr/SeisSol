@@ -985,24 +985,23 @@ CONTAINS
       CASE(104)! varying R and asagi+Landers
 
          cohesiontype = 3
-         ratioRtopo = 0.6
-         zStressIncreaseStart = -2500.0
-         zStressIncreaseStop = -4500.0
+         ratioRtopo = EQN%Bulk_zz_0
+         zStressIncreaseStart = EQN%Bulk_xx_0
+         zStressIncreaseStop = EQN%Bulk_yy_0
          zStressIncreaseWidth = zStressIncreaseStart - zStressIncreaseStop
-         zStressDecreaseStart = -7000.0
-         zStressDecreaseStop = -11000.0
+         zStressDecreaseStart = EQN%ShearXY_0
+         zStressDecreaseStop = EQN%ShearYZ_0
          zStressDecreaseWidth = zStressDecreaseStart - zStressDecreaseStop
+
          !read in data from asagi
          call readVelocityField(eqn, mesh, materialVal(:,1:3))
          !
+         IF (EQN%Plasticity.EQ.1) THEN
          ! shift it up because the fault is at 1390m above NN
          DO iElem = 1, MESH%nElem
              z = MESH%ELEM%xyBary(3,iElem)
              y = MESH%ELEM%xyBary(2,iElem) !average y coordinate inside an element
              x = MESH%ELEM%xyBary(1,iElem) !average x coordinate inside an element
-             !Plasticity initializations
-             IF (EQN%Plasticity.EQ.1) THEN
-                !stress_depth = EQN%Ini_depth
 
                 ! assign depth dependent plastic cohesion
                 SELECT CASE(cohesionType)
@@ -1083,23 +1082,23 @@ CONTAINS
              !sigma_zz
              EQN%IniStress(3,iElem)  = sigzz*b33
              !sigma_xx
-             EQN%IniStress(1,iElem)  = Omega*(b11*(sigzz + Pf)-Pf)+(1d0-Omega)*sigzz
+             EQN%IniStress(1,iElem)  = Omega*(b11*(EQN%IniStress(3,iElem) + Pf)-Pf)+(1d0-Omega)*EQN%IniStress(3,iElem)
              !sigma_yy
-             EQN%IniStress(2,iElem)  = Omega*(b22*(sigzz + Pf)-Pf)+(1d0-Omega)*sigzz
+             EQN%IniStress(2,iElem)  = Omega*(b22*(EQN%IniStress(3,iElem) + Pf)-Pf)+(1d0-Omega)*EQN%IniStress(3,iElem)
              !sigma_xy
-             EQN%IniStress(4,iElem)  = Omega*(b12*(sigzz + Pf))
+             EQN%IniStress(4,iElem)  = Omega*(b12*(EQN%IniStress(3,iElem) + Pf))
              !sigma_yz
-             EQN%IniStress(5,iElem)  = Omega*(b23*(sigzz + Pf))
+             EQN%IniStress(5,iElem)  = Omega*(b23*(EQN%IniStress(3,iElem) + Pf))
              !sigma_xz
-             EQN%IniStress(6,iElem)  = Omega*(b13*(sigzz + Pf))
+             EQN%IniStress(6,iElem)  = Omega*(b13*(EQN%IniStress(3,iElem) + Pf))
              !add fluid pressure
              EQN%IniStress(1,iElem)  = EQN%IniStress(1,iElem) + Pf
              EQN%IniStress(2,iElem)  = EQN%IniStress(2,iElem) + Pf
              EQN%IniStress(3,iElem)  = EQN%IniStress(3,iElem) + Pf
 
-        ENDIF! plasticity
        ENDDO ! iElem
 
+       ENDIF! plasticity
 
       CASE(99) ! special case of 1D layered medium, imposed without meshed layers
       ! Northridge regional 1D velocity structure for sediments sites after Wald et al. 1996

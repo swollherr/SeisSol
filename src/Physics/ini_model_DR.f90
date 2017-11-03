@@ -3880,12 +3880,12 @@ MODULE ini_model_DR_mod
   ! NOTE: z negative is depth, free surface is at z=0
 
   g = 9.8D0
-  ratioRtopo = 0.6
-  zStressIncreaseStart = -2500.0
-  zStressIncreaseStop = -4500.0
+  ratioRtopo = EQN%Bulk_zz_0
+  zStressIncreaseStart = EQN%Bulk_xx_0
+  zStressIncreaseStop = EQN%Bulk_yy_0
   zStressIncreaseWidth = zStressIncreaseStart - zStressIncreaseStop
-  zStressDecreaseStart = -7000.0
-  zStressDecreaseStop = -11000.0
+  zStressDecreaseStart = EQN%ShearXY_0
+  zStressDecreaseStop = EQN%ShearYZ_0
   zStressDecreaseWidth = zStressDecreaseStart - zStressDecreaseStop
   !zIncreasingCohesion = -10000.
   ! Loop over every mesh element
@@ -3895,15 +3895,6 @@ MODULE ini_model_DR_mod
       iElem = MESH%Fault%Face(i,1,1)
       iSide = MESH%Fault%Face(i,2,1)
 
-      EQN%IniBulk_xx(i,:)  =  EQN%Bulk_xx_0
-      EQN%IniBulk_yy(i,:)  =  EQN%Bulk_yy_0
-      EQN%IniBulk_zz(i,:)  =  EQN%Bulk_zz_0
-      EQN%IniShearXY(i,:)  =  EQN%ShearXY_0
-      EQN%IniShearYZ(i,:)  =  EQN%ShearYZ_0
-      EQN%IniShearXZ(i,:)  =  EQN%ShearXZ_0
-
-      ! ini frictional parameters
-      !EQN%IniStateVar(i,:) =  EQN%RS_sv0
 
       ! Gauss node coordinate definition and stress assignment
       ! get vertices of complete tet

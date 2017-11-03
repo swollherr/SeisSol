@@ -1700,7 +1700,7 @@ CONTAINS
            !BACKGROUND VALUES
            DISC%DynRup%BackgroundType = BackgroundType
            SELECT CASE(DISC%DynRup%BackgroundType)
-           CASE(0,1,2,3,4,5,7,10,11,12,13,14,15,26,33,50,60,61,62,65,66,67,70,100,101,103,119,120,1201,1202,121)
+           CASE(0,1,2,3,4,5,7,10,11,12,13,14,15,26,33,50,60,61,62,65,66,70,100,101,103,119,120,1201,1202,121)
              EQN%Bulk_xx_0 = Bulk_xx_0
              EQN%Bulk_yy_0 = Bulk_yy_0
              EQN%Bulk_zz_0 = Bulk_zz_0
@@ -1729,7 +1729,30 @@ CONTAINS
              ELSE
                  logInfo0(*) 'elementwise initialization. '
              ENDIF
-
+           CASE(67)
+             EQN%Bulk_xx_0 = Bulk_xx_0
+             EQN%Bulk_yy_0 = Bulk_yy_0
+             EQN%Bulk_zz_0 = Bulk_zz_0
+             EQN%ShearXY_0 = ShearXY_0
+             EQN%ShearYZ_0 = ShearYZ_0
+             EQN%ShearXZ_0 = ShearXZ_0
+             EQN%Ini_depth = Ini_depth
+             EQN%StressAngle = StressAngle
+             EQN%Rvalue = RValue
+             EQN%incrMus = incrMus
+             EQN%RS_sv0 = RS_sv0
+             EQN%XRef = XRef
+             EQN%YRef = YRef
+             EQN%ZRef = ZRef
+             EQN%refPointMethod = refPointMethod
+             DISC%DynRup%cohesion_0 = cohesion_0
+             DISC%DynRup%cohesion_max = cohesion_max
+             DISC%DynRup%cohesion_depth = cohesion_depth
+             DISC%DynRup%stopping_depth = stopping_depth
+             DISC%DynRup%weaker = weaker
+             DISC%DynRup%change_D_c =  change_D_c
+             EQN%GPwise = GPwise
+ 
            CASE(16,17)
              IO%FileName_BackgroundStress = FileName_BackgroundStress
              EQN%GPwise = GPwise
