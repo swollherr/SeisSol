@@ -607,7 +607,7 @@ CONTAINS
       !
       logInfo0(*) 'Material property zones are defined by SeisSol. '
 
-  CASE(101, 102, 103) ! special case of 3D complex medium, imposed without meshed layers
+  CASE(101, 102, 103, 104) ! special case of 3D complex medium, imposed without meshed layers
       ! e.g. SCEC 3D velocity model surrounding the Northridge fault
       !
       logInfo0(*) 'No material property zones are defined. '
@@ -1700,7 +1700,7 @@ CONTAINS
            !BACKGROUND VALUES
            DISC%DynRup%BackgroundType = BackgroundType
            SELECT CASE(DISC%DynRup%BackgroundType)
-           CASE(0,1,2,3,4,5,7,10,11,12,13,14,15,26,33,50,60,61,62,65,66,70,100,101,103,119,120,1201,1202,121)
+           CASE(0,1,2,3,4,5,7,10,11,12,13,14,15,26,33,50,60,61,62,65,66,67,70,100,101,103,119,120,1201,1202,121)
              EQN%Bulk_xx_0 = Bulk_xx_0
              EQN%Bulk_yy_0 = Bulk_yy_0
              EQN%Bulk_zz_0 = Bulk_zz_0
