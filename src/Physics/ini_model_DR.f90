@@ -3935,35 +3935,10 @@ MODULE ini_model_DR_mod
           CALL TetraTrafoXiEtaZeta2XYZ(xGP,yGP,zGP,xi,eta,zeta,xV,yV,zV)
           !
 
-          ! TO BE USED WITH 1d Layered medium
-          !free surface assumed at z=1200m
-          !nLayers = 7
-          !zLayers (1:7) = (/ -300d0+1500d0,-1000d0+1500d0, -3000d0+1500d0, -5000d0+1500d0, -6000d0+1500d0,-11000d0+1500d0, -16000.d0+1500d0 /)
-          !rhoLayers (1:7) = (/ 2349.3d0, 2592.9d0, 2700d0, 2750.0d0, 2800.0d0, 2825.0d0, 2850.0d0 /)
-          !sigzz = 0d0
-
-
-         ! DO k=2,nLayers
-             ! handle values above the first layer
-             !IF (zGP.GT.zLayers(1)) THEN
-                !sigzz = 0.0
-                !EXIT
-             !ENDIF
-
-             !IF (zGP.GT.zLayers(k)) THEN
-                !sigzz = sigzz + rhoLayers(k-1)*(zGP-zLayers(k-1))*g
-                !EXIT
-             !ELSE
-                !sigzz = sigzz + rhoLayers(k-1)*(zLayers(k)-zLayers(k-1))*g
-             !ENDIF
-          !ENDDO
-
           !set vertical force
           sigzz = 2700.0d0*g*(MIN(zGP-1400,0.0))
           !constant when higher than 80MPa
           !sigzz = max(-EQN%Ini_depth, sigzz)
-
-
 
           !see Smoothstep function order 1 (e.g. wikipedia)
           IF (zGP.GE.zStressIncreaseStart) THEN
@@ -3991,20 +3966,10 @@ MODULE ini_model_DR_mod
           Omega = 1.0 !max(0D0,min(1d0, 1D0-Rz))
 
           !be careful: z might become positive and than the sign switches!
-          IF (zGP .GT. 0.0) THEN
-             Pf = 0.0
-          ELSE
-             Pf = -1000D0 * g * MIN(zGP-1400,0.0) * 1d0
-          ENDIF
-
-          !ensure that Pf does not exceed sigmazz
-          !IF (zGP.GE.-5e3) THEN
-             !Pf = -1000D0 * g * zGP * 1d0
-          !ELSEIF (zGP.GE.-10e3) THEN
-             !alpha = (-5e3-zGP)/5e3
-             !Pf = -1000D0 * g * zGP * (1d0+alpha)
+          !IF (zGP .GT. 0.0) THEN
+             !Pf = 0.0
           !ELSE
-             !Pf = -1000D0 * g * zGP * 2d0
+             Pf = -1000D0 * g * MIN(zGP-1400,0.0) * 1d0
           !ENDIF
 
           EQN%IniBulk_zz(i,iBndGP)  =  sigzz*b33
