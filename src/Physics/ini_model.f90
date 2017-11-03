@@ -1058,13 +1058,13 @@ CONTAINS
                    Rz = ratioRtopo
                 ELSEIF ((z.LT.zStressIncreaseStart).AND.(z.GE.zStressIncreaseStop)) THEN
                    xx = 1-(z-zStressIncreaseStop)/zStressIncreaseWidth
-                   Sx = (3d0*x**2-2d0*x**3)
+                   Sx = (3d0*xx**2-2d0*xx**3)
                    Rz = ratioRtopo + (1d0-ratioRtopo)*Sx
                 ELSEIF (z.GE.zStressDecreaseStart) THEN
                    Rz = 1d0
                 ELSEIF (z.GE.zStressDecreaseStop) THEN
                    xx = 1d0-(z-zStressDecreaseStop)/zStressDecreaseWidth
-                   Sx = (3d0*x**2-2d0*x**3)
+                   Sx = (3d0*xx**2-2d0*xx**3)
                    Rz = 1d0-Sx
                 ELSE
                    Rz=0d0
