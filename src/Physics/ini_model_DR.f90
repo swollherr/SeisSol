@@ -3957,21 +3957,23 @@ MODULE ini_model_DR_mod
           Omega = 1.0 !max(0D0,min(1d0, 1D0-Rz))
 
           !be careful: z might become positive and than the sign switches!
-          !IF (zGP .GT. 0.0) THEN
-             !Pf = 0.0
-          !ELSE
+          IF (zGP .GT. 0.0) THEN
+             Pf = 0.0
+          ELSEIF ((zGP .LE. 0.0).AND.(zGP.GE.-1000.0)) THEN
              Pf = -1000D0 * g * MIN(zGP-1400,0.0) * 1d0
-          !ENDIF
-
-          EQN%IniBulk_zz(i,iBndGP)  =  sigzz*b33
-          EQN%IniBulk_xx(i,iBndGP)  =  Omega*(b11*(EQN%IniBulk_zz(i,iBndGP)+Pf)-Pf)+(1d0-Omega)*EQN%IniBulk_zz(i,iBndGP)
-          EQN%IniBulk_yy(i,iBndGP)  =  Omega*(b22*(EQN%IniBulk_zz(i,iBndGP)+Pf)-Pf)+(1d0-Omega)*EQN%IniBulk_zz(i,iBndGP)
-          EQN%IniShearXY(i,iBndGP)  =  Omega*(b12*(EQN%IniBulk_zz(i,iBndGP)+Pf))
-          EQN%IniShearXZ(i,iBndGP)  =  Omega*(b13*(EQN%IniBulk_zz(i,iBndGP)+Pf))
-          EQN%IniShearYZ(i,iBndGP)  =  Omega*(b23*(EQN%IniBulk_zz(i,iBndGP)+Pf))
+          ELSEIF ((zGP .LE. -1000.0).AND.(zGP.GE.-3000.0)) THEN
+             Pf = -1000D0 * g * MIN(zGP-1400,0.0) *(1+(zGP+1000.0)/-2000.0)
+          ENDIF
+          
+          EQN%IniBulk_zz(i,iBndGP)  =  max(sigzz*b33+Pf, EQN%Ini_depth)
+          EQN%IniBulk_xx(i,iBndGP)  =  Omega*(b11*(EQN%IniBulk_zz(i,iBndGP))-Pf)!+(1d0-Omega)*sigzz*b33 !EQN%IniBulk_zz(i,iBndGP)
+          EQN%IniBulk_yy(i,iBndGP)  =  Omega*(b22*(EQN%IniBulk_zz(i,iBndGP))-Pf)!+(1d0-Omega)*sigzz*b33 !EQN%IniBulk_zz(i,iBndGP)
+          EQN%IniShearXY(i,iBndGP)  =  Omega*(b12*(EQN%IniBulk_zz(i,iBndGP)))
+          EQN%IniShearXZ(i,iBndGP)  =  Omega*(b13*(EQN%IniBulk_zz(i,iBndGP)))
+          EQN%IniShearYZ(i,iBndGP)  =  Omega*(b23*(EQN%IniBulk_zz(i,iBndGP)))
           EQN%IniBulk_xx(i,iBndGP)  =  EQN%IniBulk_xx(i,iBndGP) + Pf
           EQN%IniBulk_yy(i,iBndGP)  =  EQN%IniBulk_yy(i,iBndGP) + Pf
-          EQN%IniBulk_zz(i,iBndGP)  =  EQN%IniBulk_zz(i,iBndGP) + Pf
+          !EQN%IniBulk_zz(i,iBndGP)  =  EQN%IniBulk_zz(i,iBndGP) + Pf
 
 
           ! manage cohesion

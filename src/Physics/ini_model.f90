@@ -1042,6 +1042,21 @@ CONTAINS
                 ELSEIF (z.LT.-10000.0D0) THEN
                    EQN%PlastCo(iElem) = 24.0e+06
                 ENDIF !cohesion
+
+                CASE(4) !linear model, based on Roten et al. 2015 for granite, but weaker zone is 1.4km instead of 1km deep
+                !linear decrease from 3 to 30 MPa
+                IF (z.GE.1300.0) THEN !high cohesion in mountain ranges
+                  EQN%PlastCo(iElem) = 10.0e+06
+                ELSEIF ((z.GE. 1000.0).AND. (z.LT.1300.0)) THEN !
+                   EQN%PlastCo(iElem) = 3.0e+06
+                ELSEIF ((z.LT. 1000.0) .AND. (z.GE. 0.0)) THEN 
+                   EQN%PlastCo(iElem) = 3.0e+06 + 9.0e+06*(1000.0D0-z)/1000.0D0
+                ELSEIF ((z.LT. 0.0).AND.(z.GE.-5000.0)) THEN
+                   EQN%PlastCo(iElem) = 12.0e+06 + 18.0e+06*(abs(z))/5000.0D0
+                ELSEIF (z.LT.-5000.0D0) THEN
+                   EQN%PlastCo(iElem) = 30.0e+06
+                ENDIF !cohesion
+
                 END SELECT
 
                 !assign new stresses with varying R value
@@ -1076,25 +1091,33 @@ CONTAINS
 
 
                 !be careful: z might become positive and than the sign switches!
-                 Pf = -1000D0 * g * MIN(z-1400,0.0) * 1d0
+                 !Pf = -1000D0 * g * MIN(z-1400,0.0) * 2d0
+                 IF (z .GT. 0.0) THEN
+                    Pf = 0.0
+                 ELSEIF ((z .LE. 0.0).AND.(z.GE.-1000.0)) THEN
+                    Pf = -1000D0 * g * MIN(z-1400,0.0) * 1d0
+                 ELSEIF ((z.LE. -1000.0).AND.(z.GE.-3000.0)) THEN
+                    Pf = -1000D0 * g * MIN(z-1400,0.0) *(1+(z+1000.0)/-2000.0)
+                 ENDIF
+
 
              ! stress tensor for plasticity, elementwise assignement
              !sigma_zz
-             EQN%IniStress(3,iElem)  = sigzz*b33
+             EQN%IniStress(3,iElem)  = max(sigzz*b33+Pf, EQN%Ini_depth)
              !sigma_xx
-             EQN%IniStress(1,iElem)  = Omega*(b11*(EQN%IniStress(3,iElem) + Pf)-Pf)+(1d0-Omega)*EQN%IniStress(3,iElem)
+             EQN%IniStress(1,iElem)  = Omega*(b11*(EQN%IniStress(3,iElem))-Pf)!+(1d0-Omega)*EQN%IniStress(3,iElem)
              !sigma_yy
-             EQN%IniStress(2,iElem)  = Omega*(b22*(EQN%IniStress(3,iElem) + Pf)-Pf)+(1d0-Omega)*EQN%IniStress(3,iElem)
+             EQN%IniStress(2,iElem)  = Omega*(b22*(EQN%IniStress(3,iElem))-Pf)!+(1d0-Omega)*EQN%IniStress(3,iElem)
              !sigma_xy
-             EQN%IniStress(4,iElem)  = Omega*(b12*(EQN%IniStress(3,iElem) + Pf))
+             EQN%IniStress(4,iElem)  = Omega*(b12*(EQN%IniStress(3,iElem)))
              !sigma_yz
-             EQN%IniStress(5,iElem)  = Omega*(b23*(EQN%IniStress(3,iElem) + Pf))
+             EQN%IniStress(5,iElem)  = Omega*(b23*(EQN%IniStress(3,iElem)))
              !sigma_xz
-             EQN%IniStress(6,iElem)  = Omega*(b13*(EQN%IniStress(3,iElem) + Pf))
+             EQN%IniStress(6,iElem)  = Omega*(b13*(EQN%IniStress(3,iElem)))
              !add fluid pressure
              EQN%IniStress(1,iElem)  = EQN%IniStress(1,iElem) + Pf
              EQN%IniStress(2,iElem)  = EQN%IniStress(2,iElem) + Pf
-             EQN%IniStress(3,iElem)  = EQN%IniStress(3,iElem) + Pf
+             !EQN%IniStress(3,iElem)  = EQN%IniStress(3,iElem) + Pf
 
        ENDDO ! iElem
 
