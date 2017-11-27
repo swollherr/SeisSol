@@ -59,17 +59,9 @@ def addMatrices(db, matricesDir, order, dynamicRuptureMethod, numberOfElasticQua
 
   # Determine matrices
   # Note: This does only work because the flux does not depend on the mechanisms in the case of viscoelastic attenuation
-  godunovMatrixSpp = np.matlib.zeros((numberOfQuantities,numberOfQuantities))
-  godunovMatrixSpp[0:numberOfElasticQuantities,0:numberOfElasticQuantities] = 1.
-  db.insert(DB.MatrixInfo('godunovMatrix', numberOfQuantities, numberOfQuantities, matrix=godunovMatrixSpp))
-  
-  fluxSolverSpp = np.matlib.zeros((numberOfQuantities,numberOfQuantities))
-  fluxSolverSpp[0:numberOfElasticQuantities,:] = 1.
-  db.insert(DB.MatrixInfo('fluxSolver', numberOfQuantities, numberOfQuantities, matrix=fluxSolverSpp))
-  
-  godunovStateSpp = np.matlib.zeros((numberOfPoints,numberOfQuantities))
-  godunovStateSpp[:,0:numberOfElasticQuantities] = 1.
-  db.insert(DB.MatrixInfo('godunovState', numberOfPoints, numberOfQuantities, matrix=godunovStateSpp))
+  db.insert(DB.MatrixInfo('godunovMatrix', numberOfElasticQuantities, numberOfElasticQuantities)) 
+  db.insert(DB.MatrixInfo('fluxSolver', numberOfElasticQuantities, numberOfQuantities))
+  db.insert(DB.MatrixInfo('godunovState', numberOfPoints, numberOfElasticQuantities))
 
   tVelRotationSpp = np.matlib.zeros((numberOfElasticQuantities, numberOfElasticQuantities), dtype=np.float64)
   tVelRotationSpp[numberOfElasticQuantities-3:numberOfElasticQuantities,numberOfElasticQuantities-2:numberOfElasticQuantities] = 1.0
