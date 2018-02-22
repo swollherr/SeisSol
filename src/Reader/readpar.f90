@@ -1729,7 +1729,7 @@ CONTAINS
              ELSE
                  logInfo0(*) 'elementwise initialization. '
              ENDIF
-           CASE(67,67)
+           CASE(67,68)
              EQN%Bulk_xx_0 = Bulk_xx_0
              EQN%Bulk_yy_0 = Bulk_yy_0
              EQN%Bulk_zz_0 = Bulk_zz_0
