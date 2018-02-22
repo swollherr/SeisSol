@@ -204,7 +204,7 @@ MODULE ini_model_DR_mod
     CASE(65,66)
        ! Landers background stress model using Aochis calculation method
      CALL background_LANDERS (DISC,EQN,MESH,BND)
-    CASE(67)
+    CASE(67,68)
        ! Landers background stress model using Aochis calculation method + varying R
      CALL background_LANDERS_R (DISC,EQN,MESH,BND)
     CASE(70)
@@ -3822,7 +3822,7 @@ MODULE ini_model_DR_mod
 
           ! manage cohesion
           ! depth dependent, constant for cohesion_max = 0 (is 0 if not otherwise declared in the parameter file)
-          IF (zGP.GT.-DISC%DynRup%cohesion_depth) THEN
+          IF (zGP.GT.DISC%DynRup%cohesion_depth) THEN
               DISC%DynRup%cohesion(iBndGP,i) =  DISC%DynRup%cohesion_0 - DISC%DynRup%cohesion_max*(DISC%DynRup%cohesion_depth+zGP)/(DISC%DynRup%cohesion_depth+1500.0)
           ELSE
               DISC%DynRup%cohesion(iBndGP,i) = DISC%DynRup%cohesion_0
@@ -3835,6 +3835,19 @@ MODULE ini_model_DR_mod
                 DISC%DynRup%Mu_S(iBndGP,i) = DISC%DynRup%Mu_S_ini - DISC%DynRup%weaker
              ENDIF
           ENDIF
+
+          ! manage D_C only if desired
+          IF (DISC%DynRup%change_D_c.EQ.1) THEN
+              IF (zGP.GT.DISC%DynRup%cohesion_depth) THEN
+                  ! higher D_C to surpress supershear rupture at free surface
+                  !DISC%DynRup%D_C(iBndGP,i) = DISC%DynRup%D_C_ini+0.6D0*(1.0D0+COS(4.0D0*ATAN(1.0D0) * abs(zGP)/4000.0D0))
+                  DISC%DynRup%D_C(iBndGP,i) = DISC%DynRup%D_C_ini-0.4*log((2000.0D0-zGP)/(2000.0D0-DISC%DynRup%cohesion_depth))
+              !ELSEIF (zGP.LT.-12000.0D0) THEN
+                  !higher D_C in depth mimic brittle ductile transition
+                  !DISC%DynRup%D_C(iBndGP,i) = DISC%DynRup%D_C_ini+1.0D0*(1.0D0+COS(4.0D0*ATAN(1.0D0) * abs(zGP)/4000.0D0))
+              ENDIF
+          ENDIF
+
 
       ENDDO ! iBndGP
 
@@ -3868,7 +3881,7 @@ MODULE ini_model_DR_mod
   !REAL                           :: b11_S, b22_S, b12_S, b13_S, b23_S
   REAL                           :: yN1, yN2, yS1, yS2, xS1, xS2, alpha
   REAL                           :: sigzz, Rz, zLayers(20), rhoLayers(20)
-  REAL                           :: bii(6)
+  REAL                           :: bii(6), shift,depth
   REAL                           :: zStressIncreaseStart, zStressIncreaseStop, zStressIncreaseWidth
   REAL                           :: ratioRtopo, Sx, x 
   REAL                           :: zStressDecreaseStart, zStressDecreaseWidth, zStressDecreaseStop 
@@ -3877,9 +3890,10 @@ MODULE ini_model_DR_mod
   INTENT(INOUT) :: DISC,EQN
   !-------------------------------------------------------------------------!
   ! depth dependent stress function (gravity)
-  ! NOTE: z negative is depth, free surface is at z=0
+  ! NOTE: z negative is depth, free surface is at z=1400m
 
   g = 9.8D0
+  shift=1400.0D0
   ratioRtopo = EQN%Bulk_zz_0
   zStressIncreaseStart = EQN%Bulk_xx_0
   zStressIncreaseStop = EQN%Bulk_yy_0
@@ -3925,9 +3939,9 @@ MODULE ini_model_DR_mod
           CALL TrafoChiTau2XiEtaZeta(xi,eta,zeta,chi,tau,iSide,0)
           CALL TetraTrafoXiEtaZeta2XYZ(xGP,yGP,zGP,xi,eta,zeta,xV,yV,zV)
           !
-
+          depth=MIN(zGP-shift,0.0)
           !set vertical force
-          sigzz = 2700.0d0*g*(MIN(zGP-1400,0.0))
+          sigzz = 2700.0d0*g*depth
           !constant when higher than 80MPa
           !sigzz = max(-EQN%Ini_depth, sigzz)
 
@@ -3948,7 +3962,21 @@ MODULE ini_model_DR_mod
              Rz=0d0
           ENDIF
 
-          CALL STRESS_STR_DIP_SLIP_AM(DISC, EQN%StressAngle, 90.0 , sigzz, DISC%DynRup%cohesion_0, Rz*EQN%Rvalue, .False., bii)
+
+          IF (DISC%DynRup%BackgroundType.EQ.68) THEN
+             IF (yGP .LT. 3817021.87) THEN
+             !IF (yGP .LT. 3806865.5) THEN
+             !IF (yGP .LT. 3822649.0) THEN
+                 ! strike, dip, sigmazz,cohesion,R
+                 CALL STRESS_STR_DIP_SLIP_AM(DISC, EQN%StressAngle, 90.0, sigzz, DISC%DynRup%cohesion_0, Rz*EQN%Rvalue, .False., bii)
+             ELSE
+                 ! strike, dip, sigmazz,cohesion,R
+                 CALL STRESS_STR_DIP_SLIP_AM(DISC, EQN%StressAngle-DISC%DynRup%stopping_depth, 90.0, sigzz, DISC%DynRup%cohesion_0, Rz*EQN%Rvalue, .False., bii)
+             ENDIF
+          ELSEIF (DISC%DynRup%BackgroundType.EQ.67)THEN
+                 CALL STRESS_STR_DIP_SLIP_AM(DISC, EQN%StressAngle, 90.0 , sigzz, DISC%DynRup%cohesion_0, Rz*EQN%Rvalue, .False., bii)
+          ENDIF
+
           bii = bii/bii(3)
           b11=bii(1);b22=bii(2);b33=bii(3);b12=bii(4);b23=bii(5);b13=bii(6)
 
@@ -3957,12 +3985,14 @@ MODULE ini_model_DR_mod
           Omega = 1.0 !max(0D0,min(1d0, 1D0-Rz))
 
           !be careful: z might become positive and than the sign switches!
-          IF (zGP .GT. 0.0) THEN
+          IF (depth .GE. 0.0) THEN
              Pf = 0.0
-          ELSEIF ((zGP .LE. 0.0).AND.(zGP.GE.-1000.0)) THEN
-             Pf = -1000D0 * g * MIN(zGP-1400,0.0) * 1d0
-          ELSEIF ((zGP .LE. -1000.0).AND.(zGP.GE.-3000.0)) THEN
-             Pf = -1000D0 * g * MIN(zGP-1400,0.0) *(1+(zGP+1000.0)/-2000.0)
+          ELSEIF ((depth .LT. 0.0).AND.(depth.GE.-5000.0)) THEN
+             Pf = -1000D0 * g * depth * 1d0
+          ELSEIF ((depth .LT. -5000.0).AND.(depth.GE.-8000.0)) THEN
+             Pf = -1000D0 * g * depth *(1+(depth+5000.0)/-3000.0)
+          ELSE
+             Pf = -1000D0 * g * depth * 2.0d0
           ENDIF
           
           EQN%IniBulk_zz(i,iBndGP)  =  max(sigzz*b33+Pf, EQN%Ini_depth)
@@ -3978,19 +4008,33 @@ MODULE ini_model_DR_mod
 
           ! manage cohesion
           ! depth dependent, constant for cohesion_max = 0 (is 0 if not otherwise declared in the parameter file)
-          IF (zGP.GT.-DISC%DynRup%cohesion_depth) THEN
-              DISC%DynRup%cohesion(iBndGP,i) =  DISC%DynRup%cohesion_0 - DISC%DynRup%cohesion_max*(DISC%DynRup%cohesion_depth+zGP)/(DISC%DynRup%cohesion_depth+1500.0)
+          IF (zGP.GT.DISC%DynRup%cohesion_depth) THEN
+              DISC%DynRup%cohesion(iBndGP,i) =  DISC%DynRup%cohesion_0 - DISC%DynRup%cohesion_max*(zGP-DISC%DynRup%cohesion_depth)/(1400.0-DISC%DynRup%cohesion_depth)
           ELSE
               DISC%DynRup%cohesion(iBndGP,i) = DISC%DynRup%cohesion_0
           ENDIF
 
           !set weaker last segment
           IF (DISC%DynRup%weaker.NE.0) THEN
-             IF (yGP .GE. 3822649.0) THEN
+             IF (yGP .GE. 3822649.0) THEN !only last segment
+             !IF (yGP .GE. 3806865.5) THEN !middle of HVF
                 EQN%IniMu(iBndGP,i) = DISC%DynRup%Mu_S_ini - DISC%DynRup%weaker
                 DISC%DynRup%Mu_S(iBndGP,i) = DISC%DynRup%Mu_S_ini - DISC%DynRup%weaker
              ENDIF
           ENDIF
+
+          ! manage D_C only if desired
+          IF (DISC%DynRup%change_D_c.EQ.1) THEN
+              IF (zGP.GT.DISC%DynRup%cohesion_depth) THEN
+                  ! higher D_C to surpress supershear rupture at free surface
+                  !DISC%DynRup%D_C(iBndGP,i) = DISC%DynRup%D_C_ini+0.6D0*(1.0D0+COS(4.0D0*ATAN(1.0D0) * abs(zGP)/4000.0D0))
+                  DISC%DynRup%D_C(iBndGP,i) = DISC%DynRup%D_C_ini-0.4*log((2000.0D0-zGP)/(2000.0D0-DISC%DynRup%cohesion_depth))
+              !ELSEIF (zGP.LT.-12000.0D0) THEN
+                  !higher D_C in depth mimic brittle ductile transition
+                  !DISC%DynRup%D_C(iBndGP,i) = DISC%DynRup%D_C_ini+1.0D0*(1.0D0+COS(4.0D0*ATAN(1.0D0) * abs(zGP)/4000.0D0))
+              ENDIF
+          ENDIF
+
 
       ENDDO ! iBndGP
 

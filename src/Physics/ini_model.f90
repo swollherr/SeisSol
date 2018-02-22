@@ -118,7 +118,7 @@ CONTAINS
     REAL                            :: posx_max,posx_min,posy_max,posy_min,posz_max,posz_min
     REAL                            :: pert_max, pert_min
     REAL, allocatable, dimension(:) :: BaryDist
-    REAL                            :: omega, stress_depth
+    REAL                            :: omega, stress_depth, depth, shift
     REAL                            :: circ
     REAL                            :: QPLocVal,QSLocVal
     REAL                            :: Theta(EQN%nMechanisms,3)
@@ -984,7 +984,7 @@ CONTAINS
 
       CASE(104)! varying R and asagi+Landers
 
-         cohesiontype = 3
+         cohesiontype = 4
          ratioRtopo = EQN%Bulk_zz_0
          zStressIncreaseStart = EQN%Bulk_xx_0
          zStressIncreaseStop = EQN%Bulk_yy_0
@@ -992,17 +992,22 @@ CONTAINS
          zStressDecreaseStart = EQN%ShearXY_0
          zStressDecreaseStop = EQN%ShearYZ_0
          zStressDecreaseWidth = zStressDecreaseStart - zStressDecreaseStop
-
+         
+         shift=1400.D0 !free surface at 1400m
          !read in data from asagi
          call readVelocityField(eqn, mesh, materialVal(:,1:3))
          !
+         !MaterialVal(iElem,1) = EQN%rho0
+         !MaterialVal(iElem,2) = EQN%mu
+         !MaterialVal(iElem,3) = EQN%lambda
+
          IF (EQN%Plasticity.EQ.1) THEN
          ! shift it up because the fault is at 1390m above NN
          DO iElem = 1, MESH%nElem
              z = MESH%ELEM%xyBary(3,iElem)
              y = MESH%ELEM%xyBary(2,iElem) !average y coordinate inside an element
              x = MESH%ELEM%xyBary(1,iElem) !average x coordinate inside an element
-
+             depth = MIN(z-shift,0.0)
                 ! assign depth dependent plastic cohesion
                 SELECT CASE(cohesionType)
 
@@ -1045,9 +1050,9 @@ CONTAINS
 
                 CASE(4) !linear model, based on Roten et al. 2015 for granite, but weaker zone is 1.4km instead of 1km deep
                 !linear decrease from 3 to 30 MPa
-                IF (z.GE.1300.0) THEN !high cohesion in mountain ranges
+                IF (z.GE.shift) THEN !high cohesion in mountain ranges
                   EQN%PlastCo(iElem) = 10.0e+06
-                ELSEIF ((z.GE. 1000.0).AND. (z.LT.1300.0)) THEN !
+                ELSEIF ((z.GE. 1000.0).AND. (z.LT.shift)) THEN !
                    EQN%PlastCo(iElem) = 3.0e+06
                 ELSEIF ((z.LT. 1000.0) .AND. (z.GE. 0.0)) THEN 
                    EQN%PlastCo(iElem) = 3.0e+06 + 9.0e+06*(1000.0D0-z)/1000.0D0
@@ -1062,7 +1067,7 @@ CONTAINS
                 !assign new stresses with varying R value
                 g = 9.8D0
                 !set vertical force
-                sigzz = 2700.0*g*(MIN(z-1400,0.0))
+                sigzz = 2700.0*g*(depth)
 
 
                 Omega = 1.0 !max(0D0,min(1d0, 1D0-Rz))
@@ -1085,19 +1090,37 @@ CONTAINS
                    Rz=0d0
                 ENDIF
 
-                CALL STRESS_STR_DIP_SLIP_AM(DISC, EQN%StressAngle, 90.0 , sigzz, DISC%DynRup%cohesion_0, Rz*EQN%Rvalue, .False., bii)
+                IF (DISC%DynRup%BackgroundType.EQ.68) THEN
+                    !Rotate the stress field for the last segment by 11 degrees
+                    IF (y .LT. 3817021.87) THEN
+                    !IF (y .LT. 3806865.5) THEN
+                    !IF (y .LT. 3822649.0) THEN
+                        ! strike, dip, sigmazz,cohesion,R
+                        CALL STRESS_STR_DIP_SLIP_AM(DISC, EQN%StressAngle, 90.0, sigzz, DISC%DynRup%cohesion_0, Rz*EQN%Rvalue, .False., bii)
+                    ELSE
+                        ! strike, dip, sigmazz,cohesion,R
+                        CALL STRESS_STR_DIP_SLIP_AM(DISC, EQN%StressAngle-DISC%DynRup%stopping_depth, 90.0, sigzz, DISC%DynRup%cohesion_0, Rz*EQN%Rvalue, .False., bii)
+                    ENDIF
+
+                ELSEIF (DISC%DynRup%BackgroundType.EQ.67) THEN
+                
+                       CALL STRESS_STR_DIP_SLIP_AM(DISC, EQN%StressAngle, 90.0 , sigzz, DISC%DynRup%cohesion_0, Rz*EQN%Rvalue, .False., bii)
+                ENDIF
+
                 bii = bii/bii(3)
                 b11=bii(1);b22=bii(2);b33=bii(3);b12=bii(4);b23=bii(5);b13=bii(6)
 
 
                 !be careful: z might become positive and than the sign switches!
                  !Pf = -1000D0 * g * MIN(z-1400,0.0) * 2d0
-                 IF (z .GT. 0.0) THEN
+                 IF (depth .GE. 0.0) THEN
                     Pf = 0.0
-                 ELSEIF ((z .LE. 0.0).AND.(z.GE.-1000.0)) THEN
-                    Pf = -1000D0 * g * MIN(z-1400,0.0) * 1d0
-                 ELSEIF ((z.LE. -1000.0).AND.(z.GE.-3000.0)) THEN
-                    Pf = -1000D0 * g * MIN(z-1400,0.0) *(1+(z+1000.0)/-2000.0)
+                 ELSEIF ((depth .LT. 0.0).AND.(depth.GE.-5000.0)) THEN
+                    Pf = -1000D0 * g * depth * 1d0
+                 ELSEIF ((depth.LT. -5000.0).AND.(depth.GE.-8000.0)) THEN
+                    Pf = -1000D0 * g * depth *(1+(depth+5000.0)/-3000.0)
+                 ELSE
+                    Pf = -1000D0 * g * depth * 2d0
                  ENDIF
 
 
