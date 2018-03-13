@@ -124,7 +124,7 @@ CONTAINS
     REAL                            :: Theta(EQN%nMechanisms,3)
     REAL                            :: w_freq(EQN%nMechanisms)
     REAL                            :: material(1:3), MaterialVal_k
-    REAL                            :: ZoneIns, ZoneTrans, xG, yG, X2, LocX(3), LocY(3), tmp
+    REAL                            :: ZoneIns, ZoneTrans, xG, yG, LocX(3), LocY(3), tmp
     REAL                            :: BedrockVelModel(10,4)
     INTEGER                         :: eType
     REAL                            :: Pf                                     ! fluid pressure
@@ -134,8 +134,10 @@ CONTAINS
     REAL                            :: sigzz, Rz, g
     REAL                            :: bii(6)
     REAL                            :: zStressIncreaseStart, zStressIncreaseStop, zStressIncreaseWidth
-    REAL                            :: ratioRtopo, Sx, xx
+    REAL                            :: ratioRtopo, Sx, xx, Rvalue_new, StressAngle_rot
     REAL                            :: zStressDecreaseStart, zStressDecreaseWidth, zStressDecreaseStop
+    REAL                            :: alpha_rot, value, mid_x, mid_y, y0, x0, y1, x1, y2, x2, hypo, gegen, azi, azi_end, azi_start, azi_EF
+    real, parameter :: pi=3.141592653589793 ! CONSTANT pi
     INTEGER         :: nTens3GP
     REAL,POINTER    :: Tens3GaussP(:,:)
     REAL,POINTER    :: Tens3GaussW(:)
@@ -1000,6 +1002,33 @@ CONTAINS
          !MaterialVal(iElem,1) = EQN%rho0
          !MaterialVal(iElem,2) = EQN%mu
          !MaterialVal(iElem,3) = EQN%lambda
+ 
+         !anelastic setup
+         IF (EQN%ANELASTICITY.EQ.1) THEN
+            DO iElem = 1,MESH%nElem
+               ! Set local anelasticity
+               EQN%LocAnelastic(iElem) = 1
+               !set material parameters as the elastic ones above
+               MaterialTmp(1) = MaterialVal(iElem,1) !rho
+               MaterialTmp(2) = MaterialVal(iElem,2) !mu
+               MaterialTmp(3) = MaterialVal(iElem,3) !lambda
+
+               !calculate p- and s-wave velocties in km/s
+               cs = sqrt(MaterialTmp(2)/MaterialTmp(1))/1000.0D0
+               cp = sqrt((MaterialTmp(3)+2.0D0*MaterialTmp(2))/MaterialTmp(1))/1000.0D0
+
+               !transform into Qp and Qs
+               MaterialTmp(5) = 50.0*cs !Q_s
+               MaterialTmp(4) =  2.0*MaterialTmp(5) !Q_p
+
+               CALL ini_ATTENUATION(Theta,w_freq,Material_INF,MaterialTmp,EQN)
+
+               DO iMech = 1, EQN%nMechanisms                                      ! Set anelastic coefficients w_freq and theta
+                  MaterialVal(iElem,iMech*4)             = w_freq(iMech)
+                  MaterialVal(iElem,iMech*4+1:iMech*4+3) = Theta(iMech,:)
+               ENDDO
+           ENDDO
+         ENDIF
 
          IF (EQN%Plasticity.EQ.1) THEN
          ! shift it up because the fault is at 1390m above NN
@@ -1092,19 +1121,71 @@ CONTAINS
 
                 IF (DISC%DynRup%BackgroundType.EQ.68) THEN
                     !Rotate the stress field for the last segment by 11 degrees
-                    IF (y .LT. 3817021.87) THEN
+                    !IF (y .LT. 3817021.87) THEN
                     !IF (y .LT. 3806865.5) THEN
+                    !IF ((y .LT. 3798766.0) .OR.((y.GE.3798766.0).AND.(y .LT. 3801255.0).AND.(x .LT. 539771.9))) THEN
+                    IF ((y .LT. 3798766.0) .OR.((y.GE.3798766.0).AND.(y .LT. 3801255.0).AND.(x .LT. 548006.0))) THEN
                     !IF (y .LT. 3822649.0) THEN
+                    !IF (y .LT. ) THEN
                         ! strike, dip, sigmazz,cohesion,R
                         CALL STRESS_STR_DIP_SLIP_AM(DISC, EQN%StressAngle, 90.0, sigzz, DISC%DynRup%cohesion_0, Rz*EQN%Rvalue, .False., bii)
+                    !ELSEIF (y .LT. 3822649.0) THEN
+                    !ELSEIF (y .LT. 3815850.91319764) THEN  !middle EF
+                    ELSEIF (y .LT. 3817721.77294242) THEN  !middle EF
+                        CALL STRESS_STR_DIP_SLIP_AM(DISC, EQN%StressAngle-EQN%Bulk_xx_0, 90.0, sigzz, DISC%DynRup%cohesion_0, Rz*EQN%Rvalue, .False., bii)
                     ELSE
                         ! strike, dip, sigmazz,cohesion,R
-                        CALL STRESS_STR_DIP_SLIP_AM(DISC, EQN%StressAngle-DISC%DynRup%stopping_depth, 90.0, sigzz, DISC%DynRup%cohesion_0, Rz*EQN%Rvalue, .False., bii)
+                        IF (DISC%DynRup%weaker.NE.0) THEN
+                              IF ((y .GE. 3815887.3)  .AND. (y.LE.3833595.845915)) THEN !Emerson already
+                                   !increase R for that region instead of mu_s
+                                   Rvalue_new = EQN%Rvalue + EQN%Bulk_yy_0
+                              ELSE
+                                   Rvalue_new = EQN%Rvalue
+                              ENDIF
+                        ENDIF
+                        CALL STRESS_STR_DIP_SLIP_AM(DISC, EQN%StressAngle-DISC%DynRup%stopping_depth, 90.0, sigzz, DISC%DynRup%cohesion_0, Rz*Rvalue_new, .False., bii)
                     ENDIF
 
                 ELSEIF (DISC%DynRup%BackgroundType.EQ.67) THEN
                 
                        CALL STRESS_STR_DIP_SLIP_AM(DISC, EQN%StressAngle, 90.0 , sigzz, DISC%DynRup%cohesion_0, Rz*EQN%Rvalue, .False., bii)
+                ELSEIF (DISC%DynRup%BackgroundType.EQ.69) THEN
+
+               !constant rotation from angle_start to angle_end
+               x0 = 562193.977000164 !562852.637892687 !562340.774411166
+               y0 = 3791267.73385485 !3793829.7165589 !3797950.52097312
+               x1 = 567525.412513965 !562989.788216806 !562609.632015903
+               y1 = 3805783.11297903 !3816965.72002079 !3825709.31264152
+               y2 = 3819460.59405039 !another point for EF
+               x2 = 550407.800204749
+               mid_x = 498795.38987206 !481354.273715671 !480568.405002699 !rotation point
+               mid_y = 3832652.96260438 !3828717.75252441 !3812909.65880891
+               !calculate azimuth for xGP and yGP
+               CALL get_azimuth(x0, y0, mid_x, mid_y, azi_start)
+               CALL get_azimuth(x1, y1, mid_x, mid_y, azi_end)
+               CALL get_azimuth(x2, y2, mid_x, mid_y, azi_EF)
+               CALL get_azimuth(x, y, mid_x, mid_y, azi)
+               !for constant rotation
+               !value = ((azi_start)-(azi))/((azi_start)-(azi_end))
+               !alpha_rot = max(0.0, min(value, 1.0))
+               Rvalue_new = EQN%Rvalue
+               IF (azi .GT. azi_start) THEN
+                       StressAngle_rot = EQN%StressAngle
+               ELSEIF ((azi .LE. azi_start) .AND. (azi .GT. azi_EF)) THEN
+                       StressAngle_rot = EQN%StressAngle-EQN%Bulk_xx_0
+               ELSEIF ((azi .LE. azi_EF) .AND. (azi .GT. azi_end)) THEN
+                       StressAngle_rot = EQN%StressAngle-DISC%DynRup%stopping_depth
+                       !IF (DISC%DynRup%weaker.NE.0) THEN
+                           !increase R for that region instead of mu_s
+                           !Rvalue_new = EQN%Rvalue + EQN%Bulk_yy_0
+                       !ENDIF
+               ELSE
+                       StressAngle_rot = 30.6 + 11.0 !EQN%StressAngle-DISC%DynRup%stopping_depth
+               ENDIF 
+               !CALL STRESS_STR_DIP_SLIP_AM(DISC, EQN%StressAngle-alpha_rot*DISC%DynRup%stopping_depth, 90.0 , sigzz, DISC%DynRup%cohesion_0, Rz*EQN%Rvalue, .False., bii)
+               CALL STRESS_STR_DIP_SLIP_AM(DISC, StressAngle_rot, 90.0 , sigzz, DISC%DynRup%cohesion_0, Rz*Rvalue_new, .False., bii)
+
+
                 ENDIF
 
                 bii = bii/bii(3)
@@ -1115,12 +1196,12 @@ CONTAINS
                  !Pf = -1000D0 * g * MIN(z-1400,0.0) * 2d0
                  IF (depth .GE. 0.0) THEN
                     Pf = 0.0
-                 ELSEIF ((depth .LT. 0.0).AND.(depth.GE.-5000.0)) THEN
-                    Pf = -1000D0 * g * depth * 1d0
-                 ELSEIF ((depth.LT. -5000.0).AND.(depth.GE.-8000.0)) THEN
-                    Pf = -1000D0 * g * depth *(1+(depth+5000.0)/-3000.0)
+                 !ELSEIF ((depth .LT. 0.0).AND.(depth.GE.-5000.0)) THEN
+                    !Pf = -1000D0 * g * depth * 1d0
+                 !ELSEIF ((depth.LT. -5000.0).AND.(depth.GE.-8000.0)) THEN
+                    !Pf = -1000D0 * g * depth *(1+(depth+5000.0)/-3000.0)
                  ELSE
-                    Pf = -1000D0 * g * depth * 2d0
+                    Pf = -1000D0 * g * depth * 1d0
                  ENDIF
 
 

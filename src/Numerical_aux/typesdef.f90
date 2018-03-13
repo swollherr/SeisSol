@@ -1221,6 +1221,7 @@ MODULE TypesDef
      REAL                                   :: Ini_depth                        !< depth for Landers stress gradient
      INTEGER                                :: incrMus                          !< increase Mu_s towards the end of the fault to stop rupture
      REAL                                   :: StressAngle
+     REAL, POINTER                          :: StressAngle_Rot(:,:)
      REAL                                   :: Rvalue
      real, allocatable                      :: InitialStressInFaultCS(:,:,:)
      real, allocatable                      :: NucleationStressInFaultCS(:,:,:)

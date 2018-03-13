@@ -374,18 +374,18 @@ CONTAINS
 
     SELECT CASE(Anelasticity)
     CASE(0)
-      logInfo(*) 'No attenuation assumed. '
+      logInfo0(*) 'No attenuation assumed. '
       EQN%Anelasticity = Anelasticity
       EQN%nAneMaterialVar = 3
       EQN%nMechanisms    = 0
       EQN%nAneFuncperMech= 0
       EQN%nVarTotal = EQN%nVar                                                     !
     CASE(1)
-       logInfo(*) 'Viscoelastic attenuation assumed ... '
+       logInfo0(*) 'Viscoelastic attenuation assumed ... '
         EQN%Anelasticity = Anelasticity
          IF(EQN%Anisotropy.NE.2)   THEN
            EQN%nAneFuncperMech = 6                                                    !
-           logInfo(*) '... using ', EQN%nAneFuncperMech,' anelastic functions per Mechanism.'                                                   !
+           logInfo0(*) '... using ', EQN%nAneFuncperMech,' anelastic functions per Mechanism.'                                                   !
          ENDIF
     CASE DEFAULT
       logError(*) 'Choose 0 or 1 as anelasticity assumption. '
@@ -612,6 +612,19 @@ CONTAINS
       !
       logInfo0(*) 'No material property zones are defined. '
       logInfo0(*) 'Material properties are read from file : ', TRIM(EQN%MaterialFileName)
+
+
+      IF (EQN%Anelasticity .EQ. 1) THEN
+         logInfo0(*) 'Model has ',EQN%nMechanisms,' attenuation mechanisms.'
+         logInfo0(*) 'with central frequency ',EQN%FreqCentral
+         logInfo0(*) 'and frequency ratio ',EQN%FreqRatio
+         logInfo0(*) 'Anelastic parameters are defined in inimodel.'
+         EQN%nBackgroundVar  = 3 + EQN%nMechanisms * 4
+         EQN%nAneMaterialVar = 5        ! rho, mu, lambda, Qp, Qs
+         EQN%nVarTotal = EQN%nVar + EQN%nAneFuncperMech * EQN%nMechanisms                                                    !
+         EQN%AneMatIni = 4
+      ENDIF
+
       !
   CASE(122,1221,1222,1223, 1225, 1226, 1227) ! SUMATRA T Ulrich 16.02.2016
       !
@@ -1729,7 +1742,7 @@ CONTAINS
              ELSE
                  logInfo0(*) 'elementwise initialization. '
              ENDIF
-           CASE(67,68)
+           CASE(67,68, 69)
              EQN%Bulk_xx_0 = Bulk_xx_0
              EQN%Bulk_yy_0 = Bulk_yy_0
              EQN%Bulk_zz_0 = Bulk_zz_0
