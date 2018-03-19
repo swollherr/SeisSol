@@ -136,7 +136,7 @@ CONTAINS
     REAL                            :: zStressIncreaseStart, zStressIncreaseStop, zStressIncreaseWidth
     REAL                            :: ratioRtopo, Sx, xx, Rvalue_new, StressAngle_rot
     REAL                            :: zStressDecreaseStart, zStressDecreaseWidth, zStressDecreaseStop
-    REAL                            :: alpha_rot, value, mid_x, mid_y, y0, x0, y1, x1, y2, x2, hypo, gegen, azi, azi_end, azi_start, azi_EF
+    REAL                            :: alpha_rot, value, mid_x, mid_y, y0, x0, y1, x1, y2, x2, y3, x3, hypo, gegen, azi, azi_end, azi_start, azi_EF, azi_CR, azi_new
     real, parameter :: pi=3.141592653589793 ! CONSTANT pi
     INTEGER         :: nTens3GP
     REAL,POINTER    :: Tens3GaussP(:,:)
@@ -1082,9 +1082,9 @@ CONTAINS
                 IF (z.GE.shift) THEN !high cohesion in mountain ranges
                   EQN%PlastCo(iElem) = 10.0e+06
                 ELSEIF ((z.GE. 1000.0).AND. (z.LT.shift)) THEN !
-                   EQN%PlastCo(iElem) = 3.0e+06
+                   EQN%PlastCo(iElem) = 2.0e+06
                 ELSEIF ((z.LT. 1000.0) .AND. (z.GE. 0.0)) THEN 
-                   EQN%PlastCo(iElem) = 3.0e+06 + 9.0e+06*(1000.0D0-z)/1000.0D0
+                   EQN%PlastCo(iElem) = 2.0e+06 + 10.0e+06*(1000.0D0-z)/1000.0D0
                 ELSEIF ((z.LT. 0.0).AND.(z.GE.-5000.0)) THEN
                    EQN%PlastCo(iElem) = 12.0e+06 + 18.0e+06*(abs(z))/5000.0D0
                 ELSEIF (z.LT.-5000.0D0) THEN
@@ -1146,14 +1146,16 @@ CONTAINS
                         CALL STRESS_STR_DIP_SLIP_AM(DISC, EQN%StressAngle-DISC%DynRup%stopping_depth, 90.0, sigzz, DISC%DynRup%cohesion_0, Rz*Rvalue_new, .False., bii)
                     ENDIF
 
-                ELSEIF (DISC%DynRup%BackgroundType.EQ.67) THEN
+         ELSEIF (DISC%DynRup%BackgroundType.EQ.67) THEN
                 
                        CALL STRESS_STR_DIP_SLIP_AM(DISC, EQN%StressAngle, 90.0 , sigzz, DISC%DynRup%cohesion_0, Rz*EQN%Rvalue, .False., bii)
-                ELSEIF (DISC%DynRup%BackgroundType.EQ.69) THEN
+         ELSEIF (DISC%DynRup%BackgroundType.EQ.69) THEN
 
                !constant rotation from angle_start to angle_end
-               x0 = 562193.977000164 !562852.637892687 !562340.774411166
-               y0 = 3791267.73385485 !3793829.7165589 !3797950.52097312
+               x0 = 552752.715650835 !568548.470149479 !566972.885926004
+               y0 = 3800589.71418841 !3817912.5627651 !3818971.73729509
+               !x0 = 562193.977000164 !562852.637892687 !562340.774411166
+               !y0 = 3791267.73385485 !3793829.7165589 !3797950.52097312
                x1 = 567525.412513965 !562989.788216806 !562609.632015903
                y1 = 3805783.11297903 !3816965.72002079 !3825709.31264152
                y2 = 3819460.59405039 !another point for EF
@@ -1185,8 +1187,65 @@ CONTAINS
                !CALL STRESS_STR_DIP_SLIP_AM(DISC, EQN%StressAngle-alpha_rot*DISC%DynRup%stopping_depth, 90.0 , sigzz, DISC%DynRup%cohesion_0, Rz*EQN%Rvalue, .False., bii)
                CALL STRESS_STR_DIP_SLIP_AM(DISC, StressAngle_rot, 90.0 , sigzz, DISC%DynRup%cohesion_0, Rz*Rvalue_new, .False., bii)
 
+          ELSEIF (DISC%DynRup%BackgroundType.EQ.70)THEN
+               !constant rotation from angle_start to angle_end
+               mid_x = 532701.984462689
+               mid_y = 3777958.70362276
+               x0 = 566972.885926004
+               y0 = 3818971.73729509
+               x2 = 540000.045737726
+               x1 = 555196.623003906 !before 552818.979540285 !after branch 549438.231093969
+               y1 = 3828566.47167753 !before 3828967.00980681 !after branch 3828740.98536904
+               y2 = 3835236.61947897
+               x3 = 539217.846576551 !last point, slightly at CR 
+               y3 = 3840416.90699987
 
-                ENDIF
+               !calculate azimuth
+               CALL get_azimuth(x0, y0, mid_x, mid_y, azi_start)
+               CALL get_azimuth(x2, y2, mid_x, mid_y, azi_end)
+               CALL get_azimuth(x1, y1, mid_x, mid_y, azi_EF)
+               CALL get_azimuth(x, y, mid_x, mid_y, azi)
+               CALL get_azimuth(x3, y3, mid_x, mid_y, azi_CR)
+
+               Rvalue_new = EQN%Rvalue
+               IF (azi .GT. azi_start) THEN !below Kickapoo
+                       StressAngle_rot = EQN%StressAngle
+                       !but whole HVF should be in second angle
+                       IF ((x .GE. 551312.845908702 ) .AND. (y.GE.3793769.38158428)) THEN
+                             StressAngle_rot = EQN%StressAngle-DISC%DynRup%cohesion_depth !EQN%Bulk_xx_0
+                       ENDIF
+                       ! transition over Kickapoo to second degree
+                       !IF ((x .LE. 551459.845908702 ).AND.(x .GE. 550640.406929713)) THEN
+                          !IF (y.GE.3793769.38158428) THEN
+                          !CALL get_azimuth(573323.975527675,3812930.5128402 , mid_x, mid_y, azi_new)
+                          !value = (azi_new-azi)/(azi_new-azi_start)
+                          !alpha_rot = max(0.0, min(value, 1.0))
+                          !StressAngle_rot = EQN%StressAngle-alpha_rot*(EQN%Bulk_xx_0)
+                          !ENDIF
+                       !ENDIF
+
+               ELSEIF ((azi .LE. azi_start) .AND. (azi .GT. azi_EF)) THEN !between Kickapoo and Emerson
+                       StressAngle_rot = EQN%StressAngle-DISC%DynRup%cohesion_depth !EQN%Bulk_xx_0
+                       !but whole fault should be in first angle
+                       IF ((x.LE. 549299.982605223) .AND. (y .LE. 3801051.78065556)) THEN
+                          StressAngle_rot = EQN%StressAngle
+                       ENDIF
+               ELSEIF ((azi .LE. azi_EF) .AND. (azi .GT. azi_end)) THEN !between Emerson and CR, smooth transition
+                       value = (azi_EF-azi)/((azi_EF)-(azi_end))
+                       alpha_rot = max(0.0, min(value, 1.0))
+                       StressAngle_rot = EQN%StressAngle- DISC%DynRup%cohesion_depth + alpha_rot*(DISC%DynRup%cohesion_depth-DISC%DynRup%stopping_depth)
+               ELSEIF ((azi .LE. azi_end) .AND. (azi .GT. azi_CR)) THEN !between Emerson and CR, smooth transition
+                       value = (azi_end-azi)/((azi_end)-(azi_CR))
+                       alpha_rot = max(0.0, min(value, 1.0))
+                       StressAngle_rot = EQN%StressAngle- DISC%DynRup%stopping_depth + alpha_rot*(DISC%DynRup%stopping_depth-EQN%StressAngle+30.6+11.0)
+               ELSE
+                       StressAngle_rot = 30.6 + 11.0 !EQN%StressAngle-DISC%DynRup%stopping_depth
+
+               ENDIF
+
+              CALL STRESS_STR_DIP_SLIP_AM(DISC, StressAngle_rot, 90.0 , sigzz, DISC%DynRup%cohesion_0, Rvalue_new, .False., bii)
+
+         ENDIF
 
                 bii = bii/bii(3)
                 b11=bii(1);b22=bii(2);b33=bii(3);b12=bii(4);b23=bii(5);b13=bii(6)
@@ -1204,14 +1263,22 @@ CONTAINS
                     Pf = -1000D0 * g * depth * 1d0
                  ENDIF
 
+              IF (z.GE.zStressDecreaseStart) THEN
+                   Omega = 1.0D0
+              ELSEIF ((z.LT.zStressDecreaseStart) .AND. (z.GE. zStressDecreaseStop) ) THEN !depth between 15000 and 20000m
+                   Omega = (abs(zStressDecreaseStop)-abs(z))/(zStressDecreaseStart-zStressDecreaseStop)
+              ELSE ! depth more than zStressDecreaseStop
+                   Omega = 0.0D0
+              ENDIF
 
              ! stress tensor for plasticity, elementwise assignement
              !sigma_zz
-             EQN%IniStress(3,iElem)  = max(sigzz*b33+Pf, EQN%Ini_depth)
+             !EQN%IniStress(3,iElem)  = max(sigzz*b33+Pf, EQN%Ini_depth)
+             EQN%IniStress(3,iElem)  = sigzz*b33+Pf
              !sigma_xx
-             EQN%IniStress(1,iElem)  = Omega*(b11*(EQN%IniStress(3,iElem))-Pf)!+(1d0-Omega)*EQN%IniStress(3,iElem)
+             EQN%IniStress(1,iElem)  = Omega*(b11*(EQN%IniStress(3,iElem))-Pf)+(1d0-Omega)*b33*sigzz !EQN%IniStress(3,iElem)
              !sigma_yy
-             EQN%IniStress(2,iElem)  = Omega*(b22*(EQN%IniStress(3,iElem))-Pf)!+(1d0-Omega)*EQN%IniStress(3,iElem)
+             EQN%IniStress(2,iElem)  = Omega*(b22*(EQN%IniStress(3,iElem))-Pf)+(1d0-Omega)*b33*sigzz !EQN%IniStress(3,iElem)
              !sigma_xy
              EQN%IniStress(4,iElem)  = Omega*(b12*(EQN%IniStress(3,iElem)))
              !sigma_yz
