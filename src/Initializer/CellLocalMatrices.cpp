@@ -421,6 +421,14 @@ void seissol::initializers::initializeDynamicRuptureMatrices( MeshReader const& 
           fluxSolverMinusView(i, j) *= fluxScaleMinus;
         }
       }
+
+      /// tVelRotation        
+      MatrixView tVelRotation(godunovData[ltsFace].tVelRotation, seissol::model::tVelRotation::reals, seissol::model::tVelRotation::index);
+      tVelRotation.setZero();
+      for (unsigned d = 0; d < 3; ++d) {
+        tVelRotation(6+d,7) = fault[meshFace].tangent1[d];
+        tVelRotation(6+d,8) = fault[meshFace].tangent2[d];
+      }
     }
 
     layerLtsFaceToMeshFace += it->getNumberOfCells();
