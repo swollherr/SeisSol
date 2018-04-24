@@ -3931,7 +3931,7 @@ MODULE ini_model_DR_mod
   ! NOTE: z negative is depth, free surface is at z=1400m
 
   g = 9.8D0
-  shift=1400.0D0
+  shift=1200.0D0
   ratioRtopo = EQN%Bulk_zz_0
   zStressIncreaseStart = EQN%Bulk_xx_0
   zStressIncreaseStop = EQN%Bulk_yy_0
@@ -4155,18 +4155,23 @@ MODULE ini_model_DR_mod
                        ! transition over Kickapoo to second degree
                        !IF ((xGP .LE. 551459.845908702 ).AND.(xGP .GE. 550640.406929713)) THEN
                           !IF (yGP.GE.3793769.38158428) THEN
-                          !CALL get_azimuth(573323.975527675,3812930.5128402 , mid_x, mid_y, azi_new)
-                          !CALL get_azimuth(572341.547617262, 3815470.76952617, mid_x, mid_y, azi_new)
+                          !CALL get_azimuth(573323.975527675,3812930.5128402 , mid_x, mid_y, azi_new) ! right after branch
+                          !CALL get_azimuth(572341.547617262, 3815470.76952617, mid_x, mid_y, azi_new) ! slightly later
+                          !CALL get_azimuth(570965.86609564,3817574.75302983 , mid_x, mid_y, azi_new) ! even later
                           !value = (azi_new-azi)/(azi_new-azi_start)
                           !alpha_rot = max(0.0, min(value, 1.0))
-                          !EQN%StressAngle_rot(i, iBndGP) = EQN%StressAngle-alpha_rot*(EQN%Bulk_xx_0)
+                          !EQN%StressAngle_rot(i, iBndGP) = EQN%StressAngle-alpha_rot*DISC%DynRup%cohesion_depth
                           !ENDIF
-                       !ENDIF
+                      !ENDIF
                ELSEIF ((azi .LE. azi_start) .AND. (azi .GT. azi_EF)) THEN !between Kickapoo and Emerson
                        EQN%StressAngle_rot(i, iBndGP) = EQN%StressAngle-DISC%DynRup%cohesion_depth !EQN%Bulk_xx_0
                        !but whole fault should be in first angle
                        IF ((xGP .LE. 549299.982605223) .AND. (yGP .LE. 3801051.78065556)) THEN
-                          EQN%StressAngle_rot(i, iBndGP) = EQN%StressAngle
+                          CALL get_azimuth(570965.86609564,3817574.75302983 , mid_x, mid_y, azi_new)
+                          value = (azi_new-azi)/(azi_new-azi_start)
+                          alpha_rot = max(0.0, min(value, 1.0))
+                          EQN%StressAngle_rot(i, iBndGP) = EQN%StressAngle-alpha_rot*DISC%DynRup%cohesion_depth
+                          !EQN%StressAngle_rot(i, iBndGP) = EQN%StressAngle
                        ENDIF
                ELSEIF ((azi .LE. azi_EF) .AND. (azi .GT. azi_end)) THEN !between Emerson and CR, smooth transition
                        value = (azi_EF-azi)/((azi_EF)-(azi_end))
@@ -4175,7 +4180,7 @@ MODULE ini_model_DR_mod
                ELSEIF ((azi .LE. azi_end) .AND. (azi .GT. azi_CR)) THEN !between Emerson and CR, smooth transition
                        value = (azi_end-azi)/((azi_end)-(azi_CR))
                        alpha_rot = max(0.0, min(value, 1.0))
-                       EQN%StressAngle_rot(i, iBndGP) = EQN%StressAngle- DISC%DynRup%stopping_depth + alpha_rot*(DISC%DynRup%stopping_depth-EQN%StressAngle+30.6+11)
+                       EQN%StressAngle_rot(i, iBndGP) = EQN%StressAngle- DISC%DynRup%stopping_depth + alpha_rot*(DISC%DynRup%stopping_depth-EQN%StressAngle+30.6+11.0)
                ELSE
                        EQN%StressAngle_rot(i, iBndGP) = 30.6 + 11.0 !EQN%StressAngle-DISC%DynRup%stopping_depth
 
@@ -4191,16 +4196,15 @@ MODULE ini_model_DR_mod
           b11=bii(1);b22=bii(2);b33=bii(3);b12=bii(4);b23=bii(5);b13=bii(6)
 
 
-          IF (zGP.GE.zStressDecreaseStart) THEN
-                   Omega = 1.0D0
-          ELSEIF ((zGP.LT.zStressDecreaseStart) .AND. (zGP .GE. zStressDecreaseStop) ) THEN !depth between 15000 and 20000m
-                   Omega = (abs(zStressDecreaseStop)-abs(zGP))/(zStressDecreaseStart-zStressDecreaseStop)
-          ELSE ! depth more than zStressDecreaseStop
-                   Omega = 0.0D0
-          ENDIF
+          Omega = 1.0D0
+          !IF (zGP.GE.zStressDecreaseStart) THEN
+                  !Omega = 1.0D0
+          !ELSEIF ((zGP.LT.zStressDecreaseStart) .AND. (zGP .GE. zStressDecreaseStop) ) THEN !depth between 15000 and 20000m
+                   !Omega = (abs(zStressDecreaseStop)-abs(zGP))/(zStressDecreaseStart-zStressDecreaseStop)
+          !ELSE ! depth more than zStressDecreaseStop
+                   !Omega = 0.0D0
+          !ENDIF
 
-
-          !Omega = max(0D0,min(1d0, 1D0-Rz))
 
           !be careful: z might become positive and than the sign switches!
           IF (depth .GE. 0.0) THEN
@@ -4227,11 +4231,26 @@ MODULE ini_model_DR_mod
 
           ! manage cohesion
           ! depth dependent, constant for cohesion_max = 0 (is 0 if not otherwise declared in the parameter file)
-          IF (zGP.GT.DISC%DynRup%cohesion_depth) THEN
-              DISC%DynRup%cohesion(iBndGP,i) =  DISC%DynRup%cohesion_0 - DISC%DynRup%cohesion_max*(zGP-DISC%DynRup%cohesion_depth)/(1400.0-DISC%DynRup%cohesion_depth)
+          IF (zGP.GE.shift) THEN
+              DISC%DynRup%cohesion(iBndGP,i) =  DISC%DynRup%cohesion_0 - DISC%DynRup%cohesion_max
+          ELSEIF ((zGP.GT.-6000.0) .AND. (zGP.LT.shift)) THEN
+          !IF (zGP.GT.DISC%DynRup%cohesion_depth) THEN
+              !DISC%DynRup%cohesion(iBndGP,i) =  DISC%DynRup%cohesion_0 - DISC%DynRup%cohesion_max*(zGP-DISC%DynRup%cohesion_depth)/(shift-DISC%DynRup%cohesion_depth)
+              DISC%DynRup%cohesion(iBndGP,i) =  DISC%DynRup%cohesion_0 - DISC%DynRup%cohesion_max*(zGP+6000.0)/(shift+6000.0)
           ELSE
               DISC%DynRup%cohesion(iBndGP,i) = DISC%DynRup%cohesion_0
           ENDIF
+           
+          !gap at Kickapoo
+          !IF (azi .GT. azi_start) THEN !below Kickapoo
+             !IF ((xGP .LE. 551322.845908702 ) .AND. (yGP.GE.3798300.38158428)) THEN
+                   !IF ((yGP .GE. 3798600.38158428)
+                   !lock part of the Kickapoo fault = highly increase mu_s
+                   !EQN%IniMu(iBndGP,i) = 10000.0  !DISC%DynRup%Mu_S_ini - DISC%DynRup%weaker
+                   !DISC%DynRup%Mu_S(iBndGP,i) = 10000.0 !DISC%DynRup%Mu_S_ini - DISC%DynRup%weaker
+                   !DISC%DynRup%D_C(iBndGP,i) = 1000.e+06 
+             !ENDIF
+         !ENDIF
 
           !set weaker last segment
           IF (DISC%DynRup%weaker.NE.0) THEN
@@ -4241,13 +4260,13 @@ MODULE ini_model_DR_mod
                 EQN%IniMu(iBndGP,i) = DISC%DynRup%Mu_S_ini - DISC%DynRup%weaker
                 DISC%DynRup%Mu_S(iBndGP,i) = DISC%DynRup%Mu_S_ini - DISC%DynRup%weaker 
              ELSEIF (((yGP .GE. 3815887.3)  .AND. (yGP.LT.3822649.0)) .OR. ((xGP.GE. 543399.805587407).AND. (yGP .GE. 3813887.3))) THEN !Emerson already
-                EQN%IniMu(iBndGP,i) = DISC%DynRup%Mu_S_ini - 0.1 !DISC%DynRup%weaker
-                DISC%DynRup%Mu_S(iBndGP,i) = DISC%DynRup%Mu_S_ini - 0.1!DISC%DynRup%weaker 
+                EQN%IniMu(iBndGP,i) = DISC%DynRup%Mu_S_ini - 0.07 !DISC%DynRup%weaker
+                DISC%DynRup%Mu_S(iBndGP,i) = DISC%DynRup%Mu_S_ini - 0.07!DISC%DynRup%weaker 
                 !increase R for that region instead of mu_s
                 !EQN%Rvalue = EQN%Rvalue+0.05
              ELSEIF (((xGP.GE. 545399.805587407).AND. (yGP .LE. 3813887.3) .AND. (yGP .GE. 3811207.3 )) .OR. ((yGP.GE.3807207.3).AND.(xGP.GE.547399.805587407))) THEN !Emerson south part
-               EQN%IniMu(iBndGP,i) = DISC%DynRup%Mu_S_ini - 0.1 !DISC%DynRup%weaker
-                DISC%DynRup%Mu_S(iBndGP,i) = DISC%DynRup%Mu_S_ini - 0.1!DISC%DynRup%weaker
+               EQN%IniMu(iBndGP,i) = DISC%DynRup%Mu_S_ini - 0.07 !DISC%DynRup%weaker
+                DISC%DynRup%Mu_S(iBndGP,i) = DISC%DynRup%Mu_S_ini - 0.07 !DISC%DynRup%weaker
              ELSEIF(yGP.GT.3833595.845915) THEN !stop rupture at the very end of the CR fault
              !ELSEIF(yGP.GT.3835471.7544868) THEN !stop rupture at the very end of the CR fault. later
                 !stop gradually from weaker mu_s to stronger mu_s
@@ -4263,6 +4282,21 @@ MODULE ini_model_DR_mod
                 !DISC%DynRup%Mu_S(iBndGP,i) = DISC%DynRup%Mu_S_ini + DISC%DynRup%weaker +0.08
              ENDIF
           ENDIF
+          
+          IF (zGP .GE. zStressDecreaseStart) THEN
+              continue
+          ELSEIF ((zGP.LT.zStressDecreaseStart) .AND. (zGP .GE. zStressDecreaseStop) ) THEN !depth between 15000 and 20000m
+                   !Omega = (abs(zStressDecreaseStop)-abs(zGP))/(zStressDecreaseStart-zStressDecreaseStop)
+                DISC%DynRup%Mu_D(iBndGP,i) = DISC%DynRup%Mu_D(iBndGP,i) + (DISC%DynRup%Mu_S(iBndGP,i)-DISC%DynRup%Mu_D(iBndGP,i))*(zStressDecreaseStart-zGP)/(zStressDecreaseStart-zStressDecreaseStop)
+                !EQN%IniMu(iBndGP,i) = EQN%IniMu(iBndGP,i) + 1.0*(zStressDecreaseStart-zGP)/(zStressDecreaseStart-zStressDecreaseStop)
+                !DISC%DynRup%Mu_S(iBndGP,i) = EQN%IniMu(iBndGP,i) ! + 10.0*(abs(zStressDecreaseStop)-abs(zGP))/(zStressDecreaseStart-zStressDecreaseStop)
+          ELSE ! depth more than zStressDecreaseStop
+                   !Omega = 0.0D0
+                DISC%DynRup%Mu_D(iBndGP,i) = DISC%DynRup%Mu_S(iBndGP,i)
+                !EQN%IniMu(iBndGP,i) = EQN%IniMu(iBndGP,i) + 1.0
+                !DISC%DynRup%Mu_S(iBndGP,i) = EQN%IniMu(iBndGP,i) !DISC%DynRup%Mu_S_ini + 10.0
+          ENDIF
+
 
           ! manage D_C only if desired
           !IF (DISC%DynRup%change_D_c.EQ.1) THEN

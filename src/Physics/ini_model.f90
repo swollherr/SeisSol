@@ -986,7 +986,7 @@ CONTAINS
 
       CASE(104)! varying R and asagi+Landers
 
-         cohesiontype = 4
+         cohesiontype = 3
          ratioRtopo = EQN%Bulk_zz_0
          zStressIncreaseStart = EQN%Bulk_xx_0
          zStressIncreaseStop = EQN%Bulk_yy_0
@@ -995,7 +995,7 @@ CONTAINS
          zStressDecreaseStop = EQN%ShearYZ_0
          zStressDecreaseWidth = zStressDecreaseStart - zStressDecreaseStop
          
-         shift=1400.D0 !free surface at 1400m
+         shift=1200.D0 !free surface at 1400m
          !read in data from asagi
          call readVelocityField(eqn, mesh, materialVal(:,1:3))
          !
@@ -1065,16 +1065,25 @@ CONTAINS
                 ENDIF !cohesion
 
 
-                CASE(3) !linear model, based on Roten et al. 2015 for granite, but weaker zone is 1.4km instead of 1km deep
-                !linear decrease from 2 to 14 mPa
-                IF (z.GE. 1200.0) THEN !
-                   EQN%PlastCo(iElem) = 2.0e+06
-                ELSEIF ((z.LT. 1200.0) .AND. (z.GE. -2500.0)) THEN !first layer until -300+1500
-                   EQN%PlastCo(iElem) = 2.0e+06 + 2.702e+06*(abs(z-1200))/1000.0D0
-                ELSEIF ((z.LT. -2500.0).AND.(z.GE.-10000.0)) THEN !between -3000+1500 and -11000+1500
-                   EQN%PlastCo(iElem) = 12.0e+06 + 16.0e+06*(abs(z)-2500.0D0)/10000.0D0
-                ELSEIF (z.LT.-10000.0D0) THEN
-                   EQN%PlastCo(iElem) = 24.0e+06
+                CASE(3) !based on Roten 2017
+                IF (z.GE. shift) THEN !
+                   !EQN%PlastCo(iElem) = 10e+06
+                   EQN%PlastCo(iElem) = 10e+06
+                ELSEIF ((z.LT. shift) .AND. (z.GE. 0.0)) THEN !first layer until -300+1500
+                   !EQN%PlastCo(iElem) = 1.5e+06  + 2.5e+06*((shift -z)/shift) !2.0e+06 + 2.702e+06*(abs(z-1200))/1000.0D0
+                   EQN%PlastCo(iElem) = 2.5e+06  + 2.5e+06*((shift -z)/shift) !2.0e+06 + 2.702e+06*(abs(z-1200))/1000.0D0
+                ELSEIF ((z.LT. 0.0).AND.(z.GE.-1000)) THEN !
+                   !EQN%PlastCo(iElem) = 4.0e+06 + 6.0e+06*(abs(z))/3000.0D0
+                   EQN%PlastCo(iElem) = 5.0e+06 + 5.0e+06*(abs(z))/3000.0D0
+                ELSEIF ((z.LT. -1000.0).AND.(z.GE.-6000)) THEN !
+                   !EQN%PlastCo(iElem) = 10.0e+06 + 20.0e+06*(-3000.0-z)/3000.0D0
+                   EQN%PlastCo(iElem) = 10.0e+06 + 25.0e+06*(-1000.0-z)/5000.0D0
+                !ELSEIF ((z.LT. -6000.0).AND.(z.GE.-14000)) THEN !
+                ELSE
+                     !EQN%PlastCo(iElem) = 30.0e+06 + 20.0e+06*(-6000.0-z)/8000.0D0
+                   EQN%PlastCo(iElem) = 35.0e+06 !+ 20.0e+06*(-6000.0-z)/8000.0D0
+                !ELSE
+                   !EQN%PlastCo(iElem) = 50.0e+06
                 ENDIF !cohesion
 
                 CASE(4) !linear model, based on Roten et al. 2015 for granite, but weaker zone is 1.4km instead of 1km deep
@@ -1082,9 +1091,9 @@ CONTAINS
                 IF (z.GE.shift) THEN !high cohesion in mountain ranges
                   EQN%PlastCo(iElem) = 10.0e+06
                 ELSEIF ((z.GE. 1000.0).AND. (z.LT.shift)) THEN !
-                   EQN%PlastCo(iElem) = 2.0e+06
+                   EQN%PlastCo(iElem) = 3.0e+06
                 ELSEIF ((z.LT. 1000.0) .AND. (z.GE. 0.0)) THEN 
-                   EQN%PlastCo(iElem) = 2.0e+06 + 10.0e+06*(1000.0D0-z)/1000.0D0
+                   EQN%PlastCo(iElem) = 3.0e+06 + 9.0e+06*(1000.0D0-z)/1000.0D0
                 ELSEIF ((z.LT. 0.0).AND.(z.GE.-5000.0)) THEN
                    EQN%PlastCo(iElem) = 12.0e+06 + 18.0e+06*(abs(z))/5000.0D0
                 ELSEIF (z.LT.-5000.0D0) THEN
@@ -1218,18 +1227,27 @@ CONTAINS
                        !IF ((x .LE. 551459.845908702 ).AND.(x .GE. 550640.406929713)) THEN
                           !IF (y.GE.3793769.38158428) THEN
                           !CALL get_azimuth(573323.975527675,3812930.5128402 , mid_x, mid_y, azi_new)
+                          !CALL get_azimuth(570965.86609564,3817574.75302983 , mid_x, mid_y, azi_new) ! even later
                           !value = (azi_new-azi)/(azi_new-azi_start)
                           !alpha_rot = max(0.0, min(value, 1.0))
-                          !StressAngle_rot = EQN%StressAngle-alpha_rot*(EQN%Bulk_xx_0)
+                          !StressAngle_rot = EQN%StressAngle-alpha_rot*DISC%DynRup%cohesion_depth
                           !ENDIF
-                       !ENDIF
+                      !ENDIF
 
                ELSEIF ((azi .LE. azi_start) .AND. (azi .GT. azi_EF)) THEN !between Kickapoo and Emerson
                        StressAngle_rot = EQN%StressAngle-DISC%DynRup%cohesion_depth !EQN%Bulk_xx_0
                        !but whole fault should be in first angle
-                       IF ((x.LE. 549299.982605223) .AND. (y .LE. 3801051.78065556)) THEN
-                          StressAngle_rot = EQN%StressAngle
+                       !IF ((x.LE. 549299.982605223) .AND. (y .LE. 3801051.78065556)) THEN
+                          !StressAngle_rot = EQN%StressAngle
+                       !ENDIF
+                       IF ((x .LE. 549299.982605223) .AND. (y .LE. 3801051.78065556)) THEN
+                          CALL get_azimuth(570965.86609564,3817574.75302983 , mid_x, mid_y, azi_new)
+                          value = (azi_new-azi)/(azi_new-azi_start)
+                          alpha_rot = max(0.0, min(value, 1.0))
+                          StressAngle_rot = EQN%StressAngle-alpha_rot*DISC%DynRup%cohesion_depth
+                          !EQN%StressAngle_rot(i, iBndGP) = EQN%StressAngle
                        ENDIF
+
                ELSEIF ((azi .LE. azi_EF) .AND. (azi .GT. azi_end)) THEN !between Emerson and CR, smooth transition
                        value = (azi_EF-azi)/((azi_EF)-(azi_end))
                        alpha_rot = max(0.0, min(value, 1.0))
