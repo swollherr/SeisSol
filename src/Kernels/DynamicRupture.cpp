@@ -139,8 +139,7 @@ void seissol::kernels::DynamicRupture::computeGodunovState( DRFaceInformation co
                                                             real const*                 timeDerivativeMinus,
                                                             real                        godunov[CONVERGENCE_ORDER][seissol::model::godunovState::reals],
                                                             real const*                 timeDerivativePlus_prefetch,
-                                                            real const*                 timeDerivativeMinus_prefetch, 
-                                                            real                        absoluteSlip[seissol::model::godunovState::rows] ) {
+                                                            real const*                 timeDerivativeMinus_prefetch ) {
   // assert alignments
 #ifndef NDEBUG
   for (unsigned face = 0; face < 4; ++face) {
@@ -152,10 +151,6 @@ void seissol::kernels::DynamicRupture::computeGodunovState( DRFaceInformation co
   assert( ((uintptr_t)timeDerivativeMinus) % ALIGNMENT == 0 );
   assert( ((uintptr_t)&godunov[0])         % ALIGNMENT == 0 );
 #endif
-
-  real tVelAtQP[seissol::model::tVelAtQP::reals];
-  memset(tVelAtQP, 0, seissol::model::tVelAtQP::reals * sizeof(real));
-  real tVelRotationTmp[seissol::model::tVelRotation::reals];
 
   for (unsigned timeInterval = 0; timeInterval < CONVERGENCE_ORDER; ++timeInterval) {
     real degreesOfFreedomPlus[NUMBER_OF_ALIGNED_DOFS] __attribute__((aligned(PAGESIZE_STACK)));
@@ -180,31 +175,7 @@ void seissol::kernels::DynamicRupture::computeGodunovState( DRFaceInformation co
       degreesOfFreedomMinus,
       &godunov[timeInterval][0],
       minusPrefetch
-    );
-
-    for (unsigned i = 0; i < seissol::model::tVelRotation::reals; ++i) {
-      tVelRotationTmp[i] = timeWeights[timeInterval] * godunovData->tVelRotation[i];
-    }
-    seissol::generatedKernels::tangentialVelRotation[4*faceInfo.plusSide](
-      global->faceToNodalMatrices[faceInfo.plusSide][0],
-      tVelRotationTmp,
-      degreesOfFreedomPlus,
-      tVelAtQP
-    );
-    
-    for (unsigned i = 0; i < seissol::model::tVelRotation::reals; ++i) {
-      tVelRotationTmp[i] = -timeWeights[timeInterval] * godunovData->tVelRotation[i];
-    }
-    seissol::generatedKernels::tangentialVelRotation[4*faceInfo.minusSide + faceInfo.faceRelation](
-      global->faceToNodalMatrices[faceInfo.minusSide][faceInfo.faceRelation],
-      tVelRotationTmp,
-      degreesOfFreedomMinus,
-      tVelAtQP
-    );
-  }
-  
-  for (unsigned i = 0; i < seissol::model::tVelAtQP::rows; ++i) {
-    absoluteSlip[i] += sqrt(tVelAtQP[i]*tVelAtQP[i] + tVelAtQP[i + seissol::model::tVelAtQP::ld]*tVelAtQP[i + seissol::model::tVelAtQP::ld]); 
+    ); 
   }
 }
 
