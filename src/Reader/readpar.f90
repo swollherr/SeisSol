@@ -612,6 +612,11 @@ CONTAINS
       !
       logInfo0(*) 'No material property zones are defined. '
       logInfo0(*) 'Material properties are read from file : ', TRIM(EQN%MaterialFileName)
+      logInfo0(*) 'Jacobians are globally constant with rho0, mu, lambda:'
+      !homog. material parameters
+      !logInfo0(*) ' rho0 = ', EQN%rho0     ! (1)
+      !logInfo0(*) ' mu = ', EQN%mu       ! (2)
+      !logInfo0(*) ' lambda = ', EQN%lambda   ! (3)
 
 
       IF (EQN%Anelasticity .EQ. 1) THEN
@@ -626,6 +631,41 @@ CONTAINS
       ENDIF
 
       !
+
+    CASE(119) !Roughfaults, plasticity and Anelasticity
+ 
+      if (EQN%Anelasticity.EQ.1) THEN
+      logInfo0(*) 'Material properties are read from file : ', TRIM(EQN%MaterialFileName)
+      CALL OpenFile(                                        &
+            UnitNr       = IO%UNIT%other01                , &
+            Name         = EQN%MaterialFileName           , &
+            create       = .FALSE.                          )
+      logInfo(*) 'Reading material property file ...  '
+      READ(IO%UNIT%other01,'(i10,a)') EQN%nLayers, cdummy             ! Number of different material zones
+      READ(IO%UNIT%other01,'(i10,a)') EQN%nMechanisms, cdummy         ! Number of different attenuation mechanisms
+      logInfo(*) 'Model has ',EQN%nMechanisms,' attenuation mechanisms.'
+      READ(IO%UNIT%other01,*) EQN%FreqCentral                             ! Central frequency of the absorption band (in Hertz)
+      logInfo(*) 'with central frequency ',EQN%FreqCentral
+      READ(IO%UNIT%other01,*) EQN%FreqRatio                               ! The ratio between the maximum and minimum frequencies of our bandwidth
+      logInfo(*) 'and frequency ratio ',EQN%FreqRatio
+
+      EQN%nBackgroundVar  = 3 + EQN%nMechanisms * 4
+      EQN%nAneMaterialVar = 5        ! rho, mu, lambda, Qp, Qs
+      EQN%nVarTotal = EQN%nVar + EQN%nAneFuncperMech*EQN%nMechanisms                                                    !
+      EQN%AneMatIni = 4                                                  ! indicates where in MaterialVal begin the anelastic parameters 
+
+      ALLOCATE(EQN%MODEL(1:EQN%nLayers,EQN%nAneMaterialVar))
+      DO i = 1,EQN%nLayers
+           READ(IO%UNIT%other01,*) intDummy, EQN%MODEL(i,:)
+      ENDDO
+      CLOSE(IO%UNIT%other01)
+      else
+        logInfo0(*) 'Jacobians are globally constant with rho0, mu, lambda:'
+        logInfo0(*) ' rho0 = ', EQN%rho0     ! (1)
+        logInfo0(*) ' mu = ', EQN%mu       ! (2)
+        logInfo0(*) ' lambda = ', EQN%lambda   ! (3)
+      endif
+
   CASE(122,1221,1222,1223, 1225, 1226, 1227) ! SUMATRA T Ulrich 16.02.2016
       !
       logInfo(*) 'Material property zones are defined by SeisSol. '
@@ -1412,7 +1452,7 @@ CONTAINS
     !Dynamic shear stress arrival output currently only for linear slip weakening friction laws
     IF (OutputMask(11).EQ.1) THEN
         SELECT CASE (EQN%FL)
-               CASE(2,6,13,16,17,29,30) !LSW friction law cases
+               CASE(2,6,13,16,17,29,30,302) !LSW friction law cases
                     !use only if RF_output=1
                     IF (OutputMask(10).EQ.1) THEN
                         ! set 'collecting DS time' to 1
@@ -1831,7 +1871,7 @@ CONTAINS
              ! all parameters are defined in input file of INITIAL VALUES
              DISC%DynRup%inst_healing = 0
              CONTINUE
-           CASE(30) !LSW with a smoothed rupture in a circular patch, used for example in TPV29/TPV30 and TPV26/TPV27
+           CASE(30,302) !LSW with a smoothed rupture in a circular patch, used for example in TPV29/TPV30 and TPV26/TPV27
              DISC%DynRup%Mu_D_ini = Mu_D_ini
              DISC%DynRup%Mu_S_ini = Mu_S_ini
              DISC%DynRup%D_C_ini  = D_C_ini
@@ -1841,6 +1881,7 @@ CONTAINS
              DISC%DynRup%R_crit   = R_crit    ! radius of the nucleation patch
              DISC%DynRup%t_0      = t_0       ! forced rupture decay time
              DISC%DynRup%Vs_nucl     = Vs_nucl       ! forced rupture decay time
+             DISC%DynRup%inst_healing = inst_healing ! instantaneous healing switch (1: on, 0: off)
            CASE(103)
              DISC%DynRup%RS_f0 = RS_f0    ! mu_0, reference friction coefficient
              DISC%DynRup%RS_sr0 = RS_sr0  ! V0, reference velocity scale

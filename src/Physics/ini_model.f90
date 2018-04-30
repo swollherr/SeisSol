@@ -131,7 +131,7 @@ CONTAINS
     REAL                            :: b11, b22, b12, b13, b23, b33           ! coefficients for special loading
     REAL                            :: yN1, yN2, yS1, yS2, xS1, xS2, alpha
     REAL                            :: nLayers, zLayers(20), rhoLayers(20)
-    REAL                            :: sigzz, Rz, g
+    REAL                            :: sigzz, Rz, Rx, g
     REAL                            :: bii(6)
     REAL                            :: zStressIncreaseStart, zStressIncreaseStop, zStressIncreaseWidth
     REAL                            :: ratioRtopo, Sx, xx, Rvalue_new, StressAngle_rot
@@ -998,10 +998,10 @@ CONTAINS
          shift=1200.D0 !free surface at 1400m
          !read in data from asagi
          call readVelocityField(eqn, mesh, materialVal(:,1:3))
-         !
-         !MaterialVal(iElem,1) = EQN%rho0
-         !MaterialVal(iElem,2) = EQN%mu
-         !MaterialVal(iElem,3) = EQN%lambda
+         !or use homog. material parameters
+         !MaterialVal(:,1) = EQN%rho0
+         !MaterialVal(:,2) = EQN%mu
+         !MaterialVal(:,3) = EQN%lambda
  
          !anelastic setup
          IF (EQN%ANELASTICITY.EQ.1) THEN
@@ -1022,6 +1022,7 @@ CONTAINS
                MaterialTmp(4) =  2.0*MaterialTmp(5) !Q_p
 
                CALL ini_ATTENUATION(Theta,w_freq,Material_INF,MaterialTmp,EQN)
+               MaterialVal(iElem,2:EQN%AneMatIni-1) = Material_INF(:)
 
                DO iMech = 1, EQN%nMechanisms                                      ! Set anelastic coefficients w_freq and theta
                   MaterialVal(iElem,iMech*4)             = w_freq(iMech)
@@ -1038,7 +1039,7 @@ CONTAINS
              x = MESH%ELEM%xyBary(1,iElem) !average x coordinate inside an element
              depth = MIN(z-shift,0.0)
                 ! assign depth dependent plastic cohesion
-                SELECT CASE(cohesionType)
+                SELECT CASE(cohesiontype)
 
                 CASE(1) !original cohesion model, used in plasticity paper, based on Roten et al. 2015 for granite
                 !aligned with velocity structure
@@ -1078,12 +1079,12 @@ CONTAINS
                 ELSEIF ((z.LT. -1000.0).AND.(z.GE.-6000)) THEN !
                    !EQN%PlastCo(iElem) = 10.0e+06 + 20.0e+06*(-3000.0-z)/3000.0D0
                    EQN%PlastCo(iElem) = 10.0e+06 + 25.0e+06*(-1000.0-z)/5000.0D0
-                !ELSEIF ((z.LT. -6000.0).AND.(z.GE.-14000)) THEN !
-                ELSE
-                     !EQN%PlastCo(iElem) = 30.0e+06 + 20.0e+06*(-6000.0-z)/8000.0D0
-                   EQN%PlastCo(iElem) = 35.0e+06 !+ 20.0e+06*(-6000.0-z)/8000.0D0
+                ELSEIF ((z.LT. -6000.0).AND.(z.GE.-14000)) THEN !
                 !ELSE
-                   !EQN%PlastCo(iElem) = 50.0e+06
+                     !EQN%PlastCo(iElem) = 30.0e+06 + 20.0e+06*(-6000.0-z)/8000.0D0
+                   EQN%PlastCo(iElem) = 35.0e+06 + 15.0e+06*(-6000.0-z)/8000.0D0
+                ELSE
+                   EQN%PlastCo(iElem) = 50.0e+06
                 ENDIF !cohesion
 
                 CASE(4) !linear model, based on Roten et al. 2015 for granite, but weaker zone is 1.4km instead of 1km deep
@@ -1255,9 +1256,9 @@ CONTAINS
                ELSEIF ((azi .LE. azi_end) .AND. (azi .GT. azi_CR)) THEN !between Emerson and CR, smooth transition
                        value = (azi_end-azi)/((azi_end)-(azi_CR))
                        alpha_rot = max(0.0, min(value, 1.0))
-                       StressAngle_rot = EQN%StressAngle- DISC%DynRup%stopping_depth + alpha_rot*(DISC%DynRup%stopping_depth-EQN%StressAngle+30.6+11.0)
+                       StressAngle_rot = EQN%StressAngle- DISC%DynRup%stopping_depth + alpha_rot*(DISC%DynRup%stopping_depth-EQN%StressAngle+30.6+10.0)
                ELSE
-                       StressAngle_rot = 30.6 + 11.0 !EQN%StressAngle-DISC%DynRup%stopping_depth
+                       StressAngle_rot = 30.6 + 10.0 !EQN%StressAngle-DISC%DynRup%stopping_depth
 
                ENDIF
 
@@ -1384,6 +1385,88 @@ CONTAINS
         ! ATTENTION: zones in the mesh are ignored
         !
         call readVelocityField(eqn, mesh, materialVal(:,1:3))
+
+
+      CASE(119) !New Rough Fault : homogenous stress and Plasticity 
+         !b11 = 1.025837D0
+         !b33 = 0.974162D0
+         !b13 =-0.158649D0
+        !0.8
+        b11 = 1.0296d0
+        b33 = 0.9704d0
+        b13 =-0.1643d0
+        !0.7
+        b11 = 1.0285d0
+        b33 = 0.9715d0
+        b13 =-0.1584d0
+        g = 9.8D0    
+
+        if (EQN%Anelasticity.EQ.1) THEN
+           DO iElem=1, MESH%nElem
+              MaterialTmp(:) = EQN%MODEL(1,:)
+              MaterialVal(iElem,1:3) = MaterialTmp(1:3)
+              EQN%LocAnelastic(iElem) = 1                                        ! Mark element with anelastic material
+              CALL ini_ATTENUATION(Theta,w_freq,Material_INF,MaterialTmp,EQN)    ! Initialize anelastic coefficients for this zone     
+              MaterialVal(iElem,2:EQN%AneMatIni-1) = Material_INF(:)             ! Set unrelaxed material properties for this zone.                                                                      !
+              ! Fill MaterialVal vector for each element with anelastic coefficients w_freq and theta 
+              DO iMech = 1, EQN%nMechanisms
+                 MaterialVal(iElem,EQN%AneMatIni+4*(iMech-1))             = w_freq(iMech)
+                 MaterialVal(iElem,EQN%AneMatIni+4*(iMech-1)+1:EQN%AneMatIni+4*(iMech-1)+3) = Theta(iMech,:)
+              ENDDO
+           ENDDO
+        ELSE
+           MaterialVal(:,1) = EQN%rho0
+           MaterialVal(:,2) = EQN%mu
+           MaterialVal(:,3) = EQN%lambda
+        ENDIF
+
+
+        ! Initialisation of IniStress(6 stress components in 3D)
+        !
+        ALLOCATE(EQN%IniStress(6,MESH%nElem))
+        EQN%IniStress(:,:)=0.0D0
+        IF (EQN%Plasticity.EQ.1) THEN
+        DO iElem=1, MESH%nElem
+
+                x = MESH%ELEM%xyBary(1,iElem) 
+                z = MESH%ELEM%xyBary(3,iElem) !average depth inside an element
+
+          IF (x.LT.-19000D0) THEN
+             Rx = (-x - 19000D0)/5e3
+          ELSEIF (x.GT.19000D0) THEN
+             Rx = (x - 19000D0)/5e3
+          ELSE
+             Rx = 0.
+          ENDIF
+
+          IF (z.LT.-19000D0) THEN
+             Rz = (-z - 19000D0)/5e3
+          ELSE
+             Rz = 0.
+          ENDIF
+          Omega = 1d0-min(1D0,sqrt(Rx**2+Rz**2))
+
+
+          !IF (z.GE.-17000.0D0) THEN
+          !    Omega = 1D0
+          !ELSEIF (z.GE.-22000D0) THEN
+          !    Omega = (z+22000D0)/5000D0
+          !ELSE
+          !    Omega = 0D0
+          !ENDIF
+          Pf = 0000D0 * g * z
+          EQN%IniStress(3,iElem) = 2670d0*g*(-10e3)
+          EQN%IniStress(1,iElem) =  Omega*(b11*(EQN%IniStress(3,iElem)+Pf)-Pf)+(1d0-Omega)*EQN%IniStress(3,iElem)
+          EQN%IniStress(2,iElem) =  Omega*(b33*(EQN%IniStress(3,iElem)+Pf)-Pf)+(1d0-Omega)*EQN%IniStress(3,iElem)
+          EQN%IniStress(4,iElem)  =  Omega*(b13*(EQN%IniStress(3,iElem)+Pf))
+          EQN%IniStress(5,iElem)  = 0.0  
+          EQN%IniStress(6,iElem)  = 0.0  
+          EQN%IniStress(1,iElem)  =   EQN%IniStress(1,iElem) + Pf
+          EQN%IniStress(2,iElem)  =   EQN%IniStress(2,iElem) + Pf
+          EQN%IniStress(3,iElem)  =   EQN%IniStress(3,iElem) + Pf
+
+        ENDDO
+        ENDIF
 
      CASE(122)     ! T. Ulrich SUMATRA 2 x 1d 16.02.16
 	 ! OCeanic Crust
