@@ -71,6 +71,10 @@ def addMatrices(db, matricesDir, order, dynamicRuptureMethod, numberOfElasticQua
   godunovStateSpp[:,0:numberOfElasticQuantities] = 1.
   db.insert(DB.MatrixInfo('godunovState', numberOfPoints, numberOfQuantities, matrix=godunovStateSpp))
 
+  tVelRotationSpp = np.matlib.zeros((numberOfElasticQuantities, numberOfElasticQuantities), dtype=np.float64)
+  tVelRotationSpp[numberOfElasticQuantities-3:numberOfElasticQuantities,numberOfElasticQuantities-2:numberOfElasticQuantities] = 1.0
+  db.insert(DB.MatrixInfo('tVelRotation', numberOfElasticQuantities, numberOfElasticQuantities, matrix = tVelRotationSpp))
+
   stiffnessOrder = { 'Xi': 0, 'Eta': 1, 'Zeta': 2 }
   globalMatrixIdRules = [
     (r'^pP(\d{1})$', lambda x: (int(x[0])-1)*4),
@@ -83,6 +87,12 @@ def addMatrices(db, matricesDir, order, dynamicRuptureMethod, numberOfElasticQua
 def addKernels(db, kernels, dofMatrixName):
   # Kernels
   for i in range(0,4):
+    tangentialVelRotation = db['nP{}'.format(i+1)] * db[dofMatrixName] * db['tVelRotation']
+    tangentialVelRotation.fitBlocksToSparsityPattern()
+    kernels.append(Kernel.Prototype('tangentialVelRotation[{}]'.format(i*4), tangentialVelRotation, beta=1))
+    db.insert(tangentialVelRotation.flat('tVelAtQP'))
+    db['tVelAtQP'].fitBlocksToSparsityPattern()
+
     godunovStatePlus = db['nP{}'.format(i+1)] * db[dofMatrixName] * db['godunovMatrix']
     kernels.append(Kernel.Prototype('godunovState[{}]'.format(i*4), godunovStatePlus, beta=0, prefetch=godunovStatePlus))
     
@@ -90,6 +100,10 @@ def addKernels(db, kernels, dofMatrixName):
     kernels.append(Kernel.Prototype('nodalFlux[{}]'.format(i*4), flux, prefetch=db['godunovState']))
     
     for h in range(1,4):
+      tangentialVelRotation = db['nM{}{}'.format(i+1,h)] * db[dofMatrixName] * db['tVelRotation']
+      tangentialVelRotation.fitBlocksToSparsityPattern()
+      kernels.append(Kernel.Prototype('tangentialVelRotation[{}]'.format(i*4+h), tangentialVelRotation, beta=1))
+
       godunovStateMinus = db['nM{}{}'.format(i+1,h)] * db[dofMatrixName] * db['godunovMatrix']
       kernels.append(Kernel.Prototype('godunovState[{}]'.format(i*4+h), godunovStateMinus, beta=1, prefetch=godunovStateMinus))
 
