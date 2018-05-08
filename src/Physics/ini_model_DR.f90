@@ -4261,13 +4261,13 @@ MODULE ini_model_DR_mod
                 EQN%IniMu(iBndGP,i) = DISC%DynRup%Mu_S_ini - DISC%DynRup%weaker
                 DISC%DynRup%Mu_S(iBndGP,i) = DISC%DynRup%Mu_S_ini - DISC%DynRup%weaker 
              ELSEIF (((yGP .GE. 3815887.3)  .AND. (yGP.LT.3822649.0)) .OR. ((xGP.GE. 543399.805587407).AND. (yGP .GE. 3813887.3))) THEN !Emerson already
-                EQN%IniMu(iBndGP,i) = DISC%DynRup%Mu_S_ini - 0.08 !DISC%DynRup%weaker
-                DISC%DynRup%Mu_S(iBndGP,i) = DISC%DynRup%Mu_S_ini - 0.08!DISC%DynRup%weaker 
+                EQN%IniMu(iBndGP,i) = DISC%DynRup%Mu_S_ini - 0.09 !DISC%DynRup%weaker
+                DISC%DynRup%Mu_S(iBndGP,i) = DISC%DynRup%Mu_S_ini - 0.09!DISC%DynRup%weaker 
                 !increase R for that region instead of mu_s
                 !EQN%Rvalue = EQN%Rvalue+0.05
              ELSEIF (((xGP.GE. 545399.805587407).AND. (yGP .LE. 3813887.3) .AND. (yGP .GE. 3811207.3 )) .OR. ((yGP.GE.3807207.3).AND.(xGP.GE.547399.805587407))) THEN !Emerson south part
-               EQN%IniMu(iBndGP,i) = DISC%DynRup%Mu_S_ini - 0.08 !DISC%DynRup%weaker
-                DISC%DynRup%Mu_S(iBndGP,i) = DISC%DynRup%Mu_S_ini - 0.08 !DISC%DynRup%weaker
+               EQN%IniMu(iBndGP,i) = DISC%DynRup%Mu_S_ini - 0.09 !DISC%DynRup%weaker
+                DISC%DynRup%Mu_S(iBndGP,i) = DISC%DynRup%Mu_S_ini - 0.09 !DISC%DynRup%weaker
              ELSEIF(yGP.GT.3833595.845915) THEN !stop rupture at the very end of the CR fault
              !ELSEIF(yGP.GT.3835471.7544868) THEN !stop rupture at the very end of the CR fault. later
                 !stop gradually from weaker mu_s to stronger mu_s
