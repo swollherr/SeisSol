@@ -999,9 +999,10 @@ CONTAINS
          !read in data from asagi
          call readVelocityField(eqn, mesh, materialVal(:,1:3))
          !
-         !MaterialVal(iElem,1) = EQN%rho0
-         !MaterialVal(iElem,2) = EQN%mu
-         !MaterialVal(iElem,3) = EQN%lambda
+         !or use homog. material parameters
+         !MaterialVal(:,1) = EQN%rho0
+         !MaterialVal(:,2) = EQN%mu
+         !MaterialVal(:,3) = EQN%lambda
  
          !anelastic setup
          IF (EQN%ANELASTICITY.EQ.1) THEN
@@ -1066,7 +1067,7 @@ CONTAINS
 
 
                 CASE(3) !based on Roten 2017
-                IF (z.GE. shift) THEN !
+                IF (z.GE. shift+200.0) THEN !
                    !EQN%PlastCo(iElem) = 10e+06
                    EQN%PlastCo(iElem) = 10e+06
                 ELSEIF ((z.LT. shift) .AND. (z.GE. 0.0)) THEN !first layer until -300+1500
@@ -1228,6 +1229,7 @@ CONTAINS
                           !IF (y.GE.3793769.38158428) THEN
                           !CALL get_azimuth(573323.975527675,3812930.5128402 , mid_x, mid_y, azi_new)
                           !CALL get_azimuth(570965.86609564,3817574.75302983 , mid_x, mid_y, azi_new) ! even later
+                          !CALL get_azimuth(570547.014445457,3819255.42481653 , mid_x, mid_y, azi_new)
                           !value = (azi_new-azi)/(azi_new-azi_start)
                           !alpha_rot = max(0.0, min(value, 1.0))
                           !StressAngle_rot = EQN%StressAngle-alpha_rot*DISC%DynRup%cohesion_depth
@@ -1244,8 +1246,8 @@ CONTAINS
                           CALL get_azimuth(570965.86609564,3817574.75302983 , mid_x, mid_y, azi_new)
                           value = (azi_new-azi)/(azi_new-azi_start)
                           alpha_rot = max(0.0, min(value, 1.0))
-                          StressAngle_rot = EQN%StressAngle-alpha_rot*DISC%DynRup%cohesion_depth
-                          !EQN%StressAngle_rot(i, iBndGP) = EQN%StressAngle
+                          !StressAngle_rot = EQN%StressAngle-alpha_rot*DISC%DynRup%cohesion_depth
+                          StressAngle_rot = EQN%StressAngle
                        ENDIF
 
                ELSEIF ((azi .LE. azi_EF) .AND. (azi .GT. azi_end)) THEN !between Emerson and CR, smooth transition
