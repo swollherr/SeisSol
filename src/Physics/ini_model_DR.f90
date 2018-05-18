@@ -4349,9 +4349,9 @@ MODULE ini_model_DR_mod
                ELSEIF ((azi .LE. azi_end) .AND. (azi .GT. azi_CR)) THEN !between Emerson and CR, smooth transition
                        value = (azi_end-azi)/((azi_end)-(azi_CR))
                        alpha_rot = max(0.0, min(value, 1.0))
-                       EQN%StressAngle_rot(i, iBndGP) = EQN%StressAngle- DISC%DynRup%stopping_depth + alpha_rot*(DISC%DynRup%stopping_depth-EQN%StressAngle+30.6+10.0)
+                       EQN%StressAngle_rot(i, iBndGP) = EQN%StressAngle- DISC%DynRup%stopping_depth + alpha_rot*(DISC%DynRup%stopping_depth-EQN%StressAngle+30.6+11.0)
                ELSE
-                       EQN%StressAngle_rot(i, iBndGP) = 30.6 + 10.0 !EQN%StressAngle-DISC%DynRup%stopping_depth
+                       EQN%StressAngle_rot(i, iBndGP) = 30.6 + 11.0 !EQN%StressAngle-DISC%DynRup%stopping_depth
 
                ENDIF
 
