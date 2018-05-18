@@ -1067,7 +1067,7 @@ CONTAINS
 
 
                 CASE(3) !based on Roten 2017
-                IF (z.GE. shift) THEN !
+                IF (z.GE. shift+200.0) THEN !
                    !EQN%PlastCo(iElem) = 10e+06
                    EQN%PlastCo(iElem) = 10e+06
                 ELSEIF ((z.LT. shift) .AND. (z.GE. 0.0)) THEN !first layer until -300+1500
@@ -1079,12 +1079,12 @@ CONTAINS
                 ELSEIF ((z.LT. -1000.0).AND.(z.GE.-6000)) THEN !
                    !EQN%PlastCo(iElem) = 10.0e+06 + 20.0e+06*(-3000.0-z)/3000.0D0
                    EQN%PlastCo(iElem) = 10.0e+06 + 25.0e+06*(-1000.0-z)/5000.0D0
-                ELSEIF ((z.LT. -6000.0).AND.(z.GE.-14000)) THEN !
-                !ELSE
-                     !EQN%PlastCo(iElem) = 30.0e+06 + 20.0e+06*(-6000.0-z)/8000.0D0
-                   EQN%PlastCo(iElem) = 35.0e+06 + 15.0e+06*(-6000.0-z)/8000.0D0
+                !ELSEIF ((z.LT. -6000.0).AND.(z.GE.-14000)) THEN !
                 ELSE
-                   EQN%PlastCo(iElem) = 50.0e+06
+                     !EQN%PlastCo(iElem) = 30.0e+06 + 20.0e+06*(-6000.0-z)/8000.0D0
+                   EQN%PlastCo(iElem) = 35.0e+06 !+ 15.0e+06*(-6000.0-z)/8000.0D0
+                !ELSE
+                   !EQN%PlastCo(iElem) = 50.0e+06
                 ENDIF !cohesion
 
                 CASE(4) !linear model, based on Roten et al. 2015 for granite, but weaker zone is 1.4km instead of 1km deep
@@ -1229,6 +1229,7 @@ CONTAINS
                           !IF (y.GE.3793769.38158428) THEN
                           !CALL get_azimuth(573323.975527675,3812930.5128402 , mid_x, mid_y, azi_new)
                           !CALL get_azimuth(570965.86609564,3817574.75302983 , mid_x, mid_y, azi_new) ! even later
+                          !CALL get_azimuth(570547.014445457,3819255.42481653 , mid_x, mid_y, azi_new)
                           !value = (azi_new-azi)/(azi_new-azi_start)
                           !alpha_rot = max(0.0, min(value, 1.0))
                           !StressAngle_rot = EQN%StressAngle-alpha_rot*DISC%DynRup%cohesion_depth
@@ -1245,8 +1246,8 @@ CONTAINS
                           CALL get_azimuth(570965.86609564,3817574.75302983 , mid_x, mid_y, azi_new)
                           value = (azi_new-azi)/(azi_new-azi_start)
                           alpha_rot = max(0.0, min(value, 1.0))
-                          StressAngle_rot = EQN%StressAngle-alpha_rot*DISC%DynRup%cohesion_depth
-                          !EQN%StressAngle_rot(i, iBndGP) = EQN%StressAngle
+                          !StressAngle_rot = EQN%StressAngle-alpha_rot*DISC%DynRup%cohesion_depth
+                          StressAngle_rot = EQN%StressAngle
                        ENDIF
 
                ELSEIF ((azi .LE. azi_EF) .AND. (azi .GT. azi_end)) THEN !between Emerson and CR, smooth transition
@@ -1256,9 +1257,9 @@ CONTAINS
                ELSEIF ((azi .LE. azi_end) .AND. (azi .GT. azi_CR)) THEN !between Emerson and CR, smooth transition
                        value = (azi_end-azi)/((azi_end)-(azi_CR))
                        alpha_rot = max(0.0, min(value, 1.0))
-                       StressAngle_rot = EQN%StressAngle- DISC%DynRup%stopping_depth + alpha_rot*(DISC%DynRup%stopping_depth-EQN%StressAngle+30.6+10.0)
+                       StressAngle_rot = EQN%StressAngle- DISC%DynRup%stopping_depth + alpha_rot*(DISC%DynRup%stopping_depth-EQN%StressAngle+30.6+11.0)
                ELSE
-                       StressAngle_rot = 30.6 + 10.0 !EQN%StressAngle-DISC%DynRup%stopping_depth
+                       StressAngle_rot = 30.6 + 11.0 !EQN%StressAngle-DISC%DynRup%stopping_depth
 
                ENDIF
 

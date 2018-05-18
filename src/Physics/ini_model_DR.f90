@@ -4326,6 +4326,7 @@ MODULE ini_model_DR_mod
                           !CALL get_azimuth(573323.975527675,3812930.5128402 , mid_x, mid_y, azi_new) ! right after branch
                           !CALL get_azimuth(572341.547617262, 3815470.76952617, mid_x, mid_y, azi_new) ! slightly later
                           !CALL get_azimuth(570965.86609564,3817574.75302983 , mid_x, mid_y, azi_new) ! even later
+                          !CALL get_azimuth(570547.014445457,3819255.42481653 , mid_x, mid_y, azi_new) ! even later
                           !value = (azi_new-azi)/(azi_new-azi_start)
                           !alpha_rot = max(0.0, min(value, 1.0))
                           !EQN%StressAngle_rot(i, iBndGP) = EQN%StressAngle-alpha_rot*DISC%DynRup%cohesion_depth
@@ -4338,8 +4339,8 @@ MODULE ini_model_DR_mod
                           CALL get_azimuth(570965.86609564,3817574.75302983 , mid_x, mid_y, azi_new)
                           value = (azi_new-azi)/(azi_new-azi_start)
                           alpha_rot = max(0.0, min(value, 1.0))
-                          EQN%StressAngle_rot(i, iBndGP) = EQN%StressAngle-alpha_rot*DISC%DynRup%cohesion_depth
-                          !EQN%StressAngle_rot(i, iBndGP) = EQN%StressAngle
+                          !EQN%StressAngle_rot(i, iBndGP) = EQN%StressAngle-alpha_rot*DISC%DynRup%cohesion_depth
+                          EQN%StressAngle_rot(i, iBndGP) = EQN%StressAngle
                        ENDIF
                ELSEIF ((azi .LE. azi_EF) .AND. (azi .GT. azi_end)) THEN !between Emerson and CR, smooth transition
                        value = (azi_EF-azi)/((azi_EF)-(azi_end))
@@ -4412,7 +4413,7 @@ MODULE ini_model_DR_mod
           !gap at Kickapoo
           !IF (azi .GT. azi_start) THEN !below Kickapoo
              !IF ((xGP .LE. 551322.845908702 ) .AND. (yGP.GE.3798300.38158428)) THEN
-                   !IF ((yGP .GE. 3798600.38158428)
+                   !IF ((yGP .GE. 3798600.38158428) THEN
                    !lock part of the Kickapoo fault = highly increase mu_s
                    !EQN%IniMu(iBndGP,i) = 10000.0  !DISC%DynRup%Mu_S_ini - DISC%DynRup%weaker
                    !DISC%DynRup%Mu_S(iBndGP,i) = 10000.0 !DISC%DynRup%Mu_S_ini - DISC%DynRup%weaker
@@ -4428,13 +4429,13 @@ MODULE ini_model_DR_mod
                 EQN%IniMu(iBndGP,i) = DISC%DynRup%Mu_S_ini - DISC%DynRup%weaker
                 DISC%DynRup%Mu_S(iBndGP,i) = DISC%DynRup%Mu_S_ini - DISC%DynRup%weaker 
              ELSEIF (((yGP .GE. 3815887.3)  .AND. (yGP.LT.3822649.0)) .OR. ((xGP.GE. 543399.805587407).AND. (yGP .GE. 3813887.3))) THEN !Emerson already
-                EQN%IniMu(iBndGP,i) = DISC%DynRup%Mu_S_ini - 0.07 !DISC%DynRup%weaker
-                DISC%DynRup%Mu_S(iBndGP,i) = DISC%DynRup%Mu_S_ini - 0.07!DISC%DynRup%weaker 
+                EQN%IniMu(iBndGP,i) = DISC%DynRup%Mu_S_ini - 0.09 !DISC%DynRup%weaker
+                DISC%DynRup%Mu_S(iBndGP,i) = DISC%DynRup%Mu_S_ini - 0.09!DISC%DynRup%weaker 
                 !increase R for that region instead of mu_s
                 !EQN%Rvalue = EQN%Rvalue+0.05
              ELSEIF (((xGP.GE. 545399.805587407).AND. (yGP .LE. 3813887.3) .AND. (yGP .GE. 3811207.3 )) .OR. ((yGP.GE.3807207.3).AND.(xGP.GE.547399.805587407))) THEN !Emerson south part
-               EQN%IniMu(iBndGP,i) = DISC%DynRup%Mu_S_ini - 0.07 !DISC%DynRup%weaker
-                DISC%DynRup%Mu_S(iBndGP,i) = DISC%DynRup%Mu_S_ini - 0.07 !DISC%DynRup%weaker
+               EQN%IniMu(iBndGP,i) = DISC%DynRup%Mu_S_ini - 0.09 !DISC%DynRup%weaker
+                DISC%DynRup%Mu_S(iBndGP,i) = DISC%DynRup%Mu_S_ini - 0.09 !DISC%DynRup%weaker
              ELSEIF(yGP.GT.3833595.845915) THEN !stop rupture at the very end of the CR fault
              !ELSEIF(yGP.GT.3835471.7544868) THEN !stop rupture at the very end of the CR fault. later
                 !stop gradually from weaker mu_s to stronger mu_s
