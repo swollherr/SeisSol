@@ -2307,14 +2307,14 @@ MODULE ini_model_DR_mod
 
 
           ! manage cohesion
-          IF (zGP.GE.zIncreasingCohesion) THEN
+          !IF (zGP.GE.zIncreasingCohesion) THEN
               ! higher cohesion near free surface
               !DISC%DynRup%cohesion(i,iBndGP) = -0.4d6-0.0002d6*(zGP-zIncreasingCohesion)
-              DISC%DynRup%cohesion(iBndGP,i) = -0.4d6-1.0d6*(zGP-zIncreasingCohesion)/(-zIncreasingCohesion)
-          ELSE
+              !DISC%DynRup%cohesion(iBndGP,i) = -0.4d6-1.0d6*(zGP-zIncreasingCohesion)/(-zIncreasingCohesion)
+          !ELSE
               ! set cohesion
               DISC%DynRup%cohesion(iBndGP,i) = -0.4d6
-          ENDIF
+          !ENDIF
       ENDDO ! iBndGP
 
   ENDDO !    MESH%Fault%nSide
@@ -4144,8 +4144,9 @@ MODULE ini_model_DR_mod
           tau  = MESH%ELEM%BndGP_Tri(2,iBndGP)
           CALL TrafoChiTau2XiEtaZeta(xi,eta,zeta,chi,tau,iSide,0)
           CALL TetraTrafoXiEtaZeta2XYZ(xGP,yGP,zGP,xi,eta,zeta,xV,yV,zV)
-          !
-          depth=MIN(zGP-shift,0.0)
+          !earlier
+          !depth=MIN(zGP-shift,0.0)
+          depth=MIN(zGP-shift,1150.0-shift)
           !set vertical force
           sigzz = 2700.0d0*g*depth
           !constant when higher than 80MPa
@@ -4436,16 +4437,16 @@ MODULE ini_model_DR_mod
              ELSEIF (((xGP.GE. 545399.805587407).AND. (yGP .LE. 3813887.3) .AND. (yGP .GE. 3811207.3 )) .OR. ((yGP.GE.3807207.3).AND.(xGP.GE.547399.805587407))) THEN !Emerson south part
                EQN%IniMu(iBndGP,i) = DISC%DynRup%Mu_S_ini - 0.09 !DISC%DynRup%weaker
                 DISC%DynRup%Mu_S(iBndGP,i) = DISC%DynRup%Mu_S_ini - 0.09 !DISC%DynRup%weaker
-             ELSEIF(yGP.GT.3833595.845915) THEN !stop rupture at the very end of the CR fault
+             !ELSEIF(yGP.GT.3833595.845915) THEN !stop rupture at the very end of the CR fault
              !ELSEIF(yGP.GT.3835471.7544868) THEN !stop rupture at the very end of the CR fault. later
                 !stop gradually from weaker mu_s to stronger mu_s
-                IF (yGP.LT.3835359.74492408) THEN 
+                !IF (yGP.LT.3835359.74492408) THEN 
                     !EQN%IniMu(iBndGP,i) = DISC%DynRup%Mu_S_ini !+ DISC%DynRup%weaker
                     !DISC%DynRup%Mu_S(iBndGP,i) = DISC%DynRup%Mu_S_ini !+ DISC%DynRup%weaker
                 !ELSE
-                    EQN%IniMu(iBndGP,i) = DISC%DynRup%Mu_S_ini - DISC%DynRup%weaker + min(1.0, (yGP-3833595.845915)/(3835359.74492408-3833595.845915))*DISC%DynRup%weaker
-                    DISC%DynRup%Mu_S(iBndGP,i) = DISC%DynRup%Mu_S_ini - DISC%DynRup%weaker + min(1.0, (yGP-3833595.845915)/(3835359.74492408-3833595.845915))*DISC%DynRup%weaker
-                ENDIF
+                    !EQN%IniMu(iBndGP,i) = DISC%DynRup%Mu_S_ini - DISC%DynRup%weaker + min(1.0, (yGP-3833595.845915)/(3835359.74492408-3833595.845915))*DISC%DynRup%weaker
+                    !DISC%DynRup%Mu_S(iBndGP,i) = DISC%DynRup%Mu_S_ini - DISC%DynRup%weaker + min(1.0, (yGP-3833595.845915)/(3835359.74492408-3833595.845915))*DISC%DynRup%weaker
+                !ENDIF
              !ELSEIF (yGP.LT.3779766.19648648) THEN !stop rupture at the very beginning of the JVF
                 !EQN%IniMu(iBndGP,i) = DISC%DynRup%Mu_S_ini + DISC%DynRup%weaker+0.1
                 !DISC%DynRup%Mu_S(iBndGP,i) = DISC%DynRup%Mu_S_ini + DISC%DynRup%weaker +0.08

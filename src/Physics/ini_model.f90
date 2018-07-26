@@ -1037,7 +1037,9 @@ CONTAINS
              z = MESH%ELEM%xyBary(3,iElem)
              y = MESH%ELEM%xyBary(2,iElem) !average y coordinate inside an element
              x = MESH%ELEM%xyBary(1,iElem) !average x coordinate inside an element
-             depth = MIN(z-shift,0.0)
+            
+             !depth = MIN(z-shift,0.0) !earlier version
+             depth=MIN(z-shift,1150.0-shift)
                 ! assign depth dependent plastic cohesion
                 SELECT CASE(cohesiontype)
 
